@@ -1,0 +1,185 @@
+import { useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+type EventCategory = "team" | "work" | "external" | "projects" | "apps" | "design";
+
+interface CalendarEvent {
+  title: string;
+  date: string; // YYYY-MM-DD
+  category: EventCategory;
+}
+
+const categoryMeta: Record<EventCategory, { name: string; dot: string; chip: string }> = {
+  team: { name: "Team Events", dot: "bg-lime-500", chip: "bg-primary/10 text-primary" },
+  work: { name: "Work", dot: "bg-amber-400", chip: "bg-amber-100 text-amber-800" },
+  external: { name: "External", dot: "bg-rose-400", chip: "bg-rose-100 text-rose-800" },
+  projects: { name: "Projects", dot: "bg-orange-400", chip: "bg-orange-100 text-orange-800" },
+  apps: { name: "Applications", dot: "bg-rose-300", chip: "bg-rose-100 text-rose-800" },
+  design: { name: "Design", dot: "bg-sky-400", chip: "bg-sky-100 text-sky-800" },
+};
+
+const sampleEvents: CalendarEvent[] = [
+  { title: "Team Events", date: "2025-12-03", category: "team" },
+  { title: "Meeting with", date: "2025-12-09", category: "design" },
+  { title: "Meeting with", date: "2025-12-11", category: "work" },
+  { title: "Design System", date: "2025-12-12", category: "apps" },
+  { title: "UI/UX Team", date: "2025-12-15", category: "team" },
+];
+
+export default function CalendarPage() {
+  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [current, setCurrent] = useState(() => new Date(2025, 11, 1)); // Dec 2025
+
+  const monthMatrix = useMemo(() => buildMonthMatrix(current), [current]);
+
+  const monthName = current.toLocaleString(undefined, { month: "long" }).toUpperCase();
+  const year = current.getFullYear();
+
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    for (const ev of sampleEvents) {
+      if (!map.has(ev.date)) map.set(ev.date, []);
+      map.get(ev.date)!.push(ev);
+    }
+    return map;
+  }, []);
+
+  const gotoToday = () => setCurrent(new Date());
+  const prev = () => setCurrent((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const next = () => setCurrent((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Left panel */}
+        <Card className="lg:col-span-3">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Event</h2>
+              <span className="text-destructive">●</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Drag and drop your event or click in the calendar</p>
+            <div className="space-y-2">
+              {Object.entries(categoryMeta).map(([key, meta]) => (
+                <div key={key} className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5">
+                  <span className={cn("h-3 w-3 rounded-full", meta.dot)} />
+                  <span className="text-sm">{meta.name}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-4 border-t">
+              <h3 className="font-semibold mb-2">Upcoming Event</h3>
+              <div className="space-y-3">
+                <Upcoming title="Meeting with Team Dev" date="15 Mar 2025" color="border-amber-500" />
+                <Upcoming title="Design System With Client" date="24 Mar 2025" color="border-rose-500" />
+                <Upcoming title="UI/UX Team Call" date="28 Mar 2025" color="border-green-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Right panel */}
+        <Card className="lg:col-span-9">
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={gotoToday}>today</Button>
+                <div className="inline-flex items-center">
+                  <Button variant="outline" size="icon" onClick={prev}><ChevronLeft className="w-4 h-4" /></Button>
+                  <Button variant="outline" size="icon" onClick={next}><ChevronRight className="w-4 h-4" /></Button>
+                </div>
+                <span className="font-semibold text-sm ml-2">{monthName} {year}</span>
+              </div>
+              <div className="inline-flex gap-2">
+                <Button variant={view === "month" ? "default" : "outline"} size="sm" onClick={() => setView("month")}>month</Button>
+                <Button variant={view === "week" ? "default" : "outline"} size="sm" onClick={() => setView("week")}>week</Button>
+                <Button variant={view === "day" ? "default" : "outline"} size="sm" onClick={() => setView("day")}>day</Button>
+              </div>
+            </div>
+
+            {/* Month view */}
+            {view === "month" && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-7 bg-muted/40 text-xs font-medium">
+                  {"Sun Mon Tue Wed Thu Fri Sat".split(" ").map((d) => (
+                    <div key={d} className="px-2 py-2">{d}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 divide-x divide-y">
+                  {monthMatrix.map((week, wi) => (
+                    <div key={wi} className="contents">
+                      {week.map((cell, ci) => {
+                        const dateStr = toISO(cell.date);
+                        const inMonth = cell.inMonth;
+                        const events = eventsByDate.get(dateStr) || [];
+                        return (
+                          <div key={ci} className={cn("h-28 p-1.5", !inMonth && "bg-muted/20")}> 
+                            <div className="text-[11px] text-muted-foreground mb-1">{cell.date.getDate()}</div>
+                            <div className="space-y-1">
+                              {events.map((ev, i) => (
+                                <div key={i} title={ev.title} className={cn("truncate text-xs px-2 py-1 rounded-md", categoryMeta[ev.category].chip)}>
+                                  {ev.title}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {view !== "month" && (
+              <div className="h-[520px] rounded-lg border bg-muted/10 flex items-center justify-center text-sm text-muted-foreground">
+                {view.charAt(0).toUpperCase() + view.slice(1)} view coming soon
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Upcoming({ title, date, color }: { title: string; date: string; color: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className={cn("mt-1 h-4 w-1 rounded-full", color)} />
+      <div>
+        <div className="text-sm font-medium">{title}</div>
+        <div className="text-xs text-muted-foreground">{date}</div>
+      </div>
+    </div>
+  );
+}
+
+function buildMonthMatrix(ref: Date) {
+  const first = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay()); // go back to Sunday
+  const weeks: { date: Date; inMonth: boolean }[][] = [];
+  let cursor = start;
+  for (let w = 0; w < 6; w++) {
+    const week: { date: Date; inMonth: boolean }[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dt = new Date(cursor);
+      week.push({ date: dt, inMonth: dt.getMonth() === ref.getMonth() });
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+function toISO(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
