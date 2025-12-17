@@ -6,15 +6,20 @@ const router = Router();
 // List
 router.get("/", async (req, res) => {
   const q = req.query.q?.toString().trim();
-  const filter = q
-    ? { $or: [
-        { name: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-        { phone: { $regex: q, $options: "i" } },
-        { location: { $regex: q, $options: "i" } },
-      ] }
-    : {};
-  const items = await Contact.find(filter).sort({ createdAt: -1 }).lean();
+  const leadId = req.query.leadId?.toString().trim();
+  const filter = {};
+  if (leadId) filter.leadId = leadId;
+  if (q) {
+    filter.$or = [
+      { name: { $regex: q, $options: "i" } },
+      { email: { $regex: q, $options: "i" } },
+      { phone: { $regex: q, $options: "i" } },
+      { location: { $regex: q, $options: "i" } },
+      { jobTitle: { $regex: q, $options: "i" } },
+      { skype: { $regex: q, $options: "i" } },
+    ];
+  }
+  const items = await Contact.find(filter).sort({ isPrimaryContact: -1, createdAt: -1 }).lean();
   res.json(items);
 });
 

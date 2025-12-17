@@ -10,6 +10,7 @@ import Clients from "./pages/clients/Clients";
 import ClientDetails from "./pages/clients/ClientDetails";
 import PrimaryContact from "./pages/clients/PrimaryContact";
 import Leads from "./pages/crm/Leads";
+import LeadDetails from "./pages/crm/LeadDetails";
 import Contacts from "./pages/crm/Contacts";
 import Companies from "./pages/crm/Companies";
 import Pipeline from "./pages/crm/Pipeline";
@@ -95,6 +96,7 @@ const App = () => (
             <Route path="/clients/:id/primary-contact" element={<PrimaryContact />} />
             {/* CRM Routes */}
             <Route path="/crm/leads" element={<Leads />} />
+            <Route path="/crm/leads/:id" element={<LeadDetails />} />
             <Route path="/crm/pipeline" element={<Pipeline />} />
             <Route path="/crm/contacts" element={<Contacts />} />
             <Route path="/crm/companies" element={<Companies />} />
