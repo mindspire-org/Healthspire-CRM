@@ -12,7 +12,13 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname || "").toLowerCase();
-    const owner = req.body.projectId || req.body.employeeId || "misc";
+    const owner = req.body.projectId
+      ? `proj_${req.body.projectId}`
+      : req.body.leadId
+      ? `lead_${req.body.leadId}`
+      : req.body.employeeId
+      ? `emp_${req.body.employeeId}`
+      : "misc";
     cb(null, `file_${owner}_${Date.now()}${ext}`);
   },
 });
@@ -22,9 +28,11 @@ router.get("/", async (req, res) => {
   const q = req.query.q?.toString().trim();
   const employeeId = req.query.employeeId?.toString();
   const projectId = req.query.projectId?.toString();
+  const leadId = req.query.leadId?.toString();
   const filter = {};
   if (employeeId) filter.employeeId = employeeId;
   if (projectId) filter.projectId = projectId;
+  if (leadId) filter.leadId = leadId;
   if (q) filter.$or = [{ name: { $regex: q, $options: "i" } }];
   const items = await File.find(filter).sort({ createdAt: -1 }).lean();
   res.json(items);
@@ -38,6 +46,7 @@ router.post("/", upload.single("file"), async (req, res) => {
     const doc = await File.create({
       employeeId: req.body.employeeId,
       projectId: req.body.projectId,
+      leadId: req.body.leadId,
       name: req.body.name || req.file?.originalname || "file",
       type: req.body.type || "",
       path: req.file ? `/uploads/${req.file.filename}` : (req.body.path || ""),

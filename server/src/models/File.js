@@ -4,6 +4,7 @@ const FileSchema = new mongoose.Schema(
   {
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
+    leadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead" },
     name: { type: String, default: "" },
     type: { type: String, default: "" },
     path: { type: String, default: "" },
@@ -15,5 +16,8 @@ const FileSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+FileSchema.index({ leadId: 1, createdAt: -1 });
+FileSchema.index({ projectId: 1, createdAt: -1 });
 
 export default mongoose.model("File", FileSchema);

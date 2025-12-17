@@ -23,7 +23,7 @@ export default function InvoiceDetailPage() {
     phone: "+92 312 7231875",
     email: "info@healthspire.org",
     website: "www.healthspire.org",
-    address: "761/D2 Shah Jelani Rd Township Lahore",
+    address: "764D2 Shah Jelani Rd Township Lahore",
     logo: "/healthspire-logo.png",
   };
   const [inv, setInv] = useState<any | null>(null);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -157,7 +157,6 @@ export default function Expenses() {
       if (query.trim()) params.set("q", query.trim());
       if (member !== "-") params.set("employeeId", member);
       if (project !== "-") params.set("projectId", project);
-      // Category filter is local (keeps backend simple)
       const url = `${API_BASE}/api/expenses${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Request failed");
@@ -253,13 +252,27 @@ export default function Expenses() {
 
   useEffect(() => {
     loadLookups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     loadExpenses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, member, project]);
+
+  const openNewExpense = () => {
+    setExpenseForm({
+      date: "",
+      category: "",
+      employeeId: "-",
+      clientId: "-",
+      projectId: "-",
+      title: "",
+      description: "",
+      amount: "",
+      tax: "",
+      tax2: "",
+    });
+    setOpenAddExpense(true);
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -290,9 +303,7 @@ export default function Expenses() {
             </DialogContent>
           </Dialog>
           <Dialog open={openAddExpense} onOpenChange={setOpenAddExpense}>
-            <DialogTrigger asChild>
-              <Button type="button" variant="outline" size="sm"><Plus className="w-4 h-4 mr-2"/>Add expense</Button>
-            </DialogTrigger>
+            <Button type="button" variant="outline" size="sm" onClick={openNewExpense}><Plus className="w-4 h-4 mr-2"/>Add expense</Button>
             <DialogContent className="bg-card max-w-3xl" aria-describedby={undefined}>
               <DialogHeader><DialogTitle>Add expense</DialogTitle></DialogHeader>
               <div className="grid gap-3 sm:grid-cols-12">
