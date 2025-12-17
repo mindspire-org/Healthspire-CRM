@@ -67,6 +67,7 @@ import InvoiceList from "./pages/invoices/InvoiceList";
 import InvoiceDetailPage from "./pages/invoices/InvoiceDetailPage";
 import InvoicePreview from "./pages/invoices/InvoicePreview";
 import NotFound from "./pages/NotFound";
+import SettingsPage from "./pages/settings/Settings";
 import AuthLayout from "./pages/auth/AuthLayout";
 
 const queryClient = new QueryClient();
@@ -76,7 +77,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true }}>
         <Routes>
           {/* Public auth route */}
           <Route path="/auth" element={<AuthLayout />} />
@@ -168,7 +169,8 @@ const App = () => (
             {/* Portals */}
             <Route path="/client" element={<Dashboard />} />
             <Route path="/admin" element={<Dashboard />} />
-            <Route path="/settings" element={<Dashboard />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/:section" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

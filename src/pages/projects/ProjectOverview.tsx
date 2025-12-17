@@ -7,10 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, RefreshCcw, Settings, Printer, FileDown, LayoutGrid, ChevronLeft, ChevronRight, GripVertical, Paperclip, Mic, CalendarDays, Plus } from "lucide-react";
+import { Search, RefreshCcw, Settings, Printer, FileDown, LayoutGrid, ChevronLeft, ChevronRight, Paperclip, Mic, CalendarDays, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const API_BASE = "http://localhost:5000";
 
@@ -33,6 +35,7 @@ interface TaskRow {
   start: string;
   deadline: string;
   priority: string;
+  labels?: string;
 }
 
 interface ContractRow {
@@ -42,16 +45,107 @@ interface ContractRow {
   contractDate: string;
   validUntil: string;
   status: string;
+  type?: string;
+  owner?: string;
+  signed?: boolean;
+  notes?: string;
 }
 
-interface SimpleItem { id: string; text: string; at?: string }
-interface FileItem { id: string; name: string; size?: number }
-interface InvoiceItem { id: string; number?: string; total?: number; status?: string; date?: string }
-interface PaymentItem { id: string; amount?: number; date?: string; method?: string }
-interface ExpenseItem { id: string; title?: string; amount?: number; date?: string; category?: string }
-interface TimesheetItem { id: string; user?: string; date?: string; hours?: number; task?: string }
-interface MilestoneItem { id: string; title?: string; due?: string; status?: string }
-interface FeedbackItem { id: string; author?: string; text?: string; at?: string }
+interface SimpleItem { 
+  id: string; 
+  text: string; 
+  at?: string; 
+  title?: string; 
+  category?: string; 
+  tags?: string; 
+  author?: string; 
+  kind?: string; 
+  pinned?: boolean 
+}
+
+interface FileItem { 
+  id: string; 
+  name: string; 
+  size?: number; 
+  type?: string; 
+  url?: string; 
+  uploadedBy?: string; 
+  at?: string; 
+  description?: string 
+}
+
+interface InvoiceItem { 
+  id: string; 
+  number?: string; 
+  total?: number; 
+  status?: string; 
+  date?: string; 
+  dueDate?: string; 
+  currency?: string; 
+  tax?: number; 
+  discount?: number; 
+  notes?: string 
+}
+
+interface PaymentItem { 
+  id: string; 
+  amount?: number; 
+  fee?: number;
+  date?: string; 
+  method?: string; 
+  status?: string;
+  payer?: string;
+  receivedBy?: string; 
+  reference?: string; 
+  transactionId?: string;
+  bankName?: string;
+  account?: string;
+  receiptUrl?: string;
+  currency?: string; 
+  notes?: string 
+}
+
+interface ExpenseItem { 
+  id: string; 
+  title?: string; 
+  amount?: number; 
+  date?: string; 
+  category?: string; 
+  vendor?: string; 
+  receiptUrl?: string; 
+  reimbursable?: boolean; 
+  notes?: string 
+}
+
+interface TimesheetItem { 
+  id: string; 
+  user?: string; 
+  date?: string; 
+  hours?: number; 
+  task?: string; 
+  billable?: boolean; 
+  rate?: number; 
+  notes?: string 
+}
+
+interface MilestoneItem { 
+  id: string; 
+  title?: string; 
+  due?: string; 
+  status?: string 
+}
+
+interface FeedbackItem { 
+  id: string; 
+  author?: string; 
+  text?: string; 
+  at?: string; 
+  rating?: number; 
+  category?: string; 
+  status?: string; 
+  followUpRequired?: boolean; 
+  sentiment?: string 
+}
 
 export default function ProjectOverviewPage() {
   const { id } = useParams();
@@ -71,6 +165,12 @@ export default function ProjectOverviewPage() {
   const [taskAssignedFilter, setTaskAssignedFilter] = useState("__all__");
   const [taskDeadlineFilter, setTaskDeadlineFilter] = useState("__all__");
   const [taskPageSize, setTaskPageSize] = useState("10");
+  const [tasksCompact, setTasksCompact] = useState(false);
+  const [openTaskSettings, setOpenTaskSettings] = useState(false);
+  const [labelOptions, setLabelOptions] = useState<string[]>([]);
+  const [openManageLabels, setOpenManageLabels] = useState(false);
+  const [labelDraft, setLabelDraft] = useState<string[]>([]);
+  const [newLabel, setNewLabel] = useState("");
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [notes, setNotes] = useState<SimpleItem[]>([]);
   const [comments, setComments] = useState<SimpleItem[]>([]);
@@ -82,9 +182,29 @@ export default function ProjectOverviewPage() {
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
   const [newNote, setNewNote] = useState("");
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteCategory, setNewNoteCategory] = useState("General");
+  const [newNoteTags, setNewNoteTags] = useState("");
+  const [newNotePinned, setNewNotePinned] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [newCommentAuthor, setNewCommentAuthor] = useState("");
+  const [newCommentKind, setNewCommentKind] = useState("General");
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [showAddComment, setShowAddComment] = useState(false);
+
+  type ItemKind = "task" | "milestone" | "note" | "comment" | "file" | "feedback" | "timesheet" | "invoice" | "payment" | "expense" | "contract";
+  const [editOpen, setEditOpen] = useState(false);
+  const [editKind, setEditKind] = useState<ItemKind | null>(null);
+  const [editId, setEditId] = useState("");
+  const [editFields, setEditFields] = useState<any>({});
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteKind, setDeleteKind] = useState<ItemKind | null>(null);
+  const [deleteId, setDeleteId] = useState("");
+  const [deleteLabel, setDeleteLabel] = useState("");
 
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showAddMultipleTasks, setShowAddMultipleTasks] = useState(false);
+  const [bulkTasksText, setBulkTasksText] = useState("");
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskStatus, setNewTaskStatus] = useState("todo");
   const [newTaskPriority, setNewTaskPriority] = useState("medium");
@@ -106,33 +226,66 @@ export default function ProjectOverviewPage() {
   const [showAddFile, setShowAddFile] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileSize, setNewFileSize] = useState<number | "">("");
+  const [newFileType, setNewFileType] = useState("Document");
+  const [newFileUrl, setNewFileUrl] = useState("");
+  const [newFileUploadedBy, setNewFileUploadedBy] = useState("");
+  const [newFileDescription, setNewFileDescription] = useState("");
+  const [newFileBlob, setNewFileBlob] = useState<File | null>(null);
 
   const [showAddFeedback, setShowAddFeedback] = useState(false);
   const [newFeedbackAuthor, setNewFeedbackAuthor] = useState("");
   const [newFeedbackText, setNewFeedbackText] = useState("");
+  const [newFeedbackRating, setNewFeedbackRating] = useState<number | "">(5);
+  const [newFeedbackCategory, setNewFeedbackCategory] = useState("General");
+  const [newFeedbackStatus, setNewFeedbackStatus] = useState("New");
+  const [newFeedbackFollowUp, setNewFeedbackFollowUp] = useState(false);
+  const [newFeedbackSentiment, setNewFeedbackSentiment] = useState("Positive");
 
   const [showAddTimesheet, setShowAddTimesheet] = useState(false);
   const [newTimesheetDate, setNewTimesheetDate] = useState("");
   const [newTimesheetUser, setNewTimesheetUser] = useState("");
   const [newTimesheetTask, setNewTimesheetTask] = useState("");
   const [newTimesheetHours, setNewTimesheetHours] = useState<number | "">("");
+  const [newTimesheetBillable, setNewTimesheetBillable] = useState(true);
+  const [newTimesheetRate, setNewTimesheetRate] = useState<number | "">("");
+  const [newTimesheetNotes, setNewTimesheetNotes] = useState("");
 
   const [showAddInvoice, setShowAddInvoice] = useState(false);
   const [newInvoiceNumber, setNewInvoiceNumber] = useState("");
   const [newInvoiceDate, setNewInvoiceDate] = useState("");
+  const [newInvoiceDueDate, setNewInvoiceDueDate] = useState("");
   const [newInvoiceStatus, setNewInvoiceStatus] = useState("Draft");
   const [newInvoiceTotal, setNewInvoiceTotal] = useState<number | "">("");
+  const [newInvoiceCurrency, setNewInvoiceCurrency] = useState("PKR");
+  const [newInvoiceTax, setNewInvoiceTax] = useState<number | "">("");
+  const [newInvoiceDiscount, setNewInvoiceDiscount] = useState<number | "">("");
+  const [newInvoiceNotes, setNewInvoiceNotes] = useState("");
 
   const [showAddPayment, setShowAddPayment] = useState(false);
   const [newPaymentDate, setNewPaymentDate] = useState("");
   const [newPaymentMethod, setNewPaymentMethod] = useState("Cash");
   const [newPaymentAmount, setNewPaymentAmount] = useState<number | "">("");
+  const [newPaymentFee, setNewPaymentFee] = useState<number | "">("");
+  const [newPaymentReference, setNewPaymentReference] = useState("");
+  const [newPaymentCurrency, setNewPaymentCurrency] = useState("PKR");
+  const [newPaymentStatus, setNewPaymentStatus] = useState("Received");
+  const [newPaymentPayer, setNewPaymentPayer] = useState("");
+  const [newPaymentReceivedBy, setNewPaymentReceivedBy] = useState("");
+  const [newPaymentTransactionId, setNewPaymentTransactionId] = useState("");
+  const [newPaymentBankName, setNewPaymentBankName] = useState("");
+  const [newPaymentAccount, setNewPaymentAccount] = useState("");
+  const [newPaymentReceiptUrl, setNewPaymentReceiptUrl] = useState("");
+  const [newPaymentNotes, setNewPaymentNotes] = useState("");
 
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [newExpenseTitle, setNewExpenseTitle] = useState("");
   const [newExpenseDate, setNewExpenseDate] = useState("");
   const [newExpenseCategory, setNewExpenseCategory] = useState("General");
   const [newExpenseAmount, setNewExpenseAmount] = useState<number | "">("");
+  const [newExpenseVendor, setNewExpenseVendor] = useState("");
+  const [newExpenseReceiptUrl, setNewExpenseReceiptUrl] = useState("");
+  const [newExpenseReimbursable, setNewExpenseReimbursable] = useState(false);
+  const [newExpenseNotes, setNewExpenseNotes] = useState("");
 
   const [showAddContract, setShowAddContract] = useState(false);
   const [newContractTitle, setNewContractTitle] = useState("");
@@ -140,6 +293,10 @@ export default function ProjectOverviewPage() {
   const [newContractDate, setNewContractDate] = useState("");
   const [newContractValidUntil, setNewContractValidUntil] = useState("");
   const [newContractStatus, setNewContractStatus] = useState("Open");
+  const [newContractType, setNewContractType] = useState("Service");
+  const [newContractOwner, setNewContractOwner] = useState("");
+  const [newContractSigned, setNewContractSigned] = useState(false);
+  const [newContractNotes, setNewContractNotes] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -163,6 +320,19 @@ export default function ProjectOverviewPage() {
       } catch {}
     })();
   }, [id]);
+
+  useEffect(() => {
+    try {
+      const ls = JSON.parse(localStorage.getItem("project_labels") || "[]");
+      if (Array.isArray(ls)) setLabelOptions(ls.filter((x: any) => typeof x === "string" && x.trim()).map((x: string) => x.trim()));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!openManageLabels) return;
+    setLabelDraft(labelOptions);
+    setNewLabel("");
+  }, [openManageLabels, labelOptions]);
 
   useEffect(() => {
     setDeadlineAlerted(false);
@@ -203,6 +373,10 @@ export default function ProjectOverviewPage() {
             contractDate: c.contractDate ? new Date(c.contractDate).toISOString().slice(0,10) : "-",
             validUntil: c.validUntil ? new Date(c.validUntil).toISOString().slice(0,10) : "-",
             status: c.status || "Open",
+            type: c.type || c.kind || undefined,
+            owner: c.owner || c.ownerName || undefined,
+            signed: c.signed != null ? Boolean(c.signed) : undefined,
+            notes: c.notes || undefined,
           })));
         }
       } catch {}
@@ -216,6 +390,7 @@ export default function ProjectOverviewPage() {
       const safeFetch = async (path: string) => {
         try { const r = await fetch(path); if (!r.ok) return []; return await r.json(); } catch { return []; }
       };
+
       const [notesRes, commentsRes, filesRes, invoicesRes, paymentsRes, expensesRes, timesheetsRes, milestonesRes, feedbackRes] = await Promise.all([
         safeFetch(`${API_BASE}/api/notes?projectId=${id}`),
         safeFetch(`${API_BASE}/api/comments?projectId=${id}`),
@@ -227,15 +402,94 @@ export default function ProjectOverviewPage() {
         safeFetch(`${API_BASE}/api/milestones?projectId=${id}`),
         safeFetch(`${API_BASE}/api/feedback?projectId=${id}`),
       ]);
-      setNotes((Array.isArray(notesRes) ? notesRes : []).map((n:any)=> ({ id: String(n._id || crypto.randomUUID()), text: String(n.text || n.note || "-"), at: n.at ? new Date(n.at).toISOString().slice(0,10) : undefined })));
-      setComments((Array.isArray(commentsRes) ? commentsRes : []).map((n:any)=> ({ id: String(n._id || crypto.randomUUID()), text: String(n.text || n.comment || "-"), at: n.at ? new Date(n.at).toISOString().slice(0,10) : undefined })));
-      setFiles((Array.isArray(filesRes) ? filesRes : []).map((f:any)=> ({ id: String(f._id || crypto.randomUUID()), name: f.name || f.filename || "file", size: f.size })));      
-      setInvoices((Array.isArray(invoicesRes) ? invoicesRes : []).map((i:any)=> ({ id: String(i._id || ""), number: i.number || i.code, total: i.total ?? i.amount, status: i.status, date: i.date ? new Date(i.date).toISOString().slice(0,10) : undefined })));
-      setPayments((Array.isArray(paymentsRes) ? paymentsRes : []).map((p:any)=> ({ id: String(p._id || ""), amount: p.amount ?? p.total, date: p.date ? new Date(p.date).toISOString().slice(0,10) : undefined, method: p.method })));
-      setExpenses((Array.isArray(expensesRes) ? expensesRes : []).map((e:any)=> ({ id: String(e._id || ""), title: e.title || e.category || "-", amount: e.amount ?? e.total, date: e.date ? new Date(e.date).toISOString().slice(0,10) : undefined, category: e.category })));
-      setTimesheets((Array.isArray(timesheetsRes) ? timesheetsRes : []).map((t:any)=> ({ id: String(t._id || ""), user: t.user || t.member || "-", date: t.date ? new Date(t.date).toISOString().slice(0,10) : "-", hours: Number(t.hours ?? 0), task: t.task || "-" })));
+      setNotes((Array.isArray(notesRes) ? notesRes : []).map((n:any)=> ({
+        id: String(n._id || crypto.randomUUID()),
+        text: String(n.text || n.note || "-"),
+        at: n.at ? new Date(n.at).toISOString().slice(0,10) : undefined,
+        title: n.title || undefined,
+        category: n.category || undefined,
+        tags: n.tags || undefined,
+        pinned: Boolean(n.pinned || false),
+      })));
+      setComments((Array.isArray(commentsRes) ? commentsRes : []).map((n:any)=> ({
+        id: String(n._id || crypto.randomUUID()),
+        text: String(n.text || n.comment || "-"),
+        at: n.at ? new Date(n.at).toISOString().slice(0,10) : undefined,
+        author: n.author || n.user || undefined,
+        kind: n.kind || n.type || undefined,
+      })));
+      setFiles((Array.isArray(filesRes) ? filesRes : []).map((f:any)=> ({
+        id: String(f._id || crypto.randomUUID()),
+        name: f.name || f.filename || "file",
+        size: f.size,
+        type: f.type || f.kind || undefined,
+        url: f.url || f.link || (f.path ? `${API_BASE}${String(f.path)}` : undefined),
+        uploadedBy: f.uploadedBy || f.user || undefined,
+        at: (f.at || f.createdAt) ? new Date(f.at || f.createdAt).toISOString().slice(0,10) : undefined,
+        description: f.description || undefined,
+      })));
+      setInvoices((Array.isArray(invoicesRes) ? invoicesRes : []).map((i:any)=> ({
+        id: String(i._id || ""),
+        number: i.number || i.code,
+        total: i.total ?? i.amount,
+        status: i.status,
+        date: i.date ? new Date(i.date).toISOString().slice(0,10) : undefined,
+        dueDate: i.dueDate ? new Date(i.dueDate).toISOString().slice(0,10) : undefined,
+        currency: i.currency || undefined,
+        tax: i.tax != null ? Number(i.tax) : undefined,
+        discount: i.discount != null ? Number(i.discount) : undefined,
+        notes: i.notes || undefined,
+      })));
+      setPayments((Array.isArray(paymentsRes) ? paymentsRes : []).map((p:any)=> ({
+        id: String(p._id || ""),
+        amount: p.amount ?? p.total,
+        fee: p.fee != null ? Number(p.fee) : undefined,
+        date: p.date ? new Date(p.date).toISOString().slice(0,10) : undefined,
+        method: p.method,
+        status: p.status || undefined,
+        payer: p.payer || undefined,
+        reference: p.reference || p.ref || undefined,
+        transactionId: p.transactionId || p.txnId || undefined,
+        bankName: p.bankName || p.bank || undefined,
+        account: p.account || p.accountNumber || undefined,
+        receiptUrl: p.receiptUrl || p.receipt || undefined,
+        currency: p.currency || undefined,
+        receivedBy: p.receivedBy || undefined,
+        notes: p.notes || p.note || undefined,
+      })));
+      setExpenses((Array.isArray(expensesRes) ? expensesRes : []).map((e:any)=> ({
+        id: String(e._id || ""),
+        title: e.title || e.category || "-",
+        amount: e.amount ?? e.total,
+        date: e.date ? new Date(e.date).toISOString().slice(0,10) : undefined,
+        category: e.category,
+        vendor: e.vendor || undefined,
+        receiptUrl: e.receiptUrl || e.receipt || undefined,
+        reimbursable: Boolean(e.reimbursable || false),
+        notes: e.notes || undefined,
+      })));
+      setTimesheets((Array.isArray(timesheetsRes) ? timesheetsRes : []).map((t:any)=> ({
+        id: String(t._id || ""),
+        user: t.user || t.member || "-",
+        date: t.date ? new Date(t.date).toISOString().slice(0,10) : "-",
+        hours: Number(t.hours ?? 0),
+        task: t.task || "-",
+        billable: t.billable != null ? Boolean(t.billable) : undefined,
+        rate: t.rate != null ? Number(t.rate) : undefined,
+        notes: t.notes || undefined,
+      })));
       setMilestones((Array.isArray(milestonesRes) ? milestonesRes : []).map((m:any)=> ({ id: String(m._id || ""), title: m.title || "-", due: m.due ? new Date(m.due).toISOString().slice(0,10) : "-", status: m.status || "Open" })));
-      setFeedback((Array.isArray(feedbackRes) ? feedbackRes : []).map((f:any)=> ({ id: String(f._id || ""), author: f.author || f.client || "-", text: f.text || f.message || "-", at: f.at ? new Date(f.at).toISOString().slice(0,10) : undefined })));
+      setFeedback((Array.isArray(feedbackRes) ? feedbackRes : []).map((f:any)=> ({
+        id: String(f._id || ""),
+        author: f.author || f.client || "-",
+        text: f.text || f.message || "-",
+        at: f.at ? new Date(f.at).toISOString().slice(0,10) : undefined,
+        rating: f.rating != null ? Number(f.rating) : undefined,
+        category: f.category || undefined,
+        status: f.status || undefined,
+        followUpRequired: f.followUpRequired != null ? Boolean(f.followUpRequired) : undefined,
+        sentiment: f.sentiment || undefined,
+      })));
     })();
   }, [id]);
 
@@ -243,40 +497,55 @@ export default function ProjectOverviewPage() {
     const text = newNote.trim();
     if (!text || !id) return;
     try {
-      const r = await fetch(`${API_BASE}/api/notes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: id, text }) });
+      const payload = { projectId: id, text, title: newNoteTitle || undefined, category: newNoteCategory || undefined, tags: newNoteTags || undefined, pinned: newNotePinned };
+      const r = await fetch(`${API_BASE}/api/notes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setNotes((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+        setNotes((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10), title: newNoteTitle || undefined, category: newNoteCategory || undefined, tags: newNoteTags || undefined, pinned: newNotePinned }, ...prev]);
         setNewNote("");
+        setNewNoteTitle("");
+        setNewNoteCategory("General");
+        setNewNoteTags("");
+        setNewNotePinned(false);
         toast.success("Note added");
         return;
       }
     } catch {}
     // fallback local update
-    setNotes((prev) => [{ id: crypto.randomUUID(), text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+    setNotes((prev) => [{ id: crypto.randomUUID(), text, at: new Date().toISOString().slice(0,10), title: newNoteTitle || undefined, category: newNoteCategory || undefined, tags: newNoteTags || undefined, pinned: newNotePinned }, ...prev]);
     setNewNote("");
+    setNewNoteTitle("");
+    setNewNoteCategory("General");
+    setNewNoteTags("");
+    setNewNotePinned(false);
   };
 
   const addComment = async () => {
     const text = newComment.trim();
     if (!text || !id) return;
     try {
-      const r = await fetch(`${API_BASE}/api/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: id, text }) });
+      const payload = { projectId: id, text, author: newCommentAuthor || undefined, kind: newCommentKind || undefined };
+      const r = await fetch(`${API_BASE}/api/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setComments((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+        setComments((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10), author: newCommentAuthor || undefined, kind: newCommentKind || undefined }, ...prev]);
         setNewComment("");
+        setNewCommentAuthor("");
+        setNewCommentKind("General");
         toast.success("Comment added");
         return;
       }
     } catch {}
-    setComments((prev) => [{ id: crypto.randomUUID(), text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+    setComments((prev) => [{ id: crypto.randomUUID(), text, at: new Date().toISOString().slice(0,10), author: newCommentAuthor || undefined, kind: newCommentKind || undefined }, ...prev]);
     setNewComment("");
+    setNewCommentAuthor("");
+    setNewCommentKind("General");
   };
 
   const addTask = async () => {
+    if (!id || !newTaskTitle) return;
     const title = newTaskTitle.trim();
-    if (!id || !title) return;
+    if (!title) return;
     const payload = {
       projectId: id,
       title,
@@ -295,13 +564,13 @@ export default function ProjectOverviewPage() {
       const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setTasks(prev => [{ id: String(d._id || crypto.randomUUID()), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority }, ...prev]);
+        setTasks(prev => [{ id: String(d._id || crypto.randomUUID()), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority, labels: newTaskLabels || undefined }, ...prev]);
         toast.success("Task added");
       } else {
-        setTasks(prev => [{ id: crypto.randomUUID(), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority }, ...prev]);
+        setTasks(prev => [{ id: crypto.randomUUID(), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority, labels: newTaskLabels || undefined }, ...prev]);
       }
     } catch {
-      setTasks(prev => [{ id: crypto.randomUUID(), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority }, ...prev]);
+      setTasks(prev => [{ id: crypto.randomUUID(), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority, labels: newTaskLabels || undefined }, ...prev]);
     }
     setNewTaskTitle("");
     setNewTaskStart("");
@@ -315,6 +584,73 @@ export default function ProjectOverviewPage() {
     setNewTaskCollaborators("");
     setNewTaskLabels("");
     setShowAddTask(false);
+  };
+
+  // Tasks toolbar helpers (component scope)
+  const addMultipleTasks = async () => {
+    if (!id) return;
+    const lines = bulkTasksText.split(/\r?\n/).map((l)=>l.trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = line.split("|").map((p)=>p.trim());
+      const title = parts[0] || "Untitled";
+      const status = (parts[1] || "todo") as string;
+      const priority = (parts[2] || "medium") as string;
+      const start = parts[3] || undefined;
+      const deadline = parts[4] || undefined;
+      const payload:any = { projectId: id, title, status, priority, start, deadline };
+      try {
+        const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (r.ok) {
+          const d = await r.json();
+          setTasks(prev => [{ id: String(d._id || crypto.randomUUID()), title, status, start: start || "-", deadline: deadline || "-", priority }, ...prev]);
+        } else {
+          setTasks(prev => [{ id: crypto.randomUUID(), title, status, start: start || "-", deadline: deadline || "-", priority }, ...prev]);
+        }
+      } catch {
+        setTasks(prev => [{ id: crypto.randomUUID(), title, status, start: start || "-", deadline: deadline || "-", priority }, ...prev]);
+      }
+    }
+    toast.success(`Added ${lines.length} task${lines.length!==1 ? 's' : ''}`);
+    setBulkTasksText("");
+    setShowAddMultipleTasks(false);
+  };
+
+  const reloadTasks = async () => {
+    if (!id) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/tasks?projectId=${id}`);
+      if (r.ok) {
+        const data = await r.json();
+        const t = (Array.isArray(data) ? data : []).map((t:any)=> ({
+          id: String(t._id || ""),
+          title: t.title || "-",
+          status: t.status || "todo",
+          start: t.start ? new Date(t.start).toISOString().slice(0,10) : "-",
+          deadline: t.deadline ? new Date(t.deadline).toISOString().slice(0,10) : "-",
+          priority: t.priority || "medium",
+          labels: typeof t.labels === "string" ? t.labels : Array.isArray(t.labels) ? t.labels.join(", ") : undefined,
+        }));
+        setTasks(t);
+        toast.success("Tasks reloaded");
+      }
+    } catch {}
+  };
+
+  const exportTasksCSV = () => {
+    const rows = [
+      ["Title","Status","Priority","Start","Deadline","Labels"],
+      ...filteredTasks.map(t=>[t.title,t.status,t.priority,t.start,t.deadline,String(t.labels||"")])
+    ];
+    const csv = rows.map(r=>r.map((c)=>`"${String(c||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `tasks_${id}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const printTasksTable = () => {
+    window.print();
   };
 
   const addMilestone = async () => {
@@ -343,21 +679,58 @@ export default function ProjectOverviewPage() {
     const name = newFileName.trim();
     if (!id || !name) return;
     const size = Number(newFileSize) || undefined;
-    const payload = { projectId: id, name, size };
+
     try {
-      const r = await fetch(`${API_BASE}/api/files`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (r.ok) {
-        const d = await r.json();
-        setFiles(prev => [{ id: String(d._id || crypto.randomUUID()), name, size }, ...prev]);
-        toast.success("File added");
+      if (newFileBlob) {
+        const fd = new FormData();
+        fd.append("file", newFileBlob);
+        fd.append("projectId", id);
+        fd.append("name", name);
+        if (newFileType) fd.append("type", newFileType);
+        if (newFileUrl) fd.append("url", newFileUrl);
+        if (newFileUploadedBy) fd.append("uploadedBy", newFileUploadedBy);
+        if (newFileDescription) fd.append("description", newFileDescription);
+
+        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", body: fd });
+        if (r.ok) {
+          const d = await r.json();
+          const fileUrl = d?.url || (d?.path ? `${API_BASE}${String(d.path)}` : (newFileUrl || undefined));
+          setFiles((prev) => [{
+            id: String(d._id || crypto.randomUUID()),
+            name,
+            size: Number(d?.size) || size,
+            type: d?.type || newFileType || undefined,
+            url: fileUrl,
+            uploadedBy: d?.uploadedBy || newFileUploadedBy || undefined,
+            description: d?.description || newFileDescription || undefined,
+            at: new Date(d?.createdAt || Date.now()).toISOString().slice(0, 10),
+          }, ...prev]);
+          toast.success("File uploaded");
+        } else {
+          setFiles((prev) => [{ id: crypto.randomUUID(), name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined, at: new Date().toISOString().slice(0,10) }, ...prev]);
+          toast.success("File saved locally");
+        }
       } else {
-        setFiles(prev => [{ id: crypto.randomUUID(), name, size }, ...prev]);
+        const payload = { projectId: id, name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined };
+        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (r.ok) {
+          const d = await r.json();
+          setFiles((prev) => [{ id: String(d._id || crypto.randomUUID()), name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined, at: new Date().toISOString().slice(0,10) }, ...prev]);
+          toast.success("File added");
+        } else {
+          setFiles((prev) => [{ id: crypto.randomUUID(), name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined, at: new Date().toISOString().slice(0,10) }, ...prev]);
+        }
       }
     } catch {
-      setFiles(prev => [{ id: crypto.randomUUID(), name, size }, ...prev]);
+      setFiles((prev) => [{ id: crypto.randomUUID(), name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined, at: new Date().toISOString().slice(0,10) }, ...prev]);
     }
     setNewFileName("");
     setNewFileSize("");
+    setNewFileType("Document");
+    setNewFileUrl("");
+    setNewFileUploadedBy("");
+    setNewFileDescription("");
+    setNewFileBlob(null);
     setShowAddFile(false);
   };
 
@@ -365,137 +738,437 @@ export default function ProjectOverviewPage() {
     const text = newFeedbackText.trim();
     if (!id || !text) return;
     const author = newFeedbackAuthor.trim() || "Client";
-    const payload = { projectId: id, author, text };
+    const rating = Number(newFeedbackRating) || 0;
+    const payload = { projectId: id, author, text, rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined };
     try {
       const r = await fetch(`${API_BASE}/api/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setFeedback(prev => [{ id: String(d._id || crypto.randomUUID()), author, text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+        setFeedback(prev => [{ id: String(d._id || crypto.randomUUID()), author, text, at: new Date().toISOString().slice(0,10), rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined }, ...prev]);
         toast.success("Feedback added");
       } else {
-        setFeedback(prev => [{ id: crypto.randomUUID(), author, text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+        setFeedback(prev => [{ id: crypto.randomUUID(), author, text, at: new Date().toISOString().slice(0,10), rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined }, ...prev]);
       }
     } catch {
-      setFeedback(prev => [{ id: crypto.randomUUID(), author, text, at: new Date().toISOString().slice(0,10) }, ...prev]);
+      setFeedback(prev => [{ id: crypto.randomUUID(), author, text, at: new Date().toISOString().slice(0,10), rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined }, ...prev]);
     }
     setNewFeedbackAuthor("");
     setNewFeedbackText("");
+    setNewFeedbackRating(5);
+    setNewFeedbackCategory("General");
+    setNewFeedbackStatus("New");
+    setNewFeedbackFollowUp(false);
+    setNewFeedbackSentiment("Positive");
     setShowAddFeedback(false);
   };
 
   const addTimesheet = async () => {
     if (!id || !newTimesheetDate || !newTimesheetUser || !newTimesheetHours) return;
     const hours = Number(newTimesheetHours) || 0;
-    const payload = { projectId: id, date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || undefined, hours };
+    const rate = newTimesheetRate !== "" ? Number(newTimesheetRate) || 0 : undefined;
+    const payload = { projectId: id, date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || undefined, hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined };
     try {
       const r = await fetch(`${API_BASE}/api/timesheets`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setTimesheets(prev => [{ id: String(d._id || crypto.randomUUID()), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours }, ...prev]);
+        setTimesheets(prev => [{ id: String(d._id || crypto.randomUUID()), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined }, ...prev]);
         toast.success("Timesheet added");
       } else {
-        setTimesheets(prev => [{ id: crypto.randomUUID(), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours }, ...prev]);
+        setTimesheets(prev => [{ id: crypto.randomUUID(), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined }, ...prev]);
       }
     } catch {
-      setTimesheets(prev => [{ id: crypto.randomUUID(), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours }, ...prev]);
+      setTimesheets(prev => [{ id: crypto.randomUUID(), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined }, ...prev]);
     }
     setNewTimesheetDate("");
     setNewTimesheetUser("");
     setNewTimesheetTask("");
     setNewTimesheetHours("");
+    setNewTimesheetBillable(true);
+    setNewTimesheetRate("");
+    setNewTimesheetNotes("");
     setShowAddTimesheet(false);
   };
 
   const addInvoice = async () => {
     if (!id || !newInvoiceNumber) return;
     const total = Number(newInvoiceTotal) || 0;
-    const payload = { projectId: id, number: newInvoiceNumber, date: newInvoiceDate || undefined, status: newInvoiceStatus, total };
+    const tax = newInvoiceTax !== "" ? Number(newInvoiceTax) || 0 : undefined;
+    const discount = newInvoiceDiscount !== "" ? Number(newInvoiceDiscount) || 0 : undefined;
+    const payload = { projectId: id, number: newInvoiceNumber, date: newInvoiceDate || undefined, dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined };
     try {
       const r = await fetch(`${API_BASE}/api/invoices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setInvoices(prev => [{ id: String(d._id || crypto.randomUUID()), number: newInvoiceNumber, date: newInvoiceDate || "-", status: newInvoiceStatus, total }, ...prev]);
+        setInvoices(prev => [{ id: String(d._id || crypto.randomUUID()), number: newInvoiceNumber, date: newInvoiceDate || "-", dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined }, ...prev]);
         toast.success("Invoice added");
       } else {
-        setInvoices(prev => [{ id: crypto.randomUUID(), number: newInvoiceNumber, date: newInvoiceDate || "-", status: newInvoiceStatus, total }, ...prev]);
+        setInvoices(prev => [{ id: crypto.randomUUID(), number: newInvoiceNumber, date: newInvoiceDate || "-", dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined }, ...prev]);
       }
     } catch {
-      setInvoices(prev => [{ id: crypto.randomUUID(), number: newInvoiceNumber, date: newInvoiceDate || "-", status: newInvoiceStatus, total }, ...prev]);
+      setInvoices(prev => [{ id: crypto.randomUUID(), number: newInvoiceNumber, date: newInvoiceDate || "-", dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined }, ...prev]);
     }
     setNewInvoiceNumber("");
     setNewInvoiceDate("");
+    setNewInvoiceDueDate("");
     setNewInvoiceStatus("Draft");
     setNewInvoiceTotal("");
+    setNewInvoiceCurrency("PKR");
+    setNewInvoiceTax("");
+    setNewInvoiceDiscount("");
+    setNewInvoiceNotes("");
     setShowAddInvoice(false);
   };
 
   const addPayment = async () => {
     if (!id || !newPaymentDate || !newPaymentAmount) return;
     const amount = Number(newPaymentAmount) || 0;
-    const payload = { projectId: id, date: newPaymentDate, method: newPaymentMethod, amount };
+    const fee = newPaymentFee !== "" ? Number(newPaymentFee) || 0 : undefined;
+    const payload = {
+      projectId: id,
+      date: newPaymentDate,
+      method: newPaymentMethod,
+      amount,
+      fee,
+      currency: newPaymentCurrency || undefined,
+      status: newPaymentStatus || undefined,
+      payer: newPaymentPayer || undefined,
+      receivedBy: newPaymentReceivedBy || undefined,
+      reference: newPaymentReference || undefined,
+      transactionId: newPaymentTransactionId || undefined,
+      bankName: newPaymentBankName || undefined,
+      account: newPaymentAccount || undefined,
+      receiptUrl: newPaymentReceiptUrl || undefined,
+      notes: newPaymentNotes || undefined,
+    };
     try {
       const r = await fetch(`${API_BASE}/api/payments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setPayments(prev => [{ id: String(d._id || crypto.randomUUID()), date: newPaymentDate, method: newPaymentMethod, amount }, ...prev]);
+        setPayments(prev => [{
+          id: String(d._id || crypto.randomUUID()),
+          date: newPaymentDate,
+          method: newPaymentMethod,
+          amount,
+          fee,
+          currency: newPaymentCurrency || undefined,
+          status: newPaymentStatus || undefined,
+          payer: newPaymentPayer || undefined,
+          receivedBy: newPaymentReceivedBy || undefined,
+          reference: newPaymentReference || undefined,
+          transactionId: newPaymentTransactionId || undefined,
+          bankName: newPaymentBankName || undefined,
+          account: newPaymentAccount || undefined,
+          receiptUrl: newPaymentReceiptUrl || undefined,
+          notes: newPaymentNotes || undefined,
+        }, ...prev]);
         toast.success("Payment added");
       } else {
-        setPayments(prev => [{ id: crypto.randomUUID(), date: newPaymentDate, method: newPaymentMethod, amount }, ...prev]);
+        setPayments(prev => [{
+          id: crypto.randomUUID(),
+          date: newPaymentDate,
+          method: newPaymentMethod,
+          amount,
+          fee,
+          currency: newPaymentCurrency || undefined,
+          status: newPaymentStatus || undefined,
+          payer: newPaymentPayer || undefined,
+          receivedBy: newPaymentReceivedBy || undefined,
+          reference: newPaymentReference || undefined,
+          transactionId: newPaymentTransactionId || undefined,
+          bankName: newPaymentBankName || undefined,
+          account: newPaymentAccount || undefined,
+          receiptUrl: newPaymentReceiptUrl || undefined,
+          notes: newPaymentNotes || undefined,
+        }, ...prev]);
       }
     } catch {
-      setPayments(prev => [{ id: crypto.randomUUID(), date: newPaymentDate, method: newPaymentMethod, amount }, ...prev]);
+      setPayments(prev => [{
+        id: crypto.randomUUID(),
+        date: newPaymentDate,
+        method: newPaymentMethod,
+        amount,
+        fee,
+        currency: newPaymentCurrency || undefined,
+        status: newPaymentStatus || undefined,
+        payer: newPaymentPayer || undefined,
+        receivedBy: newPaymentReceivedBy || undefined,
+        reference: newPaymentReference || undefined,
+        transactionId: newPaymentTransactionId || undefined,
+        bankName: newPaymentBankName || undefined,
+        account: newPaymentAccount || undefined,
+        receiptUrl: newPaymentReceiptUrl || undefined,
+        notes: newPaymentNotes || undefined,
+      }, ...prev]);
     }
     setNewPaymentAmount("");
+    setNewPaymentFee("");
     setNewPaymentDate("");
     setNewPaymentMethod("Cash");
+    setNewPaymentReference("");
+    setNewPaymentCurrency("PKR");
+    setNewPaymentStatus("Received");
+    setNewPaymentPayer("");
+    setNewPaymentReceivedBy("");
+    setNewPaymentTransactionId("");
+    setNewPaymentBankName("");
+    setNewPaymentAccount("");
+    setNewPaymentReceiptUrl("");
+    setNewPaymentNotes("");
     setShowAddPayment(false);
   };
 
   const addExpense = async () => {
     if (!id || !newExpenseTitle || !newExpenseAmount) return;
     const amount = Number(newExpenseAmount) || 0;
-    const payload = { projectId: id, title: newExpenseTitle, date: newExpenseDate || undefined, category: newExpenseCategory, amount };
+    const payload = { projectId: id, title: newExpenseTitle, date: newExpenseDate || undefined, category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined };
     try {
       const r = await fetch(`${API_BASE}/api/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setExpenses(prev => [{ id: String(d._id || crypto.randomUUID()), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount }, ...prev]);
+        setExpenses(prev => [{ id: String(d._id || crypto.randomUUID()), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined }, ...prev]);
         toast.success("Expense added");
       } else {
-        setExpenses(prev => [{ id: crypto.randomUUID(), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount }, ...prev]);
+        setExpenses(prev => [{ id: crypto.randomUUID(), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined }, ...prev]);
       }
     } catch {
-      setExpenses(prev => [{ id: crypto.randomUUID(), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount }, ...prev]);
+      setExpenses(prev => [{ id: crypto.randomUUID(), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined }, ...prev]);
     }
     setNewExpenseTitle("");
     setNewExpenseDate("");
     setNewExpenseCategory("General");
     setNewExpenseAmount("");
+    setNewExpenseVendor("");
+    setNewExpenseReceiptUrl("");
+    setNewExpenseReimbursable(false);
+    setNewExpenseNotes("");
     setShowAddExpense(false);
   };
 
   const addContract = async () => {
     if (!id || !newContractTitle) return;
     const amount = Number(newContractAmount) || 0;
-    const payload = { projectId: id, title: newContractTitle, amount, contractDate: newContractDate || undefined, validUntil: newContractValidUntil || undefined, status: newContractStatus };
+    const payload = { projectId: id, title: newContractTitle, amount, contractDate: newContractDate || undefined, validUntil: newContractValidUntil || undefined, status: newContractStatus, type: newContractType || undefined, owner: newContractOwner || undefined, signed: newContractSigned, notes: newContractNotes || undefined };
     try {
       const r = await fetch(`${API_BASE}/api/contracts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
-        setContracts(prev => [{ id: String(d._id || crypto.randomUUID()), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus }, ...prev]);
+        setContracts(prev => [{ id: String(d._id || crypto.randomUUID()), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus, type: newContractType || undefined, owner: newContractOwner || undefined, signed: newContractSigned, notes: newContractNotes || undefined }, ...prev] as any);
         toast.success("Contract added");
       } else {
-        setContracts(prev => [{ id: crypto.randomUUID(), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus }, ...prev]);
+        setContracts(prev => [{ id: crypto.randomUUID(), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus, type: newContractType || undefined, owner: newContractOwner || undefined, signed: newContractSigned, notes: newContractNotes || undefined }, ...prev] as any);
       }
     } catch {
-      setContracts(prev => [{ id: crypto.randomUUID(), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus }, ...prev]);
+      setContracts(prev => [{ id: crypto.randomUUID(), title: newContractTitle, amount: String(amount), contractDate: newContractDate || "-", validUntil: newContractValidUntil || "-", status: newContractStatus, type: newContractType || undefined, owner: newContractOwner || undefined, signed: newContractSigned, notes: newContractNotes || undefined }, ...prev] as any);
     }
     setNewContractTitle("");
     setNewContractAmount("");
     setNewContractDate("");
     setNewContractValidUntil("");
     setNewContractStatus("Open");
+    setNewContractType("Service");
+    setNewContractOwner("");
+    setNewContractSigned(false);
+    setNewContractNotes("");
     setShowAddContract(false);
+  };
+
+  const kindEndpoint = (k: ItemKind) => {
+    if (k === "task") return "tasks";
+    if (k === "milestone") return "milestones";
+    if (k === "note") return "notes";
+    if (k === "comment") return "comments";
+    if (k === "file") return "files";
+    if (k === "feedback") return "feedback";
+    if (k === "timesheet") return "timesheets";
+    if (k === "invoice") return "invoices";
+    if (k === "payment") return "payments";
+    if (k === "expense") return "expenses";
+    return "contracts";
+  };
+
+  const openEdit = (k: ItemKind, item: any) => {
+    setEditKind(k);
+    setEditId(String(item?.id || ""));
+    setEditFields({ ...(item || {}) });
+    setEditOpen(true);
+  };
+
+  const openDelete = (k: ItemKind, item: any, label: string) => {
+    setDeleteKind(k);
+    setDeleteId(String(item?.id || ""));
+    setDeleteLabel(label || "this item");
+    setDeleteOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!id || !editKind || !editId) return;
+    const endpoint = kindEndpoint(editKind);
+    const url = `${API_BASE}/api/${endpoint}/${editId}`;
+    const payload: any = { projectId: id };
+
+    if (editKind === "task") {
+      payload.title = editFields.title;
+      payload.status = editFields.status;
+      payload.start = editFields.start && editFields.start !== "-" ? editFields.start : undefined;
+      payload.deadline = editFields.deadline && editFields.deadline !== "-" ? editFields.deadline : undefined;
+      payload.priority = editFields.priority;
+      payload.labels = editFields.labels || undefined;
+      setTasks((prev) => prev.map((t) => (t.id === editId ? { ...t, title: editFields.title, status: editFields.status, start: editFields.start || "-", deadline: editFields.deadline || "-", priority: editFields.priority, labels: editFields.labels || undefined } : t)));
+    } else if (editKind === "milestone") {
+      payload.title = editFields.title;
+      payload.due = editFields.due && editFields.due !== "-" ? editFields.due : undefined;
+      payload.status = editFields.status;
+      setMilestones((prev) => prev.map((m) => (m.id === editId ? { ...m, title: editFields.title, due: editFields.due || "-", status: editFields.status } : m)));
+    } else if (editKind === "note") {
+      payload.text = editFields.text;
+      payload.title = editFields.title || undefined;
+      payload.category = editFields.category || undefined;
+      payload.tags = editFields.tags || undefined;
+      payload.pinned = Boolean(editFields.pinned);
+      setNotes((prev) => prev.map((n) => (n.id === editId ? { ...n, text: editFields.text, title: editFields.title || undefined, category: editFields.category || undefined, tags: editFields.tags || undefined, pinned: Boolean(editFields.pinned) } : n)));
+    } else if (editKind === "comment") {
+      payload.text = editFields.text;
+      payload.author = editFields.author || undefined;
+      payload.kind = editFields.kind || undefined;
+      setComments((prev) => prev.map((n) => (n.id === editId ? { ...n, text: editFields.text, author: editFields.author || undefined, kind: editFields.kind || undefined } : n)));
+    } else if (editKind === "file") {
+      payload.name = editFields.name;
+      payload.size = editFields.size != null && editFields.size !== "" ? Number(editFields.size) : undefined;
+      payload.type = editFields.type || undefined;
+      payload.url = editFields.url || undefined;
+      payload.uploadedBy = editFields.uploadedBy || undefined;
+      payload.description = editFields.description || undefined;
+      setFiles((prev) => prev.map((f) => (f.id === editId ? { ...f, name: editFields.name, size: editFields.size != null && editFields.size !== "" ? Number(editFields.size) : undefined, type: editFields.type || undefined, url: editFields.url || undefined, uploadedBy: editFields.uploadedBy || undefined, description: editFields.description || undefined } : f)));
+    } else if (editKind === "feedback") {
+      payload.author = editFields.author;
+      payload.text = editFields.text;
+      payload.rating = editFields.rating != null && editFields.rating !== "" ? Number(editFields.rating) : undefined;
+      payload.category = editFields.category || undefined;
+      payload.status = editFields.status || undefined;
+      payload.followUpRequired = Boolean(editFields.followUpRequired);
+      payload.sentiment = editFields.sentiment || undefined;
+      setFeedback((prev) => prev.map((f) => (f.id === editId ? { ...f, author: editFields.author, text: editFields.text, rating: editFields.rating != null && editFields.rating !== "" ? Number(editFields.rating) : undefined, category: editFields.category || undefined, status: editFields.status || undefined, followUpRequired: Boolean(editFields.followUpRequired), sentiment: editFields.sentiment || undefined } : f)));
+    } else if (editKind === "timesheet") {
+      payload.date = editFields.date;
+      payload.user = editFields.user;
+      payload.task = editFields.task || undefined;
+      payload.hours = Number(editFields.hours) || 0;
+      payload.billable = editFields.billable != null ? Boolean(editFields.billable) : undefined;
+      payload.rate = editFields.rate != null && editFields.rate !== "" ? Number(editFields.rate) : undefined;
+      payload.notes = editFields.notes || undefined;
+      setTimesheets((prev) => prev.map((t) => (t.id === editId ? { ...t, date: editFields.date, user: editFields.user, task: editFields.task || "-", hours: Number(editFields.hours) || 0, billable: editFields.billable != null ? Boolean(editFields.billable) : undefined, rate: editFields.rate != null && editFields.rate !== "" ? Number(editFields.rate) : undefined, notes: editFields.notes || undefined } : t)));
+    } else if (editKind === "invoice") {
+      payload.number = editFields.number;
+      payload.date = editFields.date || undefined;
+      payload.status = editFields.status;
+      payload.total = Number(editFields.total) || 0;
+      payload.dueDate = editFields.dueDate || undefined;
+      payload.currency = editFields.currency || undefined;
+      payload.tax = editFields.tax != null && editFields.tax !== "" ? Number(editFields.tax) : undefined;
+      payload.discount = editFields.discount != null && editFields.discount !== "" ? Number(editFields.discount) : undefined;
+      payload.notes = editFields.notes || undefined;
+      setInvoices((prev) => prev.map((i) => (i.id === editId ? { ...i, number: editFields.number, date: editFields.date || "-", dueDate: editFields.dueDate || undefined, status: editFields.status, total: Number(editFields.total) || 0, currency: editFields.currency || undefined, tax: editFields.tax != null && editFields.tax !== "" ? Number(editFields.tax) : undefined, discount: editFields.discount != null && editFields.discount !== "" ? Number(editFields.discount) : undefined, notes: editFields.notes || undefined } : i)));
+    } else if (editKind === "payment") {
+      payload.date = editFields.date;
+      payload.method = editFields.method;
+      payload.amount = Number(editFields.amount) || 0;
+      payload.fee = editFields.fee != null && editFields.fee !== "" ? Number(editFields.fee) : undefined;
+      payload.currency = editFields.currency || undefined;
+      payload.status = editFields.status || undefined;
+      payload.payer = editFields.payer || undefined;
+      payload.receivedBy = editFields.receivedBy || undefined;
+      payload.reference = editFields.reference || undefined;
+      payload.transactionId = editFields.transactionId || undefined;
+      payload.bankName = editFields.bankName || undefined;
+      payload.account = editFields.account || undefined;
+      payload.receiptUrl = editFields.receiptUrl || undefined;
+      payload.notes = editFields.notes || undefined;
+      setPayments((prev) => prev.map((p) => (p.id === editId ? {
+        ...p,
+        date: editFields.date,
+        method: editFields.method,
+        amount: Number(editFields.amount) || 0,
+        fee: editFields.fee != null && editFields.fee !== "" ? Number(editFields.fee) : undefined,
+        currency: editFields.currency || undefined,
+        status: editFields.status || undefined,
+        payer: editFields.payer || undefined,
+        receivedBy: editFields.receivedBy || undefined,
+        reference: editFields.reference || undefined,
+        transactionId: editFields.transactionId || undefined,
+        bankName: editFields.bankName || undefined,
+        account: editFields.account || undefined,
+        receiptUrl: editFields.receiptUrl || undefined,
+        notes: editFields.notes || undefined,
+      } : p)));
+    } else if (editKind === "expense") {
+      payload.title = editFields.title;
+      payload.date = editFields.date || undefined;
+      payload.category = editFields.category;
+      payload.amount = Number(editFields.amount) || 0;
+      payload.vendor = editFields.vendor || undefined;
+      payload.receiptUrl = editFields.receiptUrl || undefined;
+      payload.reimbursable = Boolean(editFields.reimbursable);
+      payload.notes = editFields.notes || undefined;
+      setExpenses((prev) => prev.map((e) => (e.id === editId ? { ...e, title: editFields.title, date: editFields.date || "-", category: editFields.category, amount: Number(editFields.amount) || 0, vendor: editFields.vendor || undefined, receiptUrl: editFields.receiptUrl || undefined, reimbursable: Boolean(editFields.reimbursable), notes: editFields.notes || undefined } : e)));
+    } else if (editKind === "contract") {
+      payload.title = editFields.title;
+      payload.amount = Number(editFields.amount) || 0;
+      payload.contractDate = editFields.contractDate || undefined;
+      payload.validUntil = editFields.validUntil || undefined;
+      payload.status = editFields.status;
+      payload.type = editFields.type || undefined;
+      payload.owner = editFields.owner || undefined;
+      payload.signed = editFields.signed != null ? Boolean(editFields.signed) : undefined;
+      payload.notes = editFields.notes || undefined;
+      setContracts((prev) => prev.map((c) => (c.id === editId ? {
+        ...c,
+        title: editFields.title,
+        amount: String(Number(editFields.amount) || 0),
+        contractDate: editFields.contractDate || "-",
+        validUntil: editFields.validUntil || "-",
+        status: editFields.status,
+        type: editFields.type || undefined,
+        owner: editFields.owner || undefined,
+        signed: editFields.signed != null ? Boolean(editFields.signed) : undefined,
+        notes: editFields.notes || undefined,
+      } : c)));
+    }
+
+    try {
+      const r = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (r.ok) toast.success("Updated");
+      else toast.success("Updated locally");
+    } catch {
+      toast.success("Updated locally");
+    }
+    setEditOpen(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!id || !deleteKind || !deleteId) return;
+    const endpoint = kindEndpoint(deleteKind);
+    const url = `${API_BASE}/api/${endpoint}/${deleteId}`;
+
+    if (deleteKind === "task") setTasks((prev) => prev.filter((t) => t.id !== deleteId));
+    else if (deleteKind === "milestone") setMilestones((prev) => prev.filter((m) => m.id !== deleteId));
+    else if (deleteKind === "note") setNotes((prev) => prev.filter((n) => n.id !== deleteId));
+    else if (deleteKind === "comment") setComments((prev) => prev.filter((n) => n.id !== deleteId));
+    else if (deleteKind === "file") setFiles((prev) => prev.filter((f) => f.id !== deleteId));
+    else if (deleteKind === "feedback") setFeedback((prev) => prev.filter((f) => f.id !== deleteId));
+    else if (deleteKind === "timesheet") setTimesheets((prev) => prev.filter((t) => t.id !== deleteId));
+    else if (deleteKind === "invoice") setInvoices((prev) => prev.filter((i) => i.id !== deleteId));
+    else if (deleteKind === "payment") setPayments((prev) => prev.filter((p) => p.id !== deleteId));
+    else if (deleteKind === "expense") setExpenses((prev) => prev.filter((e) => e.id !== deleteId));
+    else if (deleteKind === "contract") setContracts((prev) => prev.filter((c) => c.id !== deleteId));
+
+    try {
+      const r = await fetch(url, { method: "DELETE" });
+      if (!r.ok) throw new Error("delete failed");
+      toast.success("Deleted");
+    } catch {
+      toast.success("Deleted locally");
+    }
+    setDeleteOpen(false);
   };
   useEffect(() => {
     if (!id) return;
@@ -511,6 +1184,7 @@ export default function ProjectOverviewPage() {
             start: t.start ? new Date(t.start).toISOString().slice(0,10) : "-",
             deadline: t.deadline ? new Date(t.deadline).toISOString().slice(0,10) : "-",
             priority: t.priority || "medium",
+            labels: typeof t.labels === "string" ? t.labels : Array.isArray(t.labels) ? t.labels.join(", ") : undefined,
           }));
           setTasks(t);
           setActivity(t.slice(0, 5).map((x) => ({ id: x.id, text: `Task: ${x.title}`, at: x.start })));
@@ -532,13 +1206,23 @@ export default function ProjectOverviewPage() {
     let out = tasks;
     if (taskQuery) {
       const q = taskQuery.toLowerCase();
-      out = out.filter((t) => [t.title, t.status, t.priority].some((v) => String(v).toLowerCase().includes(q)));
+      out = out.filter((t) => [t.title, t.status, t.priority, t.labels].some((v) => String(v || "").toLowerCase().includes(q)));
     }
     if (taskStatus && taskStatus !== "__all__") {
       out = out.filter((t) => String(t.status).toLowerCase() === taskStatus.toLowerCase());
     }
     if (taskPriority && taskPriority !== "__all__") {
       out = out.filter((t) => String(t.priority).toLowerCase() === taskPriority.toLowerCase());
+    }
+
+    if (taskLabelFilter && taskLabelFilter !== "__all__") {
+      out = out.filter((t) => {
+        const labels = String(t.labels || "")
+          .split(",")
+          .map((x) => x.trim().toLowerCase())
+          .filter(Boolean);
+        return labels.includes(taskLabelFilter.toLowerCase());
+      });
     }
     if (taskDeadlineFilter && taskDeadlineFilter !== "__all__") {
       const today = new Date();
@@ -576,7 +1260,15 @@ export default function ProjectOverviewPage() {
       }
     }
     return out;
-  }, [tasks, taskQuery, taskStatus, taskPriority, taskDeadlineFilter, taskQuickFilter]);
+  }, [tasks, taskQuery, taskStatus, taskPriority, taskDeadlineFilter, taskQuickFilter, taskLabelFilter]);
+
+  const saveLabels = () => {
+    const arr = labelDraft.map((x) => String(x || "").trim()).filter(Boolean);
+    setLabelOptions(arr);
+    localStorage.setItem("project_labels", JSON.stringify(arr));
+    toast.success("Labels updated");
+    setOpenManageLabels(false);
+  };
 
   const statusCounts = useMemo(() => {
     const map = { todo: 0, in_progress: 0, done: 0 } as Record<string, number>;
@@ -730,6 +1422,268 @@ export default function ProjectOverviewPage() {
       </svg>
     );
   }
+
+  function MiniBarChart({ values, height = 44, width = 180 }: { values: number[]; height?: number; width?: number }) {
+    const max = Math.max(...values, 1);
+    const barW = values.length ? width / values.length : width;
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        {values.map((v, i) => {
+          const h = (v / max) * (height - 6);
+          const x = i * barW + 2;
+          const y = height - h - 2;
+          const w = Math.max(2, barW - 4);
+          return <rect key={i} x={x} y={y} width={w} height={h} rx={2} fill="#60a5fa" opacity={0.9} />;
+        })}
+      </svg>
+    );
+  }
+
+  const last7Days = useMemo(() => {
+    const today = new Date();
+    const days: string[] = [];
+    for (let i = 6; i >= 0; i -= 1) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    return days;
+  }, []);
+
+  const tasksLast7Created = useMemo(() => {
+    const map: Record<string, number> = {};
+    tasks.forEach((t) => {
+      const k = String(t.start || "");
+      if (k && k !== "-") map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, tasks]);
+
+  const tasksLast7Done = useMemo(() => {
+    const map: Record<string, number> = {};
+    tasks.forEach((t) => {
+      const s = String(t.status || "").toLowerCase();
+      const isDone = s.includes("done") || s.includes("complete");
+      if (!isDone) return;
+      const k = String(t.start || "");
+      if (k && k !== "-") map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, tasks]);
+
+  const milestonesLast7Due = useMemo(() => {
+    const map: Record<string, number> = {};
+    milestones.forEach((m) => {
+      const k = String(m.due || "");
+      if (k && k !== "-") map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, milestones]);
+
+  const milestonesLast7Done = useMemo(() => {
+    const map: Record<string, number> = {};
+    milestones.forEach((m) => {
+      const s = String(m.status || "").toLowerCase();
+      const isDone = s.includes("done") || s.includes("complete");
+      if (!isDone) return;
+      const k = String(m.due || "");
+      if (k && k !== "-") map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, milestones]);
+
+  const notesLast7 = useMemo(() => {
+    const map: Record<string, number> = {};
+    notes.forEach((n) => {
+      const k = String(n.at || "");
+      if (k) map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, notes]);
+
+  const notesLast7Chars = useMemo(() => {
+    const map: Record<string, number> = {};
+    notes.forEach((n) => {
+      const k = String(n.at || "");
+      if (k) map[k] = (map[k] || 0) + String(n.text || "").length;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, notes]);
+
+  const notesCategorySegments = useMemo(() => {
+    const map: Record<string, number> = {};
+    notes.forEach((n) => {
+      const c = String(n.category || "General");
+      map[c] = (map[c] || 0) + 1;
+    });
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const palette = ["#60a5fa", "#34d399", "#f59e0b", "#a78bfa", "#f87171"];
+    return entries.map(([, v], i) => ({ value: v || 1, color: palette[i % palette.length] }));
+  }, [notes]);
+
+  const commentsLast7 = useMemo(() => {
+    const map: Record<string, number> = {};
+    comments.forEach((n) => {
+      const k = String(n.at || "");
+      if (k) map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [comments, last7Days]);
+
+  const commentsLast7Chars = useMemo(() => {
+    const map: Record<string, number> = {};
+    comments.forEach((n) => {
+      const k = String(n.at || "");
+      if (k) map[k] = (map[k] || 0) + String(n.text || "").length;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [comments, last7Days]);
+
+  const commentsKindSegments = useMemo(() => {
+    const map: Record<string, number> = {};
+    comments.forEach((c) => {
+      const k = String(c.kind || "General");
+      map[k] = (map[k] || 0) + 1;
+    });
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const palette = ["#60a5fa", "#34d399", "#f59e0b", "#a78bfa", "#f87171"];
+    return entries.map(([, v], i) => ({ value: v || 1, color: palette[i % palette.length] }));
+  }, [comments]);
+
+  const feedbackLast7 = useMemo(() => {
+    const map: Record<string, number> = {};
+    feedback.forEach((f) => {
+      const k = String(f.at || "");
+      if (k) map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [feedback, last7Days]);
+
+  const feedbackLast7AvgRating = useMemo(() => {
+    const sum: Record<string, number> = {};
+    const cnt: Record<string, number> = {};
+    feedback.forEach((f) => {
+      const k = String(f.at || "");
+      const r = Number(f.rating);
+      if (!k || Number.isNaN(r) || !r) return;
+      sum[k] = (sum[k] || 0) + r;
+      cnt[k] = (cnt[k] || 0) + 1;
+    });
+    return last7Days.map((d) => (cnt[d] ? Math.round((sum[d] / cnt[d]) * 10) / 10 : 0));
+  }, [feedback, last7Days]);
+
+  const feedbackStatusSegments = useMemo(() => {
+    const map: Record<string, number> = {};
+    feedback.forEach((f) => {
+      const s = String(f.status || "New");
+      map[s] = (map[s] || 0) + 1;
+    });
+    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const palette = ["#60a5fa", "#34d399", "#f59e0b", "#a78bfa", "#f87171"];
+    return entries.map(([, v], i) => ({ value: v || 1, color: palette[i % palette.length] }));
+  }, [feedback]);
+
+  const timesheetsLast7Hours = useMemo(() => {
+    const map: Record<string, number> = {};
+    timesheets.forEach((t) => {
+      const k = String(t.date || "");
+      if (k) map[k] = (map[k] || 0) + (Number(t.hours) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, timesheets]);
+
+  const timesheetsLast7BillableHours = useMemo(() => {
+    const map: Record<string, number> = {};
+    timesheets.forEach((t) => {
+      const k = String(t.date || "");
+      if (!k) return;
+      if (t.billable === false) return;
+      map[k] = (map[k] || 0) + (Number(t.hours) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, timesheets]);
+
+  const timesheetBillableSegments = useMemo(() => {
+    const billable = timesheets.reduce((a, t) => a + (t.billable === false ? 0 : (Number(t.hours) || 0)), 0);
+    const non = timesheets.reduce((a, t) => a + (t.billable === false ? (Number(t.hours) || 0) : 0), 0);
+    return [
+      { value: billable || 0, color: "#60a5fa" },
+      { value: non || 0, color: "#e4e4e7" },
+    ];
+  }, [timesheets]);
+
+  const paymentsLast7Amounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    payments.forEach((p) => {
+      const k = String(p.date || "");
+      if (k) map[k] = (map[k] || 0) + (Number(p.amount) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, payments]);
+
+  const expensesLast7Amounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const k = String(e.date || "");
+      if (k) map[k] = (map[k] || 0) + (Number(e.amount) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [expenses, last7Days]);
+
+  const invoicesLast7Totals = useMemo(() => {
+    const map: Record<string, number> = {};
+    invoices.forEach((i) => {
+      const k = String(i.date || "");
+      if (k) map[k] = (map[k] || 0) + (Number(i.total) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [invoices, last7Days]);
+
+  const invoicesLast7Counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    invoices.forEach((i) => {
+      const k = String(i.date || "");
+      if (k) map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [invoices, last7Days]);
+
+  const paymentsLast7Counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    payments.forEach((p) => {
+      const k = String(p.date || "");
+      if (k) map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [last7Days, payments]);
+
+  const expensesLast7ReimbursableAmounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    expenses.forEach((e) => {
+      const k = String(e.date || "");
+      if (!k) return;
+      if (!e.reimbursable) return;
+      map[k] = (map[k] || 0) + (Number(e.amount) || 0);
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [expenses, last7Days]);
+
+  const expensesReimbursableSegments = useMemo(() => {
+    const reimb = expenses.reduce((a, e) => a + (e.reimbursable ? (Number(e.amount) || 0) : 0), 0);
+    const non = expenses.reduce((a, e) => a + (!e.reimbursable ? (Number(e.amount) || 0) : 0), 0);
+    return [
+      { value: reimb || 0, color: "#60a5fa" },
+      { value: non || 0, color: "#e4e4e7" },
+    ];
+  }, [expenses]);
+
+  const contractsLast7Counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    contracts.forEach((c) => {
+      const k = String(c.contractDate || "");
+      if (k && k !== "-") map[k] = (map[k] || 0) + 1;
+    });
+    return last7Days.map((d) => map[d] || 0);
+  }, [contracts, last7Days]);
 
   const countdownTarget = useMemo(() => {
     const raw = project?.deadline || project?.start;
@@ -896,14 +1850,41 @@ export default function ProjectOverviewPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="p-4 space-y-3 lg:col-span-2">
               <div className="text-sm font-medium text-sky-600">Progress</div>
-              <div className="h-2 bg-muted/50 rounded">
-                <div className="h-2 bg-sky-500 rounded" style={{ width: `${progress}%` }} />
+              <div className="flex items-center gap-2">
+                <div className="h-2 bg-muted/50 rounded flex-1">
+                  <div className="h-2 bg-sky-500 rounded" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="text-xs text-muted-foreground w-10 text-right">{progress}%</div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div><div className="text-muted-foreground">Start date</div><div>{project?.start ? project.start.slice(0,10) : "-"}</div></div>
                 <div><div className="text-muted-foreground">Deadline</div><div>{project?.deadline ? project.deadline.slice(0,10) : "-"}</div></div>
                 <div><div className="text-muted-foreground">Client</div><div>{project?.client || "-"}</div></div>
                 <div><div className="text-muted-foreground">Price</div><div>{project?.price ?? "-"}</div></div>
+              </div>
+
+              <div className="rounded-md border bg-sky-50/30 border-sky-100 p-3">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div className="text-sm font-medium text-sky-700">Live countdown</div>
+                  <div className="text-xs text-muted-foreground">Now: {new Date(countdownNow).toLocaleString()}</div>
+                </div>
+                <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Target</div>
+                    <div>{countdownTarget ? countdownTarget.toLocaleString() : "-"}</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-muted-foreground">{project?.deadline ? "Time remaining to deadline" : "Time remaining"}</div>
+                    {countdownTarget && countdown ? (
+                      <div className={`text-lg font-semibold ${countdown.diff >= 0 ? "text-sky-700" : "text-rose-700"}`}>
+                        {countdown.days}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">({countdown.diff >= 0 ? "remaining" : "overdue"})</span>
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground">-</div>
+                    )}
+                  </div>
+                </div>
               </div>
             </Card>
 
@@ -957,16 +1938,61 @@ export default function ProjectOverviewPage() {
 
         <TabsContent value="tasks-list">
           <Card className="p-0 overflow-hidden shadow-sm">
-            <div className="p-3 border-b bg-white flex items-center justify-between">
+            <div className={`p-3 border-b bg-white flex items-center justify-between ${tasksCompact ? 'text-[13px]' : ''}`}>
               <div className="text-sm font-medium text-sky-600">Tasks</div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => toast.success("Manage labels coming soon")}>Manage labels</Button>
-                <Button variant="outline" size="sm" onClick={() => toast.success("Add multiple tasks coming soon")}>Add multiple tasks</Button>
+                <Button variant="outline" size="sm" onClick={() => setOpenManageLabels(true)}>Manage labels</Button>
+                <Button variant="outline" size="sm" onClick={() => setShowAddMultipleTasks(true)}>Add multiple tasks</Button>
                 <Button size="sm" onClick={()=>setShowAddTask(v=>!v)}><Plus className="w-4 h-4 mr-1"/>Add task</Button>
               </div>
             </div>
+            <div className="p-3 border-b bg-white flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-muted-foreground">Tasks created (last 7 days)</div>
+              <MiniBarChart values={last7Days.map((d) => tasks.filter((t) => t.start === d).length)} />
+            </div>
+            <Dialog open={openManageLabels} onOpenChange={setOpenManageLabels}>
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Manage labels</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input placeholder="New label" value={newLabel} onChange={(e)=>setNewLabel(e.target.value)} />
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const v = newLabel.trim();
+                        if (!v) return;
+                        setLabelDraft((prev) => [v, ...prev]);
+                        setNewLabel("");
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {labelDraft.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No labels yet.</div>
+                    ) : (
+                      labelDraft.map((l, idx) => (
+                        <div key={`${l}-${idx}`} className="flex items-center gap-2">
+                          <Input value={l} onChange={(e)=>setLabelDraft((prev)=> prev.map((x,i)=> i===idx ? e.target.value : x))} />
+                          <Button variant="outline" onClick={()=>setLabelDraft((prev)=> prev.filter((_,i)=> i!==idx))}>Remove</Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Close</Button>
+                  </DialogClose>
+                  <Button onClick={saveLabels}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <div className="p-3 border-b bg-white flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="icon"><LayoutGrid className="w-4 h-4" /></Button>
+              <Button variant="outline" size="icon" onClick={()=>setTasksCompact(v=>!v)}><LayoutGrid className="w-4 h-4" /></Button>
 
               <Select value={taskQuickFilter} onValueChange={setTaskQuickFilter}>
                 <SelectTrigger className="w-40"><SelectValue placeholder="- Quick filters -"/></SelectTrigger>
@@ -1002,6 +2028,9 @@ export default function ProjectOverviewPage() {
                 <SelectTrigger className="w-40"><SelectValue placeholder="- Label -"/></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">- Label -</SelectItem>
+                  {labelOptions.map((l) => (
+                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -1033,19 +2062,56 @@ export default function ProjectOverviewPage() {
               </Select>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon"><RefreshCcw className="w-4 h-4" /></Button>
-                <Button variant="outline" size="icon"><Settings className="w-4 h-4" /></Button>
+                <Button variant="outline" size="icon" onClick={reloadTasks}><RefreshCcw className="w-4 h-4" /></Button>
+                <Button variant="outline" size="icon" onClick={()=>setOpenTaskSettings(true)}><Settings className="w-4 h-4" /></Button>
               </div>
 
               <div className="ml-auto flex items-center gap-2">
-                <Button variant="outline" size="sm"><FileDown className="w-4 h-4 mr-2" />Excel</Button>
-                <Button variant="outline" size="sm"><Printer className="w-4 h-4 mr-2" />Print</Button>
+                <Button variant="outline" size="sm" onClick={exportTasksCSV}><FileDown className="w-4 h-4 mr-2" />Excel</Button>
+                <Button variant="outline" size="sm" onClick={printTasksTable}><Printer className="w-4 h-4 mr-2" />Print</Button>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input className="pl-9 w-64" placeholder="Search" value={taskQuery} onChange={(e)=>setTaskQuery(e.target.value)} />
                 </div>
               </div>
             </div>
+
+            <Dialog open={showAddMultipleTasks} onOpenChange={setShowAddMultipleTasks}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add multiple tasks</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">One per line. Optional format: Title | status | priority | YYYY-MM-DD (start) | YYYY-MM-DD (deadline)</div>
+                  <Textarea className="min-h-[200px]" placeholder="Design landing page | in_progress | high | 2025-01-02 | 2025-01-08\nIntegrate payments | todo | medium" value={bulkTasksText} onChange={(e)=>setBulkTasksText(e.target.value)} />
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addMultipleTasks}>Add</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={openTaskSettings} onOpenChange={setOpenTaskSettings}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Task settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Compact rows</div>
+                      <div className="text-xs text-muted-foreground">Reduce spacing for denser view</div>
+                    </div>
+                    <Checkbox checked={tasksCompact} onCheckedChange={(v)=>setTasksCompact(Boolean(v))} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
+                  <Button onClick={()=>setOpenTaskSettings(false)}>Apply</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
               <DialogContent className="max-w-3xl">
                 <DialogHeader>
@@ -1151,7 +2217,7 @@ export default function ProjectOverviewPage() {
                   <TableHead>Assigned to</TableHead>
                   <TableHead>Collaborators</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-8"></TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1167,7 +2233,18 @@ export default function ProjectOverviewPage() {
                     <TableCell>
                       <Badge variant="outline" className={statusBadgeClass(t.status)}>{t.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground"><GripVertical className="w-4 h-4" /></TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("task", t)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("task", t, t.title)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {filteredTasks.length === 0 && (
@@ -1194,6 +2271,35 @@ export default function ProjectOverviewPage() {
                 <Button variant="outline" size="icon" disabled><ChevronRight className="w-4 h-4" /></Button>
               </div>
             </div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Tasks created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={tasksLast7Created} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Tasks done (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={tasksLast7Done} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart
+                    size={72}
+                    segments={[
+                      { value: statusCounts.todo, color: "#e4e4e7" },
+                      { value: statusCounts.in_progress, color: "#60a5fa" },
+                      { value: statusCounts.done, color: "#34d399" },
+                    ]}
+                    centerText={`${tasks.length}`}
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1204,7 +2310,24 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Milestones</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={[{ value: milestoneStatusCounts.open, color: '#60a5fa' }, { value: milestoneStatusCounts.done, color: '#34d399' }, { value: milestoneStatusCounts.overdue, color: '#f87171' }]} centerText={`${milestones.length}`} />
-                <Button onClick={()=>setShowAddMilestone(v=>!v)}><Plus className="w-4 h-4 mr-1"/>Add milestone</Button>
+                <Button onClick={()=>setShowAddMilestone(true)}><Plus className="w-4 h-4 mr-1"/>Add milestone</Button>
+              </div>
+            </div>
+            <div className="p-3 border-b bg-white grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Open</div>
+                <div className="text-lg font-semibold">{milestoneStatusCounts.open}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Done</div>
+                <div className="text-lg font-semibold">{milestoneStatusCounts.done}</div>
+              </div>
+              <div className="rounded-md border p-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs text-muted-foreground">Due soon (7 days)</div>
+                  <div className="text-lg font-semibold">{milestones.filter((m)=>{ if (!m.due || m.due === "-") return false; const dt = new Date(m.due).getTime(); const now = Date.now(); return dt >= now && dt <= now + 7*24*3600*1000; }).length}</div>
+                </div>
+                <MiniBarChart values={filteredMilestones.slice(0, 7).map((_,i)=>Math.max(1,7-i))} />
               </div>
             </div>
             <div className="p-3 border-b bg-white flex flex-wrap items-center gap-2">
@@ -1264,6 +2387,7 @@ export default function ProjectOverviewPage() {
                   <TableHead>Title</TableHead>
                   <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1277,13 +2401,54 @@ export default function ProjectOverviewPage() {
                         {m.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("milestone", m)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("milestone", m, m.title || "Milestone")}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {filteredMilestones.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No milestones</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No milestones</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Milestones due (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={milestonesLast7Due} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Milestones done (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={milestonesLast7Done} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart
+                    size={72}
+                    segments={[
+                      { value: milestoneStatusCounts.open, color: "#60a5fa" },
+                      { value: milestoneStatusCounts.done, color: "#34d399" },
+                      { value: milestoneStatusCounts.overdue, color: "#f87171" },
+                    ]}
+                    centerText={`${milestones.length}`}
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1297,7 +2462,50 @@ export default function ProjectOverviewPage() {
                 <Link to="/projects/timeline"><Button variant="outline">Open timeline</Button></Link>
               </div>
             </div>
-            <div className="p-3 text-sm text-muted-foreground">Open the full project timeline</div>
+            <div className="p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Todo</div>
+                <div className="text-lg font-semibold">{statusCounts.todo}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">In progress</div>
+                <div className="text-lg font-semibold">{statusCounts.in_progress}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Done</div>
+                <div className="text-lg font-semibold">{statusCounts.done}</div>
+              </div>
+            </div>
+            <div className="px-3 pb-3 text-sm text-muted-foreground">Open the full project timeline</div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Tasks created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={tasksLast7Created} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Tasks done (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={tasksLast7Done} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart
+                    size={72}
+                    segments={[
+                      { value: statusCounts.todo, color: "#e4e4e7" },
+                      { value: statusCounts.in_progress, color: "#60a5fa" },
+                      { value: statusCounts.done, color: "#34d399" },
+                    ]}
+                    centerText={`${tasks.length}`}
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1306,21 +2514,119 @@ export default function ProjectOverviewPage() {
           <Card className="p-0 overflow-hidden">
             <div className="p-3 border-b flex items-center justify-between">
               <div className="text-sm font-medium text-sky-600">Notes</div>
-              <DonutChart size={64} segments={[{ value: notes.length, color: '#60a5fa' }]} centerText={`${notes.length}`} />
-            </div>
-            <div className="p-3 space-y-3">
-              <div className="flex items-start gap-2">
-                <Textarea className="min-h-[80px]" placeholder="Add a note" value={newNote} onChange={(e)=>setNewNote(e.target.value)} />
-                <Button onClick={addNote}>Add</Button>
+              <div className="flex items-center gap-3">
+                <DonutChart size={64} segments={[{ value: notes.length, color: '#60a5fa' }]} centerText={`${notes.length}`} />
+                <Button onClick={() => setShowAddNote(true)}><Plus className="w-4 h-4 mr-1" />Add note</Button>
               </div>
-              <div className="space-y-2 text-sm">
-                {notes.map(n => (
-                  <div key={n.id} className="p-3 rounded border flex items-center justify-between">
-                    <div className="whitespace-pre-wrap">{n.text}</div>
-                    <div className="text-muted-foreground text-xs">{n.at || ""}</div>
+            </div>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Notes created (last 7 days)</div>
+              <MiniBarChart values={notesLast7} />
+            </div>
+            <Dialog open={showAddNote} onOpenChange={setShowAddNote}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add note</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                    <Input className="sm:col-span-3" placeholder="Optional title" value={newNoteTitle} onChange={(e)=>setNewNoteTitle(e.target.value)} />
                   </div>
-                ))}
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                    <Select value={newNoteCategory} onValueChange={setNewNoteCategory}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Category"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Meeting">Meeting</SelectItem>
+                        <SelectItem value="Decision">Decision</SelectItem>
+                        <SelectItem value="Risk">Risk</SelectItem>
+                        <SelectItem value="Idea">Idea</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Note</div>
+                    <Textarea className="sm:col-span-3 min-h-[140px]" placeholder="Write your note" value={newNote} onChange={(e)=>setNewNote(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Tags</div>
+                    <Input className="sm:col-span-3" placeholder="e.g. urgent, client, sprint-1" value={newNoteTags} onChange={(e)=>setNewNoteTags(e.target.value)} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Pin note</div>
+                      <div className="text-xs text-muted-foreground">Pinned notes appear first</div>
+                    </div>
+                    <Checkbox checked={newNotePinned} onCheckedChange={(v)=>setNewNotePinned(Boolean(v))} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={async () => { await addNote(); setShowAddNote(false); }}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div className="p-3 space-y-3">
+              <div className="space-y-2 text-sm">
+                {notes
+                  .slice()
+                  .sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1))
+                  .map(n => (
+                    <div key={n.id} className={`p-3 rounded border ${n.pinned ? "border-sky-200 bg-sky-50/30" : ""}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            {n.title ? <div className="font-medium truncate">{n.title}</div> : <div className="font-medium">Note</div>}
+                            {n.category ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">{n.category}</Badge> : null}
+                            {n.pinned ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">Pinned</Badge> : null}
+                          </div>
+                          <div className="whitespace-pre-wrap break-words">{n.text}</div>
+                          {(n.tags || n.at) && (
+                            <div className="text-xs text-muted-foreground">
+                              {n.at || ""}
+                              {n.tags ? ` · Tags: ${n.tags}` : ""}
+                              {` · ${String(n.text || "").length} chars`}
+                            </div>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEdit("note", n)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openDelete("note", n, String(n.title || "Note"))}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
                 {notes.length === 0 && <div className="text-muted-foreground">No notes</div>}
+              </div>
+            </div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Notes created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={notesLast7} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Characters written (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={notesLast7Chars} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Categories</div>
+                    <div className="text-sm text-muted-foreground">Top distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={notesCategorySegments.length ? notesCategorySegments : [{ value: 1, color: "#60a5fa" }]} centerText={`${notes.length}`} />
+                </div>
               </div>
             </div>
           </Card>
@@ -1333,27 +2639,140 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Files</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={fileSizeSegments} centerText={`${Math.round(totalFileSize/1024)}KB`} />
-                <Button onClick={()=>setShowAddFile(v=>!v)}>Add file</Button>
+                <Button onClick={()=>setShowAddFile(true)}><Plus className="w-4 h-4 mr-1" />Add file</Button>
               </div>
             </div>
-            {showAddFile && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-4 bg-muted/10">
-                <Input placeholder="Name" value={newFileName} onChange={(e)=>setNewFileName(e.target.value)} />
-                <Input type="number" placeholder="Size (bytes)" value={newFileSize as any} onChange={(e)=>setNewFileSize(e.target.value ? Number(e.target.value) : "")} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addFile}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddFile(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Largest files (top 7)</div>
+              <MiniBarChart values={files.slice().sort((a,b)=>(Number((b as any).size)||0)-(Number((a as any).size)||0)).slice(0,7).map((f)=>Number((f as any).size)||1)} />
+            </div>
+            <Dialog open={showAddFile} onOpenChange={setShowAddFile}>
+              <DialogContent className="max-w-xl">
+                <DialogHeader>
+                  <DialogTitle>Add file</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Upload</div>
+                    <div className="sm:col-span-3 space-y-1">
+                      <Input
+                        className="sm:col-span-3"
+                        type="file"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setNewFileBlob(f);
+                          if (!f) return;
+                          setNewFileName(f.name || "");
+                          setNewFileSize(f.size || "");
+                          const mt = String(f.type || "").toLowerCase();
+                          if (mt.startsWith("image/")) setNewFileType("Image");
+                          else if (mt === "application/pdf") setNewFileType("PDF");
+                          else if (mt.includes("sheet") || mt.includes("excel") || mt.includes("spreadsheet")) setNewFileType("Spreadsheet");
+                          else setNewFileType("Document");
+                        }}
+                      />
+                      {newFileBlob ? (
+                        <div className="text-xs text-muted-foreground">
+                          Selected: {newFileBlob.name} · {Math.max(1, Math.round((newFileBlob.size || 0) / 1024))} KB
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Name</div>
+                    <Input className="sm:col-span-3" placeholder="File name" value={newFileName} onChange={(e)=>setNewFileName(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                    <Select value={newFileType} onValueChange={setNewFileType}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Type"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Document">Document</SelectItem>
+                        <SelectItem value="Image">Image</SelectItem>
+                        <SelectItem value="PDF">PDF</SelectItem>
+                        <SelectItem value="Spreadsheet">Spreadsheet</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Size (bytes)</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newFileSize as any} onChange={(e)=>setNewFileSize(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">URL</div>
+                    <Input className="sm:col-span-3" placeholder="https://..." value={newFileUrl} onChange={(e)=>setNewFileUrl(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Uploaded by</div>
+                    <Input className="sm:col-span-3" placeholder="Name" value={newFileUploadedBy} onChange={(e)=>setNewFileUploadedBy(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Description</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional description" value={newFileDescription} onChange={(e)=>setNewFileDescription(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addFile}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <div className="p-3 space-y-2 text-sm">
               {files.map(f => (
-                <div key={f.id} className="p-3 rounded border flex items-center justify-between">
-                  <div>{f.name}</div>
-                  <div className="text-muted-foreground text-xs">{(f as any).size ? `${Math.round((Number((f as any).size))/1024)} KB` : ""}</div>
+                <div key={f.id} className="p-3 rounded border flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium truncate">{f.name}</div>
+                      {f.type ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">{f.type}</Badge> : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {(f as any).size ? `${Math.round((Number((f as any).size))/1024)} KB` : "-"}
+                      {f.uploadedBy ? ` · ${f.uploadedBy}` : ""}
+                      {f.at ? ` · ${f.at}` : ""}
+                      {` · ID: ${f.id}`}
+                    </div>
+                    {f.url ? (
+                      <a className="text-xs text-sky-700 truncate block" href={f.url} target="_blank" rel="noreferrer">
+                        {f.url}
+                      </a>
+                    ) : null}
+                    {f.description ? <div className="text-xs text-muted-foreground line-clamp-2">{f.description}</div> : null}
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit("file", f)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => openDelete("file", f, f.name)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
               {files.length === 0 && <div className="text-muted-foreground">No files</div>}
+            </div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Largest files</div>
+                  <div className="mt-1"><MiniBarChart values={files.slice().sort((a,b)=>(Number((b as any).size)||0)-(Number((a as any).size)||0)).slice(0,7).map((f)=>Number((f as any).size)||1)} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">All file sizes</div>
+                  <div className="mt-1"><MiniBarChart values={files.slice(0, 7).map((f)=>Number((f as any).size)||0)} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Storage</div>
+                    <div className="text-sm text-muted-foreground">Top contributors</div>
+                  </div>
+                  <DonutChart size={72} segments={fileSizeSegments.length ? fileSizeSegments : [{ value: 1, color: "#60a5fa" }]} centerText={`${Math.round(totalFileSize/1024)}KB`} />
+                </div>
+              </div>
             </div>
           </Card>
         </TabsContent>
@@ -1363,21 +2782,97 @@ export default function ProjectOverviewPage() {
           <Card className="p-0 overflow-hidden">
             <div className="p-3 border-b flex items-center justify-between">
               <div className="text-sm font-medium text-sky-600">Comments</div>
-              <DonutChart size={64} segments={[{ value: comments.length, color: '#60a5fa' }]} centerText={`${comments.length}`} />
-            </div>
-            <div className="p-3 space-y-3">
-              <div className="flex items-start gap-2">
-                <Textarea className="min-h-[80px]" placeholder="Add a comment" value={newComment} onChange={(e)=>setNewComment(e.target.value)} />
-                <Button onClick={addComment}>Comment</Button>
+              <div className="flex items-center gap-3">
+                <DonutChart size={64} segments={[{ value: comments.length, color: '#60a5fa' }]} centerText={`${comments.length}`} />
+                <Button onClick={() => setShowAddComment(true)}><Plus className="w-4 h-4 mr-1" />Add comment</Button>
               </div>
+            </div>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Comments created (last 7 days)</div>
+              <MiniBarChart values={commentsLast7} />
+            </div>
+            <Dialog open={showAddComment} onOpenChange={setShowAddComment}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add comment</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Author</div>
+                    <Input className="sm:col-span-3" placeholder="Name" value={newCommentAuthor} onChange={(e)=>setNewCommentAuthor(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                    <Select value={newCommentKind} onValueChange={setNewCommentKind}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Type"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Update">Update</SelectItem>
+                        <SelectItem value="Question">Question</SelectItem>
+                        <SelectItem value="Decision">Decision</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Comment</div>
+                    <Textarea className="sm:col-span-3 min-h-[140px]" placeholder="Write your comment" value={newComment} onChange={(e)=>setNewComment(e.target.value)} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={async () => { await addComment(); setShowAddComment(false); }}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div className="p-3 space-y-3">
               <div className="space-y-2 text-sm">
                 {comments.map(n => (
-                  <div key={n.id} className="p-3 rounded border flex items-center justify-between">
-                    <div className="whitespace-pre-wrap">{n.text}</div>
-                    <div className="text-muted-foreground text-xs">{n.at || ""}</div>
+                  <div key={n.id} className="p-3 rounded border">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium">{n.author || "Comment"}</div>
+                          {n.kind ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">{n.kind}</Badge> : null}
+                        </div>
+                        <div className="whitespace-pre-wrap break-words">{n.text}</div>
+                        <div className="text-xs text-muted-foreground">{n.at || ""} · {String(n.text || "").length} chars</div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("comment", n)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("comment", n, "Comment")}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 ))}
                 {comments.length === 0 && <div className="text-muted-foreground">No comments</div>}
+              </div>
+            </div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Comments created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={commentsLast7} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Characters written (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={commentsLast7Chars} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Types</div>
+                    <div className="text-sm text-muted-foreground">Top distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={commentsKindSegments.length ? commentsKindSegments : [{ value: 1, color: "#60a5fa" }]} centerText={`${comments.length}`} />
+                </div>
               </div>
             </div>
           </Card>
@@ -1390,28 +2885,140 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Customer feedback</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={feedbackAuthorSegments} centerText={`${feedback.length}`} />
-                <Button onClick={()=>setShowAddFeedback(v=>!v)}>Add feedback</Button>
+                <Button onClick={()=>setShowAddFeedback(true)}><Plus className="w-4 h-4 mr-1" />Add feedback</Button>
               </div>
             </div>
-            {showAddFeedback && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-3 bg-muted/10">
-                <Input placeholder="Author" value={newFeedbackAuthor} onChange={(e)=>setNewFeedbackAuthor(e.target.value)} />
-                <Textarea placeholder="Feedback" value={newFeedbackText} onChange={(e)=>setNewFeedbackText(e.target.value)} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addFeedback}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddFeedback(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Feedback received (last 7 days)</div>
+              <MiniBarChart values={feedbackLast7} />
+            </div>
+            <Dialog open={showAddFeedback} onOpenChange={setShowAddFeedback}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add feedback</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Author</div>
+                    <Input className="sm:col-span-3" placeholder="Client" value={newFeedbackAuthor} onChange={(e)=>setNewFeedbackAuthor(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                    <Select value={newFeedbackCategory} onValueChange={setNewFeedbackCategory}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Category"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="General">General</SelectItem>
+                        <SelectItem value="Quality">Quality</SelectItem>
+                        <SelectItem value="Timeline">Timeline</SelectItem>
+                        <SelectItem value="Communication">Communication</SelectItem>
+                        <SelectItem value="Support">Support</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Rating</div>
+                    <Select value={String(newFeedbackRating)} onValueChange={(v)=>setNewFeedbackRating(Number(v))}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Rating"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 (Excellent)</SelectItem>
+                        <SelectItem value="4">4 (Good)</SelectItem>
+                        <SelectItem value="3">3 (Okay)</SelectItem>
+                        <SelectItem value="2">2 (Poor)</SelectItem>
+                        <SelectItem value="1">1 (Bad)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                    <Select value={newFeedbackStatus} onValueChange={setNewFeedbackStatus}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="New">New</SelectItem>
+                        <SelectItem value="In progress">In progress</SelectItem>
+                        <SelectItem value="Resolved">Resolved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Sentiment</div>
+                    <Select value={newFeedbackSentiment} onValueChange={setNewFeedbackSentiment}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Sentiment"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Positive">Positive</SelectItem>
+                        <SelectItem value="Neutral">Neutral</SelectItem>
+                        <SelectItem value="Negative">Negative</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Feedback</div>
+                    <Textarea className="sm:col-span-3 min-h-[140px]" placeholder="Write feedback" value={newFeedbackText} onChange={(e)=>setNewFeedbackText(e.target.value)} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Follow up required</div>
+                      <div className="text-xs text-muted-foreground">Mark if you need to contact the customer</div>
+                    </div>
+                    <Checkbox checked={newFeedbackFollowUp} onCheckedChange={(v)=>setNewFeedbackFollowUp(Boolean(v))} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addFeedback}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <div className="p-3 space-y-2 text-sm">
               {feedback.map(f => (
                 <div key={f.id} className="p-3 rounded border">
-                  <div className="text-sm font-medium">{f.author || "Client"}</div>
-                  <div className="text-sm mt-1">{f.text}</div>
-                  <div className="text-xs text-muted-foreground mt-1">{f.at || ""}</div>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-sm font-medium">{f.author || "Client"}</div>
+                        {typeof f.rating === "number" ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">{f.rating}/5</Badge> : null}
+                        {f.category ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">{f.category}</Badge> : null}
+                        {f.status ? <Badge variant="outline" className="bg-zinc-50 text-zinc-700 border border-zinc-200">{f.status}</Badge> : null}
+                        {f.sentiment ? <Badge variant="outline" className={f.sentiment === "Negative" ? "bg-rose-50 text-rose-700 border border-rose-200" : f.sentiment === "Neutral" ? "bg-zinc-50 text-zinc-700 border border-zinc-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"}>{f.sentiment}</Badge> : null}
+                        {f.followUpRequired ? <Badge variant="outline" className="bg-amber-50 text-amber-700 border border-amber-200">Follow up</Badge> : null}
+                      </div>
+                      <div className="text-sm mt-1 whitespace-pre-wrap">{f.text}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{f.at || ""} · {String(f.text || "").length} chars</div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEdit("feedback", f)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => openDelete("feedback", f, "Feedback")}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               ))}
               {feedback.length === 0 && <div className="text-muted-foreground text-sm">No customer feedback</div>}
+            </div>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Feedback received (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={feedbackLast7} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Avg rating (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={feedbackLast7AvgRating} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Top distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={feedbackStatusSegments.length ? feedbackStatusSegments : [{ value: 1, color: "#60a5fa" }]} centerText={`${feedback.length}`} />
+                </div>
+              </div>
             </div>
           </Card>
         </TabsContent>
@@ -1423,21 +3030,57 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Timesheets</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={timesheetUserSegments} centerText={`${totalTimesheetHours}h`} />
-                <Button onClick={()=>setShowAddTimesheet(v=>!v)}>Add timesheet</Button>
+                <Button onClick={()=>setShowAddTimesheet(true)}><Plus className="w-4 h-4 mr-1" />Add timesheet</Button>
               </div>
             </div>
-            {showAddTimesheet && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-5 bg-muted/10">
-                <Input type="date" value={newTimesheetDate} onChange={(e)=>setNewTimesheetDate(e.target.value)} />
-                <Input placeholder="User" value={newTimesheetUser} onChange={(e)=>setNewTimesheetUser(e.target.value)} />
-                <Input placeholder="Task" value={newTimesheetTask} onChange={(e)=>setNewTimesheetTask(e.target.value)} />
-                <Input type="number" placeholder="Hours" value={newTimesheetHours as any} onChange={(e)=>setNewTimesheetHours(e.target.value ? Number(e.target.value) : "")} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addTimesheet}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddTimesheet(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Hours logged (last 7 days)</div>
+              <MiniBarChart values={timesheetsLast7Hours} />
+            </div>
+            <Dialog open={showAddTimesheet} onOpenChange={setShowAddTimesheet}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add timesheet</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                    <Input className="sm:col-span-3" type="date" value={newTimesheetDate} onChange={(e)=>setNewTimesheetDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">User</div>
+                    <Input className="sm:col-span-3" placeholder="User" value={newTimesheetUser} onChange={(e)=>setNewTimesheetUser(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Task</div>
+                    <Input className="sm:col-span-3" placeholder="Task" value={newTimesheetTask} onChange={(e)=>setNewTimesheetTask(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Hours</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newTimesheetHours as any} onChange={(e)=>setNewTimesheetHours(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Rate</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="Optional" value={newTimesheetRate as any} onChange={(e)=>setNewTimesheetRate(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Billable</div>
+                      <div className="text-xs text-muted-foreground">Counts toward billing</div>
+                    </div>
+                    <Checkbox checked={newTimesheetBillable} onCheckedChange={(v)=>setNewTimesheetBillable(Boolean(v))} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional notes" value={newTimesheetNotes} onChange={(e)=>setNewTimesheetNotes(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addTimesheet}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1445,6 +3088,9 @@ export default function ProjectOverviewPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Task</TableHead>
                   <TableHead>Hours</TableHead>
+                  <TableHead>Billable</TableHead>
+                  <TableHead>Rate</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1454,13 +3100,48 @@ export default function ProjectOverviewPage() {
                     <TableCell>{t.user}</TableCell>
                     <TableCell>{t.task}</TableCell>
                     <TableCell>{t.hours}</TableCell>
+                    <TableCell>{t.billable === false ? <Badge variant="outline" className="bg-zinc-50 text-zinc-700 border border-zinc-200">No</Badge> : <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">Yes</Badge>}</TableCell>
+                    <TableCell>{t.rate != null ? t.rate : "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("timesheet", t)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("timesheet", t, "Timesheet") }><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {timesheets.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No timesheets</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No timesheets</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Hours logged (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={timesheetsLast7Hours} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Billable hours (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={timesheetsLast7BillableHours} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Billable split</div>
+                    <div className="text-sm text-muted-foreground">Hours distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={timesheetBillableSegments} centerText={`${totalTimesheetHours}h`} />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1471,35 +3152,86 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Invoices</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={Object.entries(invoiceStatusCounts).map(([k,v],i)=>({ value: v, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][i%5] }))} centerText={`${Math.round(totalInvoicesTotal)}`} />
-                <Button onClick={()=>setShowAddInvoice(v=>!v)}>Add invoice</Button>
+                <Button onClick={()=>setShowAddInvoice(true)}><Plus className="w-4 h-4 mr-1" />Add invoice</Button>
               </div>
             </div>
-            {showAddInvoice && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-5 bg-muted/10">
-                <Input placeholder="# Number" value={newInvoiceNumber} onChange={(e)=>setNewInvoiceNumber(e.target.value)} />
-                <Input type="date" value={newInvoiceDate} onChange={(e)=>setNewInvoiceDate(e.target.value)} />
-                <Select value={newInvoiceStatus} onValueChange={setNewInvoiceStatus}>
-                  <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Draft">Draft</SelectItem>
-                    <SelectItem value="Sent">Sent</SelectItem>
-                    <SelectItem value="Paid">Paid</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="number" placeholder="Total" value={newInvoiceTotal as any} onChange={(e)=>setNewInvoiceTotal(e.target.value ? Number(e.target.value) : "")} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addInvoice}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddInvoice(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Invoice totals (last 7 days)</div>
+              <MiniBarChart values={invoicesLast7Totals} />
+            </div>
+            <Dialog open={showAddInvoice} onOpenChange={setShowAddInvoice}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add invoice</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Number</div>
+                    <Input className="sm:col-span-3" placeholder="# Number" value={newInvoiceNumber} onChange={(e)=>setNewInvoiceNumber(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                    <Input className="sm:col-span-3" type="date" value={newInvoiceDate} onChange={(e)=>setNewInvoiceDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Due date</div>
+                    <Input className="sm:col-span-3" type="date" value={newInvoiceDueDate} onChange={(e)=>setNewInvoiceDueDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                    <Select value={newInvoiceStatus} onValueChange={setNewInvoiceStatus}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Draft">Draft</SelectItem>
+                        <SelectItem value="Sent">Sent</SelectItem>
+                        <SelectItem value="Paid">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Currency</div>
+                    <Select value={newInvoiceCurrency} onValueChange={setNewInvoiceCurrency}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Currency"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PKR">PKR</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Total</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newInvoiceTotal as any} onChange={(e)=>setNewInvoiceTotal(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Tax</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="Optional" value={newInvoiceTax as any} onChange={(e)=>setNewInvoiceTax(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Discount</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="Optional" value={newInvoiceDiscount as any} onChange={(e)=>setNewInvoiceDiscount(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional notes" value={newInvoiceNotes} onChange={(e)=>setNewInvoiceNotes(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addInvoice}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Due</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Currency</TableHead>
                   <TableHead>Total</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1507,15 +3239,50 @@ export default function ProjectOverviewPage() {
                   <TableRow key={i.id}>
                     <TableCell>{i.number || i.id}</TableCell>
                     <TableCell>{i.date || "-"}</TableCell>
+                    <TableCell>{i.dueDate || "-"}</TableCell>
                     <TableCell>{i.status || "-"}</TableCell>
+                    <TableCell>{i.currency || "-"}</TableCell>
                     <TableCell>{i.total ?? "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("invoice", i)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("invoice", i, String(i.number || "Invoice"))}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {invoices.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No invoices</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No invoices</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Invoice totals (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={invoicesLast7Totals} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Invoices created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={invoicesLast7Counts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={Object.entries(invoiceStatusCounts).map(([k,v],idx)=>({ value: v || 1, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][idx%5] }))} centerText={`${invoices.length}`} />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1526,33 +3293,118 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Payments</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={Object.entries(paymentMethodTotals).map(([k,v],i)=>({ value: v, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][i%5] }))} centerText={`${Math.round(totalPayments)}`} />
-                <Button onClick={()=>setShowAddPayment(v=>!v)}>Add payment</Button>
+                <Button onClick={()=>setShowAddPayment(true)}><Plus className="w-4 h-4 mr-1" />Add payment</Button>
               </div>
             </div>
-            {showAddPayment && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-5 bg-muted/10">
-                <Input type="date" value={newPaymentDate} onChange={(e)=>setNewPaymentDate(e.target.value)} />
-                <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
-                  <SelectTrigger><SelectValue placeholder="Method"/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Card">Card</SelectItem>
-                    <SelectItem value="Bank">Bank</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input type="number" placeholder="Amount" value={newPaymentAmount as any} onChange={(e)=>setNewPaymentAmount(e.target.value ? Number(e.target.value) : "")} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addPayment}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddPayment(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Payments (last 7 days)</div>
+              <MiniBarChart values={paymentsLast7Amounts} />
+            </div>
+            <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add payment</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                    <Input className="sm:col-span-3" type="date" value={newPaymentDate} onChange={(e)=>setNewPaymentDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Method</div>
+                    <Select value={newPaymentMethod} onValueChange={setNewPaymentMethod}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Method"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="Bank">Bank</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                    <Select value={newPaymentStatus} onValueChange={setNewPaymentStatus}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Received">Received</SelectItem>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Failed">Failed</SelectItem>
+                        <SelectItem value="Refunded">Refunded</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newPaymentAmount as any} onChange={(e)=>setNewPaymentAmount(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Fee</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="Optional" value={newPaymentFee as any} onChange={(e)=>setNewPaymentFee(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Currency</div>
+                    <Select value={newPaymentCurrency} onValueChange={setNewPaymentCurrency}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Currency"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PKR">PKR</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Payer</div>
+                    <Input className="sm:col-span-3" placeholder="Client / Company" value={newPaymentPayer} onChange={(e)=>setNewPaymentPayer(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Received by</div>
+                    <Input className="sm:col-span-3" placeholder="Team member" value={newPaymentReceivedBy} onChange={(e)=>setNewPaymentReceivedBy(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Reference</div>
+                    <Input className="sm:col-span-3" placeholder="Txn / Cheque / Ref" value={newPaymentReference} onChange={(e)=>setNewPaymentReference(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Transaction ID</div>
+                    <Input className="sm:col-span-3" placeholder="Optional" value={newPaymentTransactionId} onChange={(e)=>setNewPaymentTransactionId(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Bank name</div>
+                    <Input className="sm:col-span-3" placeholder="Optional" value={newPaymentBankName} onChange={(e)=>setNewPaymentBankName(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Account</div>
+                    <Input className="sm:col-span-3" placeholder="Optional" value={newPaymentAccount} onChange={(e)=>setNewPaymentAccount(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Receipt URL</div>
+                    <Input className="sm:col-span-3" placeholder="https://..." value={newPaymentReceiptUrl} onChange={(e)=>setNewPaymentReceiptUrl(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional notes" value={newPaymentNotes} onChange={(e)=>setNewPaymentNotes(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addPayment}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">Date</TableHead>
                   <TableHead>Method</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Payer / Received</TableHead>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Bank / Txn</TableHead>
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Fee</TableHead>
+                  <TableHead>Net</TableHead>
+                  <TableHead>Receipt</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1560,14 +3412,88 @@ export default function ProjectOverviewPage() {
                   <TableRow key={p.id}>
                     <TableCell>{p.date || "-"}</TableCell>
                     <TableCell>{p.method || "-"}</TableCell>
-                    <TableCell>{p.amount ?? "-"}</TableCell>
+                    <TableCell>
+                      {p.status ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            String(p.status).toLowerCase().includes("fail")
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : String(p.status).toLowerCase().includes("pend")
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : String(p.status).toLowerCase().includes("refund")
+                                  ? "bg-zinc-50 text-zinc-700 border border-zinc-200"
+                                  : "bg-sky-50 text-sky-700 border border-sky-200"
+                          }
+                        >
+                          {p.status}
+                        </Badge>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <div className="truncate">{p.payer || "-"}</div>
+                      <div className="text-xs text-muted-foreground truncate">{p.receivedBy ? `Received by ${p.receivedBy}` : ""}</div>
+                    </TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <div className="truncate">{p.reference || "-"}</div>
+                      <div className="text-xs text-muted-foreground truncate">{p.transactionId ? `Txn: ${p.transactionId}` : ""}</div>
+                    </TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <div className="truncate">{p.bankName || "-"}</div>
+                      <div className="text-xs text-muted-foreground truncate">{p.account ? `Acct: ${p.account}` : ""}</div>
+                    </TableCell>
+                    <TableCell>{p.currency || "-"}</TableCell>
+                    <TableCell>{p.fee != null ? p.fee : "-"}</TableCell>
+                    <TableCell>{(Number(p.amount) || 0) - (Number(p.fee) || 0)}</TableCell>
+                    <TableCell>
+                      {p.receiptUrl ? (
+                        <a className="text-xs text-sky-700" href={p.receiptUrl} target="_blank" rel="noreferrer">View</a>
+                      ) : (
+                        "-"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("payment", p)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("payment", p, "Payment")}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {payments.length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No payments</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No payments</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Amounts (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={paymentsLast7Amounts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Payments count (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={paymentsLast7Counts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Methods</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={Object.entries(paymentMethodTotals).map(([k,v],idx)=>({ value: v || 1, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][idx%5] }))} centerText={`${payments.length}`} />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1578,28 +3504,71 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Expenses</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={Object.entries(expenseCategoryTotals).map(([k,v],i)=>({ value: v, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][i%5] }))} centerText={`${Math.round(totalExpenses)}`} />
-                <Button onClick={()=>setShowAddExpense(v=>!v)}>Add expense</Button>
+                <Button onClick={()=>setShowAddExpense(true)}><Plus className="w-4 h-4 mr-1" />Add expense</Button>
               </div>
             </div>
-            {showAddExpense && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-5 bg-muted/10">
-                <Input placeholder="Title" value={newExpenseTitle} onChange={(e)=>setNewExpenseTitle(e.target.value)} />
-                <Input type="date" value={newExpenseDate} onChange={(e)=>setNewExpenseDate(e.target.value)} />
-                <Input placeholder="Category" value={newExpenseCategory} onChange={(e)=>setNewExpenseCategory(e.target.value)} />
-                <Input type="number" placeholder="Amount" value={newExpenseAmount as any} onChange={(e)=>setNewExpenseAmount(e.target.value ? Number(e.target.value) : "")} />
-                <div className="flex items-center gap-2">
-                  <Button onClick={addExpense}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddExpense(false)}>Cancel</Button>
+            <div className="p-3 border-b bg-white flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">Expenses (last 7 days)</div>
+              <MiniBarChart values={expensesLast7Amounts} />
+            </div>
+            <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add expense</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                    <Input className="sm:col-span-3" placeholder="Title" value={newExpenseTitle} onChange={(e)=>setNewExpenseTitle(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                    <Input className="sm:col-span-3" type="date" value={newExpenseDate} onChange={(e)=>setNewExpenseDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                    <Input className="sm:col-span-3" placeholder="Category" value={newExpenseCategory} onChange={(e)=>setNewExpenseCategory(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newExpenseAmount as any} onChange={(e)=>setNewExpenseAmount(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Vendor</div>
+                    <Input className="sm:col-span-3" placeholder="Vendor name" value={newExpenseVendor} onChange={(e)=>setNewExpenseVendor(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Receipt URL</div>
+                    <Input className="sm:col-span-3" placeholder="https://..." value={newExpenseReceiptUrl} onChange={(e)=>setNewExpenseReceiptUrl(e.target.value)} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Reimbursable</div>
+                      <div className="text-xs text-muted-foreground">Mark if you will reimburse this expense</div>
+                    </div>
+                    <Checkbox checked={newExpenseReimbursable} onCheckedChange={(v)=>setNewExpenseReimbursable(Boolean(v))} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional notes" value={newExpenseNotes} onChange={(e)=>setNewExpenseNotes(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addExpense}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">Title</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Reimb.</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1608,14 +3577,49 @@ export default function ProjectOverviewPage() {
                     <TableCell>{e.title || e.id}</TableCell>
                     <TableCell>{e.date || "-"}</TableCell>
                     <TableCell>{e.category || "-"}</TableCell>
+                    <TableCell>{e.vendor || "-"}</TableCell>
+                    <TableCell>{e.reimbursable ? <Badge variant="outline" className="bg-sky-50 text-sky-700 border border-sky-200">Yes</Badge> : <Badge variant="outline" className="bg-zinc-50 text-zinc-700 border border-zinc-200">No</Badge>}</TableCell>
                     <TableCell>{e.amount ?? "-"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("expense", e)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("expense", e, String(e.title || "Expense"))}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {expenses.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No expenses</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No expenses</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Amounts (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={expensesLast7Amounts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Reimbursable (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={expensesLast7ReimbursableAmounts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Reimbursable split</div>
+                    <div className="text-sm text-muted-foreground">Amount distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={expensesReimbursableSegments} centerText={`${Math.round(totalExpenses)}`} />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 
@@ -1626,29 +3630,76 @@ export default function ProjectOverviewPage() {
               <div className="text-sm font-medium text-sky-600">Contracts</div>
               <div className="flex items-center gap-3">
                 <DonutChart size={64} segments={Object.entries(contractStatusCounts).map(([k,v],i)=>({ value: v, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][i%5] }))} centerText={`${contracts.length}`} />
-                <Button onClick={()=>setShowAddContract(v=>!v)}>Add contract</Button>
+                <Button onClick={()=>setShowAddContract(true)}><Plus className="w-4 h-4 mr-1" />Add contract</Button>
               </div>
             </div>
-            {showAddContract && (
-              <div className="p-3 border-b grid gap-2 md:grid-cols-6 bg-muted/10">
-                <Input placeholder="Title" value={newContractTitle} onChange={(e)=>setNewContractTitle(e.target.value)} />
-                <Input type="number" placeholder="Amount" value={newContractAmount as any} onChange={(e)=>setNewContractAmount(e.target.value ? Number(e.target.value) : "")} />
-                <Input type="date" value={newContractDate} onChange={(e)=>setNewContractDate(e.target.value)} />
-                <Input type="date" value={newContractValidUntil} onChange={(e)=>setNewContractValidUntil(e.target.value)} />
-                <Select value={newContractStatus} onValueChange={setNewContractStatus}>
-                  <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Open">Open</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
-                  <Button onClick={addContract}>Save</Button>
-                  <Button variant="outline" onClick={()=>setShowAddContract(false)}>Cancel</Button>
+            <Dialog open={showAddContract} onOpenChange={setShowAddContract}>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>Add contract</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                    <Input className="sm:col-span-3" placeholder="Title" value={newContractTitle} onChange={(e)=>setNewContractTitle(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                    <Input className="sm:col-span-3" type="number" placeholder="0" value={newContractAmount as any} onChange={(e)=>setNewContractAmount(e.target.value ? Number(e.target.value) : "")} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Contract date</div>
+                    <Input className="sm:col-span-3" type="date" value={newContractDate} onChange={(e)=>setNewContractDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Valid until</div>
+                    <Input className="sm:col-span-3" type="date" value={newContractValidUntil} onChange={(e)=>setNewContractValidUntil(e.target.value)} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                    <Select value={newContractStatus} onValueChange={setNewContractStatus}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                    <Select value={newContractType} onValueChange={setNewContractType}>
+                      <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Type"/></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Service">Service</SelectItem>
+                        <SelectItem value="Maintenance">Maintenance</SelectItem>
+                        <SelectItem value="Subscription">Subscription</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-center">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Owner</div>
+                    <Input className="sm:col-span-3" placeholder="Contract owner" value={newContractOwner} onChange={(e)=>setNewContractOwner(e.target.value)} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="text-sm font-medium">Signed</div>
+                      <div className="text-xs text-muted-foreground">Mark if signed by both parties</div>
+                    </div>
+                    <Checkbox checked={newContractSigned} onCheckedChange={(v)=>setNewContractSigned(Boolean(v))} />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-5 items-start">
+                    <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                    <Textarea className="sm:col-span-3" placeholder="Optional notes" value={newContractNotes} onChange={(e)=>setNewContractNotes(e.target.value)} />
+                  </div>
                 </div>
-              </div>
-            )}
+                <DialogFooter>
+                  <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                  <Button onClick={addContract}>Save</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1658,6 +3709,9 @@ export default function ProjectOverviewPage() {
                   <TableHead>Contract date</TableHead>
                   <TableHead>Valid until</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Signed</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1669,16 +3723,451 @@ export default function ProjectOverviewPage() {
                     <TableCell>{c.contractDate}</TableCell>
                     <TableCell>{c.validUntil}</TableCell>
                     <TableCell>{c.status}</TableCell>
+                    <TableCell>{c.type || "-"}</TableCell>
+                    <TableCell>{c.signed ? <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border border-emerald-200">Yes</Badge> : <Badge variant="outline" className="bg-zinc-50 text-zinc-700 border border-zinc-200">No</Badge>}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon"><MoreVertical className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit("contract", c)}><Pencil className="w-4 h-4 mr-2" />Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => openDelete("contract", c, c.title)}><Trash2 className="w-4 h-4 mr-2" />Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {contracts.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No contracts</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No contracts</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
+
+            <div className="p-3 border-t bg-gradient-to-r from-sky-50/40 to-white">
+              <div className="text-sm font-medium text-sky-600">Analytics</div>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Contracts created (7d)</div>
+                  <div className="mt-1"><MiniBarChart values={contractsLast7Counts} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3">
+                  <div className="text-xs text-muted-foreground">Status counts</div>
+                  <div className="mt-1"><MiniBarChart values={Object.values(contractStatusCounts).slice(0, 7).map((v)=>Number(v)||0)} width={220} /></div>
+                </div>
+                <div className="rounded-md border bg-white p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Statuses</div>
+                    <div className="text-sm text-muted-foreground">Distribution</div>
+                  </div>
+                  <DonutChart size={72} segments={Object.entries(contractStatusCounts).map(([k,v],idx)=>({ value: v || 1, color: ['#60a5fa','#34d399','#f59e0b','#a78bfa','#f87171'][idx%5] }))} centerText={`${contracts.length}`} />
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {editKind === "note" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                  <Input className="sm:col-span-3" value={String(editFields.title || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, title: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                  <Input className="sm:col-span-3" value={String(editFields.category || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, category: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Tags</div>
+                  <Input className="sm:col-span-3" value={String(editFields.tags || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, tags: e.target.value }))} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Pinned</div>
+                    <div className="text-xs text-muted-foreground">Pinned notes appear first</div>
+                  </div>
+                  <Checkbox checked={Boolean(editFields.pinned)} onCheckedChange={(v)=>setEditFields((p:any)=>({ ...p, pinned: Boolean(v) }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Text</div>
+                  <Textarea className="sm:col-span-3 min-h-[140px]" value={String(editFields.text || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, text: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "comment" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Author</div>
+                  <Input className="sm:col-span-3" value={String(editFields.author || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, author: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                  <Input className="sm:col-span-3" value={String(editFields.kind || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, kind: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Text</div>
+                  <Textarea className="sm:col-span-3 min-h-[140px]" value={String(editFields.text || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, text: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "feedback" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Author</div>
+                  <Input className="sm:col-span-3" value={String(editFields.author || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, author: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                  <Input className="sm:col-span-3" value={String(editFields.category || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, category: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Rating</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.rating as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, rating: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Input className="sm:col-span-3" value={String(editFields.status || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, status: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Sentiment</div>
+                  <Input className="sm:col-span-3" value={String(editFields.sentiment || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, sentiment: e.target.value }))} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Follow up required</div>
+                    <div className="text-xs text-muted-foreground">Mark if follow-up is needed</div>
+                  </div>
+                  <Checkbox checked={Boolean(editFields.followUpRequired)} onCheckedChange={(v)=>setEditFields((p:any)=>({ ...p, followUpRequired: Boolean(v) }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Text</div>
+                  <Textarea className="sm:col-span-3 min-h-[140px]" value={String(editFields.text || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, text: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "file" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Name</div>
+                  <Input className="sm:col-span-3" value={String(editFields.name || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, name: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                  <Input className="sm:col-span-3" value={String(editFields.type || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, type: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Size (bytes)</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.size as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, size: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">URL</div>
+                  <Input className="sm:col-span-3" value={String(editFields.url || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, url: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Uploaded by</div>
+                  <Input className="sm:col-span-3" value={String(editFields.uploadedBy || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, uploadedBy: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Description</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.description || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, description: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "milestone" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                  <Input className="sm:col-span-3" value={String(editFields.title || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, title: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Due</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.due || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, due: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Select value={String(editFields.status || "Open")} onValueChange={(v)=>setEditFields((p:any)=>({ ...p, status: v }))}>
+                    <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Open">Open</SelectItem>
+                      <SelectItem value="Done">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : editKind === "timesheet" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.date || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, date: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">User</div>
+                  <Input className="sm:col-span-3" value={String(editFields.user || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, user: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Task</div>
+                  <Input className="sm:col-span-3" value={String(editFields.task || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, task: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Hours</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.hours as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, hours: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Rate</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.rate as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, rate: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Billable</div>
+                    <div className="text-xs text-muted-foreground">Counts toward billing</div>
+                  </div>
+                  <Checkbox checked={editFields.billable !== false} onCheckedChange={(v)=>setEditFields((p:any)=>({ ...p, billable: Boolean(v) }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.notes || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "invoice" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Number</div>
+                  <Input className="sm:col-span-3" value={String(editFields.number || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, number: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.date || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, date: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Due date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.dueDate || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, dueDate: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Input className="sm:col-span-3" value={String(editFields.status || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, status: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Currency</div>
+                  <Input className="sm:col-span-3" value={String(editFields.currency || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, currency: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Total</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.total as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, total: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Tax</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.tax as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, tax: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Discount</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.discount as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, discount: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.notes || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "payment" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.date || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, date: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Method</div>
+                  <Input className="sm:col-span-3" value={String(editFields.method || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, method: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Select value={String(editFields.status || "Received")} onValueChange={(v)=>setEditFields((p:any)=>({ ...p, status: v }))}>
+                    <SelectTrigger className="sm:col-span-3"><SelectValue placeholder="Status"/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Received">Received</SelectItem>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="Failed">Failed</SelectItem>
+                      <SelectItem value="Refunded">Refunded</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Reference</div>
+                  <Input className="sm:col-span-3" value={String(editFields.reference || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, reference: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Transaction ID</div>
+                  <Input className="sm:col-span-3" value={String(editFields.transactionId || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, transactionId: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Currency</div>
+                  <Input className="sm:col-span-3" value={String(editFields.currency || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, currency: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.amount as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, amount: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Fee</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.fee as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, fee: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Payer</div>
+                  <Input className="sm:col-span-3" value={String(editFields.payer || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, payer: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Received by</div>
+                  <Input className="sm:col-span-3" value={String(editFields.receivedBy || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, receivedBy: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Bank name</div>
+                  <Input className="sm:col-span-3" value={String(editFields.bankName || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, bankName: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Account</div>
+                  <Input className="sm:col-span-3" value={String(editFields.account || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, account: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Receipt URL</div>
+                  <Input className="sm:col-span-3" value={String(editFields.receiptUrl || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, receiptUrl: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.notes || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "expense" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                  <Input className="sm:col-span-3" value={String(editFields.title || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, title: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.date || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, date: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Category</div>
+                  <Input className="sm:col-span-3" value={String(editFields.category || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, category: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Vendor</div>
+                  <Input className="sm:col-span-3" value={String(editFields.vendor || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, vendor: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Receipt URL</div>
+                  <Input className="sm:col-span-3" value={String(editFields.receiptUrl || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, receiptUrl: e.target.value }))} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Reimbursable</div>
+                    <div className="text-xs text-muted-foreground">Mark if reimbursable</div>
+                  </div>
+                  <Checkbox checked={Boolean(editFields.reimbursable)} onCheckedChange={(v)=>setEditFields((p:any)=>({ ...p, reimbursable: Boolean(v) }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.amount as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, amount: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.notes || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "contract" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                  <Input className="sm:col-span-3" value={String(editFields.title || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, title: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Amount</div>
+                  <Input className="sm:col-span-3" type="number" value={editFields.amount as any} onChange={(e)=>setEditFields((p:any)=>({ ...p, amount: e.target.value ? Number(e.target.value) : "" }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Contract date</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.contractDate || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, contractDate: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Valid until</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.validUntil || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, validUntil: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Input className="sm:col-span-3" value={String(editFields.status || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, status: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Type</div>
+                  <Input className="sm:col-span-3" value={String(editFields.type || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, type: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Owner</div>
+                  <Input className="sm:col-span-3" value={String(editFields.owner || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, owner: e.target.value }))} />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div>
+                    <div className="text-sm font-medium">Signed</div>
+                    <div className="text-xs text-muted-foreground">Mark if signed</div>
+                  </div>
+                  <Checkbox checked={Boolean(editFields.signed)} onCheckedChange={(v)=>setEditFields((p:any)=>({ ...p, signed: Boolean(v) }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-start">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Notes</div>
+                  <Textarea className="sm:col-span-3" value={String(editFields.notes || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, notes: e.target.value }))} />
+                </div>
+              </div>
+            ) : editKind === "task" ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Title</div>
+                  <Input className="sm:col-span-3" value={String(editFields.title || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, title: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Start</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.start || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, start: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Deadline</div>
+                  <Input className="sm:col-span-3" type="date" value={String(editFields.deadline || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, deadline: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Status</div>
+                  <Input className="sm:col-span-3" value={String(editFields.status || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, status: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Priority</div>
+                  <Input className="sm:col-span-3" value={String(editFields.priority || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, priority: e.target.value }))} />
+                </div>
+                <div className="grid gap-2 sm:grid-cols-5 items-center">
+                  <div className="text-sm text-muted-foreground sm:col-span-2">Labels</div>
+                  <Input className="sm:col-span-3" value={String(editFields.labels || "")} onChange={(e)=>setEditFields((p:any)=>({ ...p, labels: e.target.value }))} />
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">Select an item to edit.</div>
+            )}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
+            <Button onClick={saveEdit}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">Are you sure you want to delete {deleteLabel}?</div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+            <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

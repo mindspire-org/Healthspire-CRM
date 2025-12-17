@@ -33,8 +33,10 @@ router.get("/", async (req, res) => {
     const q = req.query.q?.toString().trim();
     const clientId = req.query.clientId?.toString();
     const invoiceId = req.query.invoiceId?.toString();
+    const projectId = req.query.projectId?.toString();
     const filter = {};
     if (clientId) filter.clientId = clientId;
+    if (projectId) filter.projectId = projectId;
     if (invoiceId) {
       const resolved = await resolveInvoiceObjectId(invoiceId);
       if (!resolved) return res.json([]);
@@ -45,6 +47,8 @@ router.get("/", async (req, res) => {
         $or: [
           { client: { $regex: q, $options: "i" } },
           { method: { $regex: q, $options: "i" } },
+          { reference: { $regex: q, $options: "i" } },
+          { transactionId: { $regex: q, $options: "i" } },
         ],
       });
     }
@@ -59,12 +63,14 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const payload = req.body || {};
+    if (payload.notes && !payload.note) payload.note = payload.notes;
     if (payload.invoiceId) {
       const resolved = await resolveInvoiceObjectId(payload.invoiceId);
       if (!resolved) return res.status(400).json({ error: "Invalid invoiceId" });
       payload.invoiceId = resolved;
     }
     if (payload.amount != null) payload.amount = Number(payload.amount || 0);
+    if (payload.fee != null) payload.fee = Number(payload.fee || 0);
     if (payload.date) payload.date = new Date(payload.date);
     const doc = await Payment.create(payload);
     if (doc?.invoiceId) await updateInvoiceStatus(String(doc.invoiceId));
@@ -79,12 +85,14 @@ router.put("/:id", async (req, res) => {
   try {
     const existing = await Payment.findById(req.params.id).lean();
     const payload = req.body || {};
+    if (payload.notes && !payload.note) payload.note = payload.notes;
     if (payload.invoiceId) {
       const resolved = await resolveInvoiceObjectId(payload.invoiceId);
       if (!resolved) return res.status(400).json({ error: "Invalid invoiceId" });
       payload.invoiceId = resolved;
     }
     if (payload.amount != null) payload.amount = Number(payload.amount || 0);
+    if (payload.fee != null) payload.fee = Number(payload.fee || 0);
     if (payload.date) payload.date = new Date(payload.date);
     const doc = await Payment.findByIdAndUpdate(req.params.id, payload, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });

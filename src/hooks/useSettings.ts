@@ -1,0 +1,268 @@
+import { useCallback, useMemo, useState } from "react";
+
+export type Settings = {
+  general: {
+    companyName: string;
+    logoUrl: string;
+    primaryColor: string;
+    accentColor?: string;
+    secondaryColor?: string;
+    faviconUrl?: string;
+    timezone: string;
+    dateFormat: string;
+    domain?: string;
+    companyEmail?: string;
+    companyPhone?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+    brandingEnabled?: boolean;
+    loginMessage?: string;
+  };
+  localization: {
+    language: string;
+    currency: string;
+    numberFormat: string;
+    timezone: string;
+    firstDayOfWeek?: number; // 0-6
+    weekStartsOnMonday?: boolean;
+    decimalSeparator?: string;
+    thousandSeparator?: string;
+    locale?: string;
+  };
+  email: {
+    smtpHost: string;
+    smtpPort: number | "";
+    smtpUser: string;
+    smtpPass: string;
+    fromName: string;
+    fromEmail: string;
+    secure: boolean; // TLS/SSL
+    replyTo?: string;
+    defaultSignature?: string;
+    rateLimitPerMinute?: number | "";
+    testRecipient?: string;
+  };
+  emailTemplates: Record<string, { subject: string; body: string }>;
+  modules: Record<string, boolean>;
+  leftMenu: Record<string, boolean>;
+  leftMenuOptions?: {
+    compact?: boolean;
+    showBadges?: boolean;
+    collapsibleGroups?: boolean;
+  };
+  notifications: {
+    email: boolean;
+    inApp: boolean;
+    sms: boolean;
+    testEmail?: string;
+    desktop?: boolean;
+    dailyDigest?: boolean;
+    sound?: boolean;
+    digestHour?: number;
+  };
+  integration: {
+    slackWebhookUrl?: string;
+    zapierHookUrl?: string;
+    stripePublishableKey?: string;
+    googleCalendarClientId?: string;
+    googleCalendarApiKey?: string;
+    microsoftAppId?: string;
+    twilioSid?: string;
+    twilioToken?: string;
+    twilioFromPhone?: string;
+  };
+  cron: {
+    lastRunAt?: string;
+    enabled?: boolean;
+    schedule?: string; // cron expression
+  };
+  meta: {
+    version: string;
+    updatedAt: string;
+  };
+};
+
+const DEFAULTS: Settings = {
+  general: {
+    companyName: "HealthSpire",
+    logoUrl: "/HealthSpire logo image.png",
+    primaryColor: "#2563eb",
+    accentColor: "#0891b2",
+    secondaryColor: "#0ea5e9",
+    faviconUrl: "/favicon.ico",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    dateFormat: "yyyy-MM-dd",
+    domain: "healthspire.local",
+    companyEmail: "contact@healthspire.local",
+    companyPhone: "+1 (555) 010-0000",
+    addressLine1: "123 Innovation Way",
+    addressLine2: "Suite 100",
+    city: "Karachi",
+    state: "Sindh",
+    zip: "74000",
+    country: "PK",
+    brandingEnabled: true,
+    loginMessage: "Welcome to HealthSpire CRM",
+  },
+  localization: {
+    language: "en",
+    currency: "USD",
+    numberFormat: "1,234.56",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    firstDayOfWeek: 1,
+    weekStartsOnMonday: true,
+    decimalSeparator: ".",
+    thousandSeparator: ",",
+    locale: "en-US",
+  },
+  email: {
+    smtpHost: "",
+    smtpPort: "",
+    smtpUser: "",
+    smtpPass: "",
+    fromName: "HealthSpire",
+    fromEmail: "noreply@example.com",
+    secure: true,
+    replyTo: "support@example.com",
+    defaultSignature: "Regards,\nHealthSpire Team",
+    rateLimitPerMinute: 60,
+    testRecipient: "",
+  },
+  emailTemplates: {
+    welcome: { subject: "Welcome to HealthSpire", body: "Hello {{name}}, welcome!" },
+    invoice: { subject: "Invoice {{number}}", body: "Dear {{client}}, your invoice total is {{total}}." },
+    resetPassword: { subject: "Reset your password", body: "Click here to reset: {{link}}" },
+  },
+  modules: {
+    crm: true,
+    hrm: true,
+    projects: true,
+    sales: true,
+    reports: true,
+    calendar: true,
+    email: true,
+    clientPortal: true,
+    plugins: true,
+  },
+  leftMenu: {
+    dashboard: true,
+    crm: true,
+    hrm: true,
+    projects: true,
+    prospects: true,
+    sales: true,
+    reports: true,
+    tickets: true,
+    calendar: true,
+    clientPortal: true,
+    plugins: true,
+  },
+  leftMenuOptions: {
+    compact: false,
+    showBadges: true,
+    collapsibleGroups: true,
+  },
+  notifications: {
+    email: true,
+    inApp: true,
+    sms: false,
+    testEmail: "",
+    desktop: true,
+    dailyDigest: false,
+    sound: true,
+    digestHour: 9,
+  },
+  integration: {
+    slackWebhookUrl: "",
+    zapierHookUrl: "",
+    stripePublishableKey: "",
+    googleCalendarClientId: "",
+    googleCalendarApiKey: "",
+    microsoftAppId: "",
+    twilioSid: "",
+    twilioToken: "",
+    twilioFromPhone: "",
+  },
+  cron: {
+    lastRunAt: undefined,
+    enabled: true,
+    schedule: "0 9 * * *", // every day at 09:00
+  },
+  meta: {
+    version: "1.0.0",
+    updatedAt: new Date().toISOString(),
+  },
+};
+
+const KEY = "app_settings_v1";
+
+export function useSettings() {
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return DEFAULTS;
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULTS, ...parsed } as Settings;
+    } catch {
+      return DEFAULTS;
+    }
+  });
+
+  const save = useCallback((next: Partial<Settings>) => {
+    setSettings(prev => {
+      const merged: Settings = {
+        ...prev,
+        ...next,
+        meta: { ...prev.meta, updatedAt: new Date().toISOString() },
+      } as Settings;
+      localStorage.setItem(KEY, JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
+
+  const saveSection = useCallback(<K extends keyof Settings>(section: K, data: Settings[K]) => {
+    save({ [section]: data } as Partial<Settings>);
+  }, [save]);
+
+  const exportJSON = useCallback(() => {
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'settings.json'; a.click();
+    URL.revokeObjectURL(url);
+  }, [settings]);
+
+  const importJSON = useCallback(async (file: File) => {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    // Merge with defaults to ensure new fields are present
+    const merged: Settings = { ...DEFAULTS, ...parsed } as Settings;
+    setSettings(merged);
+    localStorage.setItem(KEY, JSON.stringify(merged));
+  }, []);
+
+  const resetAll = useCallback(() => {
+    setSettings(DEFAULTS);
+    localStorage.setItem(KEY, JSON.stringify(DEFAULTS));
+  }, []);
+
+  const resetSection = useCallback(<K extends keyof Settings>(section: K) => {
+    setSettings(prev => {
+      const next: Settings = {
+        ...prev,
+        [section]: DEFAULTS[section],
+        meta: { ...prev.meta, updatedAt: new Date().toISOString() },
+      } as Settings;
+      localStorage.setItem(KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const data = useMemo(() => settings, [settings]);
+
+  return { settings: data, save, saveSection, exportJSON, importJSON, resetAll, resetSection };
+}

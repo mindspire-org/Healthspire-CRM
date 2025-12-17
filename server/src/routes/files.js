@@ -12,7 +12,8 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname || "").toLowerCase();
-    cb(null, `empfile_${req.body.employeeId || Date.now()}_${Date.now()}${ext}`);
+    const owner = req.body.projectId || req.body.employeeId || "misc";
+    cb(null, `file_${owner}_${Date.now()}${ext}`);
   },
 });
 const upload = multer({ storage });
@@ -20,8 +21,10 @@ const upload = multer({ storage });
 router.get("/", async (req, res) => {
   const q = req.query.q?.toString().trim();
   const employeeId = req.query.employeeId?.toString();
+  const projectId = req.query.projectId?.toString();
   const filter = {};
   if (employeeId) filter.employeeId = employeeId;
+  if (projectId) filter.projectId = projectId;
   if (q) filter.$or = [{ name: { $regex: q, $options: "i" } }];
   const items = await File.find(filter).sort({ createdAt: -1 }).lean();
   res.json(items);
@@ -29,13 +32,20 @@ router.get("/", async (req, res) => {
 
 router.post("/", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const hasMeta = Boolean(req.body?.url || req.body?.path || req.body?.name);
+    if (!req.file && !hasMeta) return res.status(400).json({ error: "No file uploaded" });
+
     const doc = await File.create({
       employeeId: req.body.employeeId,
-      name: req.body.name || req.file.originalname || "file",
-      path: `/uploads/${req.file.filename}`,
-      size: req.file.size || 0,
-      mime: req.file.mimetype || "",
+      projectId: req.body.projectId,
+      name: req.body.name || req.file?.originalname || "file",
+      type: req.body.type || "",
+      path: req.file ? `/uploads/${req.file.filename}` : (req.body.path || ""),
+      url: req.body.url || "",
+      size: req.file ? (req.file.size || 0) : (Number(req.body.size) || 0),
+      mime: req.file ? (req.file.mimetype || "") : (req.body.mime || ""),
+      uploadedBy: req.body.uploadedBy || "",
+      description: req.body.description || "",
     });
     res.status(201).json(doc);
   } catch (e) {

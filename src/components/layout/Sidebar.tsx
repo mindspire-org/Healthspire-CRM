@@ -125,6 +125,84 @@ const navigation: NavItem[] = [
   { title: "Notes", href: "/notes", icon: StickyNote },
   { title: "Files", href: "/files", icon: Folder },
 
+  // Extra groups requested: App Settings, Access Permission, Client portal, Sales & Prospects, Setup, Plugins
+  {
+    title: "App Settings",
+    href: "/settings",
+    icon: Settings,
+    children: [
+      { title: "General", href: "/settings" },
+      { title: "Localization", href: "/settings/localization" },
+      { title: "Email", href: "/settings/email" },
+      { title: "Email templates", href: "/settings/templates" },
+      { title: "Modules", href: "/settings/modules" },
+      { title: "Left menu", href: "/settings/left-menu" },
+      { title: "Notifications", href: "/settings/notifications" },
+      { title: "Integration", href: "/settings/integration" },
+      { title: "Cron Job", href: "/settings/cron" },
+      { title: "Updates", href: "/settings/updates" },
+    ],
+  },
+  {
+    title: "Access Permission",
+    href: "/user-management",
+    icon: Shield,
+    children: [
+      { title: "Roles & Permissions", href: "/user-management/roles" },
+      { title: "Manage Users", href: "/user-management/users" },
+    ],
+  },
+  {
+    title: "Client portal",
+    href: "/client",
+    icon: Building2,
+    children: [
+      { title: "Portal Home", href: "/client" },
+      { title: "Announcements", href: "/announcements" },
+      { title: "Tickets", href: "/tickets" },
+    ],
+  },
+  {
+    title: "Sales & Prospects",
+    href: "/sales-prospects",
+    icon: Megaphone,
+    children: [
+      // Sales
+      { title: "Invoices", href: "/invoices" },
+      { title: "Orders", href: "/sales/orders" },
+      { title: "Store", href: "/sales/store" },
+      { title: "Payments", href: "/sales/payments" },
+      { title: "Expenses", href: "/sales/expenses" },
+      { title: "Items", href: "/sales/items" },
+      { title: "Contracts", href: "/sales/contracts" },
+      // Prospects
+      { title: "Estimate List", href: "/prospects/estimates" },
+      { title: "Estimate Requests", href: "/prospects/estimate-requests" },
+      { title: "Estimate Forms", href: "/prospects/estimate-forms" },
+      { title: "Proposals", href: "/prospects/proposals" },
+    ],
+  },
+  {
+    title: "Setup",
+    href: "/setup",
+    icon: CheckSquare,
+    children: [
+      { title: "Departments", href: "/hrm/departments" },
+      { title: "Help Categories", href: "/help-support/categories" },
+      { title: "KB Categories", href: "/help-support/knowledge-base/categories" },
+    ],
+  },
+  {
+    title: "Plugins",
+    href: "/plugins",
+    icon: Activity,
+    children: [
+      { title: "Email", href: "/email" },
+      { title: "Video Calls", href: "/calls" },
+      { title: "Calendar", href: "/calendar" },
+    ],
+  },
+
   // User Management just above Settings
   {
     title: "User Management",

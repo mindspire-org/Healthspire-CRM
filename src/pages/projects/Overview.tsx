@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -36,6 +36,7 @@ export default function Overview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [query, setQuery] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
+  const [openLabels, setOpenLabels] = useState(false);
   // form state
   const [title, setTitle] = useState("");
   const [projectType, setProjectType] = useState("Client Project");
@@ -53,6 +54,8 @@ export default function Overview() {
   const [startFrom, setStartFrom] = useState("");
   const [deadlineTo, setDeadlineTo] = useState("");
   const [labelOptions, setLabelOptions] = useState<string[]>([]);
+  const [labelDraft, setLabelDraft] = useState<string[]>([]);
+  const [newLabel, setNewLabel] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -104,6 +107,12 @@ export default function Overview() {
       if (Array.isArray(ls)) setLabelOptions(ls.filter((x: any) => typeof x === "string" && x.trim()).map((x: string) => x.trim()));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!openLabels) return;
+    setLabelDraft(labelOptions);
+    setNewLabel("");
+  }, [openLabels, labelOptions]);
 
   const saveProject = async (keepOpen: boolean) => {
     if (!title.trim()) return;
@@ -196,14 +205,15 @@ export default function Overview() {
   }, [rows, query, statusFilter, labelFilter, startFrom, deadlineTo]);
 
   const manageLabels = () => {
-    const current = labelOptions.join(", ");
-    const val = window.prompt("Enter labels separated by commas", current);
-    if (val !== null) {
-      const arr = val.split(",").map(x=>x.trim()).filter(Boolean);
-      setLabelOptions(arr);
-      localStorage.setItem("project_labels", JSON.stringify(arr));
-      toast.success("Labels updated");
-    }
+    setOpenLabels(true);
+  };
+
+  const saveLabels = () => {
+    const arr = labelDraft.map((x) => String(x || "").trim()).filter(Boolean);
+    setLabelOptions(arr);
+    localStorage.setItem("project_labels", JSON.stringify(arr));
+    toast.success("Labels updated");
+    setOpenLabels(false);
   };
 
   const resetFilters = () => {
@@ -311,6 +321,47 @@ export default function Overview() {
         <h1 className="text-2xl font-bold font-display">Projects</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={manageLabels}><Tags className="w-4 h-4 mr-2"/>Manage labels</Button>
+          <Dialog open={openLabels} onOpenChange={setOpenLabels}>
+            <DialogContent className="bg-card sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Manage labels</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input placeholder="New label" value={newLabel} onChange={(e)=>setNewLabel(e.target.value)} />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const v = newLabel.trim();
+                      if (!v) return;
+                      setLabelDraft((prev) => [v, ...prev]);
+                      setNewLabel("");
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {labelDraft.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No labels yet.</div>
+                  ) : (
+                    labelDraft.map((l, idx) => (
+                      <div key={`${l}-${idx}`} className="flex items-center gap-2">
+                        <Input value={l} onChange={(e)=>setLabelDraft((prev)=> prev.map((x,i)=> i===idx ? e.target.value : x))} />
+                        <Button variant="outline" onClick={()=>setLabelDraft((prev)=> prev.filter((_,i)=> i!==idx))}>Remove</Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Close</Button>
+                </DialogClose>
+                <Button onClick={saveLabels}>Save</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={onImportFile} />
           <Button variant="outline" onClick={triggerImport}><Upload className="w-4 h-4 mr-2"/>Import projects</Button>
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
@@ -454,8 +505,11 @@ export default function Overview() {
                 <TableCell>{r.start}</TableCell>
                 <TableCell className={new Date(r.due) < new Date(r.start) ? "text-destructive font-medium" : ""}>{r.due}</TableCell>
                 <TableCell className="min-w-[120px]">
-                  <div className="h-2 bg-muted/50 rounded">
-                    <div className="h-2 rounded bg-muted" style={{ width: `${r.progress}%` }} />
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 bg-muted/50 rounded flex-1">
+                      <div className="h-2 rounded bg-muted" style={{ width: `${r.progress}%` }} />
+                    </div>
+                    <div className="text-xs text-muted-foreground w-10 text-right">{r.progress}%</div>
                   </div>
                 </TableCell>
                 <TableCell>
