@@ -6,9 +6,16 @@ const router = Router();
 router.get("/", async (req, res) => {
   try {
     const leadId = req.query.leadId?.toString().trim();
-    if (!leadId) return res.status(400).json({ error: "leadId is required" });
+    const invoiceId = req.query.invoiceId?.toString().trim();
+    const estimateId = req.query.estimateId?.toString().trim();
+    if (!leadId && !invoiceId && !estimateId) return res.status(400).json({ error: "leadId, invoiceId, or estimateId is required" });
 
-    const items = await Reminder.find({ leadId }).sort({ dueAt: 1, createdAt: -1 }).lean();
+    const filter = {};
+    if (leadId) filter.leadId = leadId;
+    if (invoiceId) filter.invoiceId = invoiceId;
+    if (estimateId) filter.estimateId = estimateId;
+
+    const items = await Reminder.find(filter).sort({ dueAt: 1, createdAt: -1 }).lean();
     res.json(items);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -17,14 +24,16 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const leadId = req.body?.leadId?.toString?.() ?? "";
-    if (!leadId) return res.status(400).json({ error: "leadId is required" });
+    const leadId = (req.body?.leadId?.toString?.() ?? "").trim();
+    const invoiceId = (req.body?.invoiceId?.toString?.() ?? "").trim();
+    const estimateId = (req.body?.estimateId?.toString?.() ?? "").trim();
+    if (!leadId && !invoiceId && !estimateId) return res.status(400).json({ error: "leadId, invoiceId, or estimateId is required" });
 
     const title = (req.body?.title ?? "").toString();
     const repeat = Boolean(req.body?.repeat);
     const dueAt = req.body?.dueAt ? new Date(req.body.dueAt) : undefined;
 
-    const doc = await Reminder.create({ leadId, title, repeat, dueAt });
+    const doc = await Reminder.create({ leadId: leadId || undefined, invoiceId: invoiceId || undefined, estimateId: estimateId || undefined, title, repeat, dueAt });
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

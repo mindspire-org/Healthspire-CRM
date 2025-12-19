@@ -1,7 +1,32 @@
 import express from "express";
 import Estimate from "../models/Estimate.js";
+import multer from "multer";
+import path from "path";
 
 const router = express.Router();
+
+// Minimal upload handler for estimate attachments (PDF share)
+const uploadDir = path.join(process.cwd(), "uploads");
+const storage = multer.diskStorage({
+  destination: function (_req, _file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (_req, file, cb) {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    cb(null, `estfile_${Date.now()}${ext}`);
+  },
+});
+const upload = multer({ storage });
+
+// Upload estimate attachment
+router.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file" });
+    res.status(201).json({ name: req.file.originalname || "file", path: `/uploads/${req.file.filename}` });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
 // List estimates with optional search and status
 router.get("/", async (req, res) => {

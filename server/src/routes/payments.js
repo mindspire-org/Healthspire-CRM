@@ -53,7 +53,28 @@ router.get("/", async (req, res) => {
       });
     }
     const items = await Payment.find(filter).sort({ createdAt: -1 }).lean();
-    res.json(items);
+
+    const invoiceObjectIds = Array.from(
+      new Set(
+        (items || [])
+          .map((p) => (p?.invoiceId != null ? String(p.invoiceId) : ""))
+          .filter((v) => mongoose.Types.ObjectId.isValid(v))
+      )
+    );
+    const invoices = invoiceObjectIds.length
+      ? await Invoice.find({ _id: { $in: invoiceObjectIds } }).select({ _id: 1, number: 1 }).lean()
+      : [];
+    const invoiceById = new Map((invoices || []).map((i) => [String(i._id), String(i.number || "")]));
+
+    const enriched = (items || []).map((p) => {
+      const raw = p?.invoiceId != null ? String(p.invoiceId) : "";
+      const isObj = mongoose.Types.ObjectId.isValid(raw);
+      const invoiceNumber = isObj ? (invoiceById.get(raw) || "") : raw;
+      const invoiceObjectId = isObj ? raw : "";
+      return { ...p, invoiceNumber, invoiceObjectId };
+    });
+
+    res.json(enriched);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

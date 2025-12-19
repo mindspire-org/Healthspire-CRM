@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Download, Printer, FileText, Copy, Mail, MessageCircle } from "lucide-react";
 
 const API_BASE = "http://localhost:5000";
 
@@ -21,6 +21,22 @@ export default function EstimateDetail() {
   const [items, setItems] = useState<any[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [openInfo, setOpenInfo] = useState(false);
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [openReminder, setOpenReminder] = useState(false);
+  const [remTitle, setRemTitle] = useState("");
+  const [remDueAt, setRemDueAt] = useState("");
+  const [remRepeat, setRemRepeat] = useState(false);
+  const [reminderEditingId, setReminderEditingId] = useState("");
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [infoName, setInfoName] = useState("");
+  const [infoAddress, setInfoAddress] = useState("");
+  const [infoPhone, setInfoPhone] = useState("");
+  const [infoEmail, setInfoEmail] = useState("");
+  const [infoWebsite, setInfoWebsite] = useState("");
+  const [infoTaxId, setInfoTaxId] = useState("");
+  const [infoLogo, setInfoLogo] = useState("");
+  const [paymentInfo, setPaymentInfo] = useState("");
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
   const [quantity, setQuantity] = useState<string>("1");
@@ -38,6 +54,16 @@ export default function EstimateDetail() {
   const handleSigError = () => {
     const idx = signatureCandidates.indexOf(sigSrc);
     if (idx < signatureCandidates.length - 1) setSigSrc(signatureCandidates[idx + 1]);
+  };
+
+  const deleteEstimate = async () => {
+    if (!confirm("Delete this estimate?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/estimates/${id}`, { method: "DELETE" });
+      if (!res.ok) return toast.error("Failed to delete estimate");
+      toast.success("Estimate deleted");
+      navigate("/prospects/estimates");
+    } catch {}
   };
   // edit fields
   const [eClient, setEClient] = useState("");
@@ -60,6 +86,77 @@ export default function EstimateDetail() {
     })();
   }, [id]);
 
+  const estimateDbId = useMemo(() => String(row?._id || ""), [row?._id]);
+
+  const loadReminders = async () => {
+    if (!estimateDbId) return;
+    try {
+      const r = await fetch(`${API_BASE}/api/reminders?estimateId=${encodeURIComponent(estimateDbId)}`);
+      if (r.ok) setReminders(await r.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!estimateDbId) return;
+    loadReminders();
+  }, [estimateDbId]);
+
+  const openAddReminder = () => {
+    setReminderEditingId("");
+    setRemTitle("");
+    setRemDueAt("");
+    setRemRepeat(false);
+    setOpenReminder(true);
+  };
+
+  const openEditReminder = (r: any) => {
+    setReminderEditingId(r?._id || "");
+    setRemTitle(r?.title || "");
+    setRemDueAt(r?.dueAt ? new Date(r.dueAt).toISOString().slice(0, 10) : "");
+    setRemRepeat(Boolean(r?.repeat));
+    setOpenReminder(true);
+  };
+
+  const handleSaveReminder = async () => {
+    if (!estimateDbId) return;
+    try {
+      const payload = {
+        estimateId: estimateDbId,
+        title: remTitle,
+        dueAt: remDueAt ? new Date(remDueAt) : undefined,
+        repeat: remRepeat,
+      };
+      const method = reminderEditingId ? "PUT" : "POST";
+      const url = reminderEditingId ? `${API_BASE}/api/reminders/${reminderEditingId}` : `${API_BASE}/api/reminders`;
+      const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (r.ok) {
+        setOpenReminder(false);
+        await loadReminders();
+      }
+    } catch {}
+  };
+
+  const handleDeleteReminder = async (rid: string) => {
+    if (!confirm("Delete this reminder?")) return;
+    try {
+      await fetch(`${API_BASE}/api/reminders/${rid}`, { method: "DELETE" });
+      setReminders(reminders.filter((r) => r._id !== rid));
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!row) return;
+    const b = row?.branding || {};
+    setInfoName(b.name || "HealthSpire");
+    setInfoAddress(b.address || "761/D2 Shah Jelani Rd Township Lahore");
+    setInfoPhone(b.phone || "+92 312 7231875");
+    setInfoEmail(b.email || "info@healthspire.org");
+    setInfoWebsite(b.website || "www.healthspire.org");
+    setInfoTaxId(b.taxId || "");
+    setInfoLogo(b.logo || "/HealthSpire%20logo.png");
+    setPaymentInfo(row?.paymentInfo || "");
+  }, [row]);
+
   // auto-print if ?print=1
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -73,16 +170,66 @@ export default function EstimateDetail() {
   const tax2Amount = useMemo(() => Math.round((Number(row?.tax2||0)/100) * subTotal), [subTotal, row]);
   const grandTotal = subTotal + taxAmount + tax2Amount;
 
-  const addItem = async () => {
-    const q = Number(quantity||0);
-    const r = Number(rate||0);
-    const newItem = { item: itemName || "Item", description: description || undefined, quantity: q, unit: unitType || undefined, rate: r, total: q*r } as any;
+  const saveItems = async (nextItems: any[]) => {
     try {
-      const res = await fetch(`${API_BASE}/api/estimates/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ $push: { items: newItem } }) as any });
-      // fallback update: fetch and merge
-      setItems(prev => [newItem, ...prev]);
-      setAddOpen(false); setItemName(""); setDescription(""); setQuantity("1"); setUnitType(""); setRate("0");
+      const amount = (nextItems || []).reduce((a: number, it: any) => a + Number(it.total || (Number(it.quantity||0) * Number(it.rate||0))), 0);
+      const res = await fetch(`${API_BASE}/api/estimates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: nextItems, amount }),
+      });
+      if (!res.ok) return toast.error("Failed to save items");
+      const d = await res.json();
+      setRow(d);
+      setItems(Array.isArray(d.items) ? d.items : nextItems);
     } catch {}
+  };
+
+  const addItem = async () => {
+    const q = Number(quantity || 0);
+    const r = Number(rate || 0);
+    const nextItem = {
+      item: itemName || "Item",
+      description: description || undefined,
+      quantity: q,
+      unit: unitType || undefined,
+      rate: r,
+      total: q * r,
+    } as any;
+
+    const next = [...(items || [])];
+    if (editingItemIndex == null) {
+      next.unshift(nextItem);
+    } else {
+      next[editingItemIndex] = nextItem;
+    }
+    await saveItems(next);
+    setAddOpen(false);
+    setEditingItemIndex(null);
+    setItemName(""); setDescription(""); setQuantity("1"); setUnitType(""); setRate("0");
+  };
+
+  const openAddItem = () => {
+    setEditingItemIndex(null);
+    setItemName(""); setDescription(""); setQuantity("1"); setUnitType(""); setRate("0");
+    setAddOpen(true);
+  };
+
+  const openEditItem = (idx: number) => {
+    const it = (items || [])[idx] || {};
+    setEditingItemIndex(idx);
+    setItemName(it.item || "");
+    setDescription(it.description || "");
+    setQuantity(String(it.quantity ?? 1));
+    setUnitType(it.unit || "");
+    setRate(String(it.rate ?? 0));
+    setAddOpen(true);
+  };
+
+  const deleteItem = async (idx: number) => {
+    if (!confirm("Delete this item?")) return;
+    const next = (items || []).filter((_: any, i: number) => i !== idx);
+    await saveItems(next);
   };
 
   const patchStatus = async (status: string) => {
@@ -108,6 +255,47 @@ export default function EstimateDetail() {
     } catch {}
   };
 
+  const openEditInfo = () => {
+    if (!row) return;
+    const b = row?.branding || {};
+    setInfoName(b.name || "HealthSpire");
+    setInfoAddress(b.address || "761/D2 Shah Jelani Rd Township Lahore");
+    setInfoPhone(b.phone || "+92 312 7231875");
+    setInfoEmail(b.email || "info@healthspire.org");
+    setInfoWebsite(b.website || "www.healthspire.org");
+    setInfoTaxId(b.taxId || "");
+    setInfoLogo(b.logo || "/HealthSpire%20logo.png");
+    setPaymentInfo(row?.paymentInfo || "");
+    setOpenInfo(true);
+  };
+
+  const saveEstimateInfo = async () => {
+    try {
+      const payload = {
+        branding: {
+          name: infoName,
+          address: infoAddress,
+          phone: infoPhone,
+          email: infoEmail,
+          website: infoWebsite,
+          taxId: infoTaxId,
+          logo: infoLogo,
+        },
+        paymentInfo,
+      };
+      const res = await fetch(`${API_BASE}/api/estimates/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return toast.error("Failed to save estimate info");
+      const d = await res.json();
+      setRow(d);
+      setOpenInfo(false);
+      toast.success("Estimate info updated");
+    } catch {}
+  };
+
   // status ribbon style for document overlay
   const statusText = (row?.status && String(row.status)) || "Draft";
   const statusStyle = useMemo(() => {
@@ -125,16 +313,52 @@ export default function EstimateDetail() {
   }, [statusText]);
 
   const openPreview = () => {
-    window.open(`/prospects/estimates/${id}`, "_blank");
+    window.open(`/prospects/estimates/${id}/preview`, "_blank", "noopener,noreferrer");
   };
 
-  const viewPdf = () => {
-    window.open(`/prospects/estimates/${id}?print=1`, "_blank");
+  const openPrintWindow = (mode: "print" | "pdf") => {
+    const url = `${window.location.origin}/prospects/estimates/${id}/preview?print=1&mode=${mode}`;
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (w) w.focus();
   };
 
-  const downloadPdf = () => {
-    // Uses browser's print-to-PDF in a new tab. User can choose Save as PDF.
-    window.open(`/prospects/estimates/${id}?print=1`, "_blank");
+  const sendToLead = async () => {
+    try {
+      const leadId = String(row?.leadId || "");
+      if (!leadId) return toast.error("No lead linked to this estimate");
+      const res = await fetch(`${API_BASE}/api/leads/${encodeURIComponent(leadId)}`);
+      const lead = await res.json().catch(() => null);
+      if (!res.ok) return toast.error(lead?.error || "Failed to load lead");
+      const email = String(lead?.email || "").trim();
+      if (!email) return toast.error("Lead email not found");
+
+      const sp = new URLSearchParams();
+      sp.set("share", "1");
+      sp.set("channel", "email");
+      sp.set("to", email);
+      const url = `/prospects/estimates/${id}/preview?${sp.toString()}`;
+      const w = window.open(url, "_blank", "noopener,noreferrer");
+      if (w) w.focus();
+    } catch {
+      toast.error("Failed to open email");
+    }
+  };
+
+  const openShareEstimate = async (channel: "email" | "whatsapp") => {
+    try {
+      const sp = new URLSearchParams();
+      sp.set("share", "1");
+      sp.set("channel", channel);
+      const url = `${window.location.origin}/prospects/estimates/${id}/preview?${sp.toString()}`;
+      // Must open synchronously to avoid popup blockers.
+      const w = window.open(url, "_blank", "noopener,noreferrer");
+      if (w) {
+        try { w.focus(); } catch {}
+      } else {
+        // Popup blocked: fall back to same-tab navigation.
+        window.location.href = url;
+      }
+    } catch {}
   };
 
   const editDialogOpen = () => {
@@ -198,30 +422,36 @@ export default function EstimateDetail() {
         }
       `}</style>
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Estimate: {row?.number || "-"}</h1>
+        <h1 className="text-lg font-semibold">INVOICE ESTIMATE: {row?.number || "-"}</h1>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="outline">Actions <ChevronDown className="w-4 h-4 ml-2"/></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={downloadPdf}>Download PDF</DropdownMenuItem>
-            <DropdownMenuItem onClick={viewPdf}>View PDF</DropdownMenuItem>
-            <DropdownMenuItem onClick={openPreview}>Estimate Preview</DropdownMenuItem>
-            <DropdownMenuItem onClick={()=>navigator.clipboard?.writeText(window.location.href).then(()=>toast.success("URL copied"))}>Estimate URL</DropdownMenuItem>
-            <DropdownMenuItem onClick={()=>window.print()}>Print estimate</DropdownMenuItem>
+            <DropdownMenuItem onClick={openPreview}><FileText className="w-4 h-4 mr-2"/>Preview</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPrintWindow("pdf")}><Download className="w-4 h-4 mr-2"/>Download PDF</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPrintWindow("print")}><Printer className="w-4 h-4 mr-2"/>Print</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openShareEstimate("email")}><Mail className="w-4 h-4 mr-2"/>Email (auto PDF link)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openShareEstimate("whatsapp")}><MessageCircle className="w-4 h-4 mr-2"/>WhatsApp (auto PDF link)</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/prospects/estimates/${id}/preview`).then(() => toast.success("URL copied"))}><Copy className="w-4 h-4 mr-2"/>Copy URL</DropdownMenuItem>
+            <DropdownMenuItem onClick={openEditInfo}>Edit estimate info</DropdownMenuItem>
             <DropdownMenuItem onClick={editDialogOpen}>Edit estimate</DropdownMenuItem>
             <DropdownMenuItem onClick={cloneEstimate}>Clone Estimate</DropdownMenuItem>
+            <DropdownMenuItem onClick={deleteEstimate} className="text-red-600 focus:text-red-600">Delete estimate</DropdownMenuItem>
             <DropdownMenuItem onClick={()=>patchStatus("Accepted")}>Mark as Accepted</DropdownMenuItem>
             <DropdownMenuItem onClick={()=>patchStatus("Declined")}>Mark as Declined</DropdownMenuItem>
             <DropdownMenuItem onClick={()=>patchStatus("Sent")}>Send to client</DropdownMenuItem>
+            <DropdownMenuItem onClick={sendToLead}><Mail className="w-4 h-4 mr-2"/>Send to lead</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
-      <Tabs defaultValue="details">
+      <Tabs defaultValue="preview">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+          <TabsTrigger value="details">Edit</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          <TabsTrigger value="reminders">Reminders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="grid gap-4 lg:grid-cols-3">
@@ -235,7 +465,7 @@ export default function EstimateDetail() {
               </div>
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <img src="/HealthSpire%20logo%20image.png" alt="HealthSpire" style={{ height: 56 }} />
+                  <img src="/HealthSpire%20logo.png" alt="HealthSpire" style={{ height: 56 }} />
                   <div>
                     <div className="font-semibold">HealthSpire</div>
                     <div className="text-sm text-muted-foreground">Gujranwala, Pakistan</div>
@@ -284,16 +514,26 @@ export default function EstimateDetail() {
                             ) : null}
                           </TableCell>
                           <TableCell>{it.quantity}</TableCell>
-                          <TableCell>Rs.{Number(it.rate||0).toLocaleString()}</TableCell>
-                          <TableCell>Rs.{Number(it.total||0).toLocaleString()}</TableCell>
+                          <TableCell>Rs.{Number(it.rate || 0).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>Rs.{Number(it.total || 0).toLocaleString()}</div>
+                              <div className="flex items-center gap-2 print-hidden">
+                                <Button size="sm" variant="outline" onClick={() => openEditItem(idx)}>Edit</Button>
+                                <Button size="sm" variant="destructive" onClick={() => deleteItem(idx)}>Delete</Button>
+                              </div>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
+
                 <div className="mt-3 print-hidden">
-                  <Button variant="outline" size="sm" onClick={()=>setAddOpen(true)}>+ Add item</Button>
+                  <Button variant="outline" size="sm" onClick={openAddItem}>+ Add item</Button>
                 </div>
+
                 <div className="mt-4">
                   <div className="ml-auto w-full sm:w-80">
                     <div className="flex items-center justify-between py-1">
@@ -301,11 +541,11 @@ export default function EstimateDetail() {
                       <div>Rs.{subTotal.toLocaleString()}</div>
                     </div>
                     <div className="flex items-center justify-between py-1">
-                      <div className="text-muted-foreground">Tax ({row?.tax||0}%)</div>
+                      <div className="text-muted-foreground">Tax ({row?.tax || 0}%)</div>
                       <div>Rs.{taxAmount.toLocaleString()}</div>
                     </div>
                     <div className="flex items-center justify-between py-1">
-                      <div className="text-muted-foreground">Tax ({row?.tax2||0}%)</div>
+                      <div className="text-muted-foreground">Tax ({row?.tax2 || 0}%)</div>
                       <div>Rs.{tax2Amount.toLocaleString()}</div>
                     </div>
                     <div className="mt-1 border rounded overflow-hidden text-sm">
@@ -319,30 +559,7 @@ export default function EstimateDetail() {
               </div>
             </Card>
 
-            {/* Payment section - matches provided footer */}
-            <Card className="p-0 overflow-hidden shadow-none border-none rounded-none">
-              <div className="p-6 grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-6 text-sm">
-                <div>
-                  <div className="uppercase tracking-wide text-[11px] mb-2 inline-block text-gray-700 px-2 py-[2px] rounded" style={{ backgroundColor: '#E5E7EB' }}>Payment Method</div>
-                  <div>Account No: 09040155845522</div>
-                  <div>Account Name: Qutabiah Talat</div>
-                  <div>Bank Name : Meezan Bank Pakistan</div>
-                </div>
-                <div>
-                  <div className="uppercase tracking-wide text-[11px] mb-2 inline-block text-gray-700 px-2 py-[2px] rounded" style={{ backgroundColor: '#E5E7EB' }}>Payment Method</div>
-                  <div>Paypal: ahmedmehmood554@gmail.com</div>
-                  <div>Payoneer: qutabiahtalat313@gmail.com</div>
-                </div>
-                <div className="relative flex flex-col items-end justify-end min-h-[92px]">
-                  <img src={sigSrc} onError={handleSigError} alt="Authorised Signature" className="h-10 object-contain absolute right-0 bottom-8" style={{ mixBlendMode: 'multiply' }} />
-                  <div className="inline-block bg-purple-600 text-white text-[11px] px-3 py-1 rounded absolute right-0 bottom-0">Authorised Sign</div>
-                </div>
-              </div>
-              <div className="relative h-4 w-full">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-700 to-fuchsia-500" />
-                <div className="absolute left-1/2 -translate-x-1/2 -top-[6px] w-12 h-4 bg-gradient-to-r from-purple-700 to-fuchsia-500 rotate-[-10deg]" />
-              </div>
-            </Card>
+            <div />
           </div>
 
           <div className="space-y-4">
@@ -353,11 +570,71 @@ export default function EstimateDetail() {
               <div><Badge variant={row?.status === 'Accepted' ? 'secondary' : 'outline'}>{row?.status || 'Draft'}</Badge></div>
               <div className="mt-4 text-sm text-muted-foreground">Last email sent:</div>
               <div className="text-sm">Never</div>
-              <div className="mt-4 text-sm text-muted-foreground">Reminders (Private):</div>
-              <Button variant="link" size="sm">+ Add reminder</Button>
-              <div className="text-sm text-muted-foreground">No record found.</div>
+              <div className="mt-4 text-sm text-muted-foreground">Reminders (Private)</div>
+              <div className="mt-2 space-y-2">
+                {reminders.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No reminders.</div>
+                ) : (
+                  reminders.map((r) => (
+                    <div key={r._id} className="rounded border bg-muted/20 p-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{r.title || "(No title)"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.dueAt ? new Date(r.dueAt).toISOString().slice(0, 10) : "No due date"}{r.repeat ? " • Repeat" : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEditReminder(r)}>Edit</Button>
+                          <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => handleDeleteReminder(r._id)}>Del</Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <Button size="sm" variant="ghost" onClick={openAddReminder} className="px-2 py-1 mt-2 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">+ Add reminder</Button>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="preview">
+          <Card className="p-2">
+            <iframe
+              title="Estimate Preview"
+              src={`/prospects/estimates/${id}/preview`}
+              className="w-full h-[80vh] border-0 rounded"
+            />
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reminders">
+          <Card className="p-4">
+            <div className="text-sm text-muted-foreground mb-2">Reminders (Private)</div>
+            <div className="space-y-2">
+              {reminders.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No reminders.</div>
+              ) : (
+                reminders.map((r) => (
+                  <div key={r._id} className="rounded border bg-muted/20 p-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate">{r.title || "(No title)"}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.dueAt ? new Date(r.dueAt).toISOString().slice(0, 10) : "No due date"}{r.repeat ? " • Repeat" : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEditReminder(r)}>Edit</Button>
+                        <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => handleDeleteReminder(r._id)}>Del</Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={openAddReminder} className="px-2 py-1 mt-3 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">+ Add reminder</Button>
+          </Card>
         </TabsContent>
 
         <TabsContent value="tasks">
@@ -420,6 +697,61 @@ export default function EstimateDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={()=>setEditOpen(false)}>Close</Button>
             <Button onClick={saveEdit}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openInfo} onOpenChange={setOpenInfo}>
+        <DialogContent className="bg-card max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit estimate info</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-12">
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Company name</div>
+            <div className="sm:col-span-9"><Input value={infoName} onChange={(e)=>setInfoName(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Address</div>
+            <div className="sm:col-span-9"><Input value={infoAddress} onChange={(e)=>setInfoAddress(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Phone</div>
+            <div className="sm:col-span-9"><Input value={infoPhone} onChange={(e)=>setInfoPhone(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Email</div>
+            <div className="sm:col-span-9"><Input value={infoEmail} onChange={(e)=>setInfoEmail(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Website</div>
+            <div className="sm:col-span-9"><Input value={infoWebsite} onChange={(e)=>setInfoWebsite(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Tax ID</div>
+            <div className="sm:col-span-9"><Input value={infoTaxId} onChange={(e)=>setInfoTaxId(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Logo URL</div>
+            <div className="sm:col-span-9"><Input value={infoLogo} onChange={(e)=>setInfoLogo(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Payment information</div>
+            <div className="sm:col-span-9"><Textarea rows={8} value={paymentInfo} onChange={(e)=>setPaymentInfo(e.target.value)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenInfo(false)}>Close</Button>
+            <Button onClick={saveEstimateInfo}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openReminder} onOpenChange={setOpenReminder}>
+        <DialogContent className="bg-card max-w-md" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>{reminderEditingId ? "Edit reminder" : "Add reminder"}</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            <div><Input placeholder="Title" value={remTitle} onChange={(e)=>setRemTitle(e.target.value)} /></div>
+            <div><Input type="date" value={remDueAt} onChange={(e)=>setRemDueAt(e.target.value)} /></div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={remRepeat} onChange={(e)=>setRemRepeat(e.target.checked)} />
+              <span className="text-sm">Repeat</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenReminder(false)}>Close</Button>
+            <Button onClick={handleSaveReminder}>{reminderEditingId ? "Update" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

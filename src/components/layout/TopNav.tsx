@@ -25,13 +25,7 @@ const notifications = [
 
 export function TopNav({ onMenuClick }: TopNavProps) {
   const logoCandidates = [
-    "/HealthSpire logo image.png",
-    "/HealthSpire logo.png",
-    "/healthspire-logo.png",
-    "/healthspire-logo.svg",
-    "/healthspire.png",
-    "/logo.png",
-    "/logo.svg",
+    "/HealthSpire%20logo.png",
   ];
   const [logoSrc, setLogoSrc] = useState<string>(logoCandidates[0]);
   const onLogoError = () => {
@@ -122,11 +116,13 @@ export function TopNav({ onMenuClick }: TopNavProps) {
         {/* User Menu + Brand */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full w-9 h-9">
-              <Avatar className="w-8 h-8">
-                <AvatarImage src={logoSrc} onError={onLogoError} alt="HealthSpire" className="object-contain bg-white p-0.5" />
-                <AvatarFallback className="bg-gradient-to-br from-primary to-indigo text-primary-foreground text-xs font-semibold">HS</AvatarFallback>
-              </Avatar>
+            <Button variant="ghost" className="h-10 px-7">
+              <img
+                src={logoSrc}
+                onError={onLogoError}
+                alt="HealthSpire"
+                className="h-12 w-auto object-contain"
+              />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-card">
@@ -144,7 +140,6 @@ export function TopNav({ onMenuClick }: TopNavProps) {
             <DropdownMenuItem onSelect={(e)=>{e.preventDefault(); handleSignOut();}} className="text-destructive">Sign Out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <span className="hidden sm:inline text-sm text-muted-foreground">HealthSpire</span>
       </div>
     </header>
   );

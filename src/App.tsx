@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import Events from "./pages/events/Events";
@@ -68,11 +68,30 @@ import Chat from "./pages/messages/Chat";
 import InvoiceList from "./pages/invoices/InvoiceList";
 import InvoiceDetailPage from "./pages/invoices/InvoiceDetailPage";
 import InvoicePreview from "./pages/invoices/InvoicePreview";
+import EstimatePreview from "./pages/prospects/EstimatePreview";
 import NotFound from "./pages/NotFound";
 import SettingsPage from "./pages/settings/Settings";
 import AuthLayout from "./pages/auth/AuthLayout";
 
 const queryClient = new QueryClient();
+
+const InvoicePreviewAccess = () => {
+  const hasToken = Boolean(localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token"));
+  const location = useLocation();
+  const sp = new URLSearchParams(location.search || "");
+  const isPrintMode = sp.get("print") === "1";
+  const isPdfMode = sp.get("mode") === "pdf";
+  return hasToken || isPrintMode || isPdfMode ? <InvoicePreview /> : <Navigate to="/auth" replace />;
+};
+
+const EstimatePreviewAccess = () => {
+  const hasToken = Boolean(localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token"));
+  const location = useLocation();
+  const sp = new URLSearchParams(location.search || "");
+  const isPrintMode = sp.get("print") === "1";
+  const isPdfMode = sp.get("mode") === "pdf";
+  return hasToken || isPrintMode || isPdfMode ? <EstimatePreview /> : <Navigate to="/auth" replace />;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -83,6 +102,12 @@ const App = () => (
         <Routes>
           {/* Public auth route */}
           <Route path="/auth" element={<AuthLayout />} />
+
+          {/* Public/print-safe invoice preview */}
+          <Route path="/invoices/:id/preview" element={<InvoicePreviewAccess />} />
+
+          {/* Public/print-safe estimate preview */}
+          <Route path="/prospects/estimates/:id/preview" element={<EstimatePreviewAccess />} />
 
           {/* Protected app */}
           <Route
@@ -157,7 +182,6 @@ const App = () => (
             {/* Invoices */}
             <Route path="/invoices" element={<InvoiceList />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
-            <Route path="/invoices/:id/preview" element={<InvoicePreview />} />
             {/* Reports */}
             <Route path="/reports" element={<InvoicesSummary />} />
             <Route path="/reports/sales/invoices-summary" element={<InvoicesSummary />} />

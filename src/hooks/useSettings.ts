@@ -89,7 +89,7 @@ export type Settings = {
 const DEFAULTS: Settings = {
   general: {
     companyName: "HealthSpire",
-    logoUrl: "/HealthSpire logo image.png",
+    logoUrl: "/HealthSpire%20logo.png",
     primaryColor: "#2563eb",
     accentColor: "#0891b2",
     secondaryColor: "#0ea5e9",

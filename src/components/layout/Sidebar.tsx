@@ -262,9 +262,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border bg-sidebar">
         <div className="flex items-center gap-3">
           {collapsed ? (
-            <img src="/HealthSpire logo.png" alt="HealthSpire" className="h-12 w-12 rounded-lg object-contain" />
+            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-12 rounded-lg object-contain" />
           ) : (
-            <img src="/HealthSpire logo image.png" alt="HealthSpire" className="h-12 w-auto max-w-[300px] object-contain" />
+            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-auto max-w-[300px] object-contain" />
           )}
         </div>
         <Button

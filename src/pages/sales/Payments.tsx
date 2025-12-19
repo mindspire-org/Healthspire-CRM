@@ -22,7 +22,9 @@ interface Invoice {
 
 interface Payment {
   _id: string;
-  invoiceId?: string;
+  invoiceId?: any;
+  invoiceNumber?: string;
+  invoiceObjectId?: string;
   clientId?: string;
   client?: string;
   amount?: number;
@@ -30,6 +32,21 @@ interface Payment {
   date?: string;
   note?: string;
 }
+
+const getPaymentInvoiceMeta = (p: Payment) => {
+  if ((p as any)?.invoiceObjectId || (p as any)?.invoiceNumber) {
+    return {
+      invoiceObjectId: String((p as any).invoiceObjectId || ""),
+      invoiceNumber: String((p as any).invoiceNumber || ""),
+    };
+  }
+  const raw = (p as any)?.invoiceId;
+  if (!raw) return { invoiceObjectId: "", invoiceNumber: "" };
+  if (typeof raw === "object") {
+    return { invoiceObjectId: String(raw._id || ""), invoiceNumber: String(raw.number || "") };
+  }
+  return { invoiceObjectId: String(raw), invoiceNumber: "" };
+};
 
 const fmtDate = (d?: string) => {
   if (!d) return "-";
@@ -126,8 +143,9 @@ export default function Payments() {
       return;
     }
     const rows = payments.map((p) => {
-      const inv = p.invoiceId ? invoiceById.get(String(p.invoiceId)) : undefined;
-      const invoiceNumber = inv?.number || p.invoiceId || "";
+      const meta = getPaymentInvoiceMeta(p);
+      const inv = meta.invoiceObjectId ? invoiceById.get(String(meta.invoiceObjectId)) : undefined;
+      const invoiceNumber = meta.invoiceNumber || inv?.number || meta.invoiceObjectId || "";
       const client = p.client || inv?.client || "";
       return {
         invoice: invoiceNumber,
@@ -166,8 +184,9 @@ export default function Payments() {
 
     const rowsHtml = payments
       .map((p) => {
-        const inv = p.invoiceId ? invoiceById.get(String(p.invoiceId)) : undefined;
-        const invoiceNumber = inv?.number || p.invoiceId || "-";
+        const meta = getPaymentInvoiceMeta(p);
+        const inv = meta.invoiceObjectId ? invoiceById.get(String(meta.invoiceObjectId)) : undefined;
+        const invoiceNumber = meta.invoiceNumber || inv?.number || meta.invoiceObjectId || "-";
         const client = p.client || inv?.client || "-";
         const date = fmtDate(p.date);
         const method = p.method || "-";
@@ -416,10 +435,15 @@ export default function Payments() {
                           <TableCell
                             className="text-primary underline cursor-pointer"
                             onClick={() => {
-                              if (p.invoiceId) navigate(`/invoices/${p.invoiceId}`);
+                              const meta = getPaymentInvoiceMeta(p);
+                              if (meta.invoiceObjectId) navigate(`/invoices/${meta.invoiceObjectId}`);
                             }}
                           >
-                            {p.invoiceId ? (invoiceById.get(String(p.invoiceId))?.number || p.invoiceId) : "-"}
+                            {(() => {
+                              const meta = getPaymentInvoiceMeta(p);
+                              const inv = meta.invoiceObjectId ? invoiceById.get(String(meta.invoiceObjectId)) : undefined;
+                              return meta.invoiceNumber || inv?.number || meta.invoiceObjectId || "-";
+                            })()}
                           </TableCell>
                           <TableCell>{fmtDate(p.date)}</TableCell>
                           <TableCell>{p.method || "-"}</TableCell>

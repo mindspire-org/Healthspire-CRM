@@ -33,7 +33,7 @@ export default function OrderDetailPage() {
     email: "info@healthspire.org",
     website: "www.healthspire.org",
     address: "761/D2 Shah Jelani Rd Township Lahore",
-    logo: "/healthspire-logo.png",
+    logo: "/HealthSpire%20logo.png",
   };
 
   useEffect(() => {

@@ -95,6 +95,16 @@ export default function EstimateList() {
     } catch {}
   };
 
+  const deleteEstimate = async (estimateId: string) => {
+    if (!confirm("Delete this estimate?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/estimates/${estimateId}`, { method: "DELETE" });
+      if (!res.ok) return toast.error("Failed to delete estimate");
+      setRows((prev) => prev.filter((r) => r.id !== estimateId));
+      toast.success("Estimate deleted");
+    } catch {}
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -212,12 +222,13 @@ export default function EstimateList() {
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Advanced Amount</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">No record found.</TableCell>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">No record found.</TableCell>
                 </TableRow>
               ) : (
                 <>
@@ -229,6 +240,32 @@ export default function EstimateList() {
                       <TableCell>Rs.{r.amount.toLocaleString()}</TableCell>
                       <TableCell><Badge variant={r.status === "Accepted" ? "secondary" : "outline"}>{r.status}</Badge></TableCell>
                       <TableCell className="text-right">{r.advancedAmount}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/prospects/estimates/${r.id}`);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteEstimate(r.id);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </>

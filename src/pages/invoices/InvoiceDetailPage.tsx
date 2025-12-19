@@ -10,10 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MoreHorizontal, Plus, FileText, DollarSign, CheckSquare, Mail, Printer, Download, Copy } from "lucide-react";
+import { MoreHorizontal, Plus, FileText, DollarSign, CheckSquare, Mail, Printer, Download, Copy, MessageCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const API_BASE = "http://localhost:5000";
+
+const DEFAULT_PAYMENT_INFO = `A/c Title: Health Spire Pvt LTd
+Bank No: 3130301000008524
+IBAN: PK81FAYS3130301000008524
+Faysal Bank Bahria Orchard
+Branch Code 3139.
+
+A/c Title: Health Spire Pvt LTd
+Bank No: 02220113618930
+IBAN: PK86MEZN0002220113618930
+Meezan Bank College
+Road Branch Lahore Code 0222`;
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -24,15 +36,30 @@ export default function InvoiceDetailPage() {
     email: "info@healthspire.org",
     website: "www.healthspire.org",
     address: "764D2 Shah Jelani Rd Township Lahore",
-    logo: "/healthspire-logo.png",
+    logo: "/HealthSpire%20logo.png",
   };
   const [inv, setInv] = useState<any | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [reminders, setReminders] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [openInfo, setOpenInfo] = useState(false);
+  const [infoName, setInfoName] = useState("");
+  const [infoAddress, setInfoAddress] = useState("");
+  const [infoPhone, setInfoPhone] = useState("");
+  const [infoEmail, setInfoEmail] = useState("");
+  const [infoWebsite, setInfoWebsite] = useState("");
+  const [infoTaxId, setInfoTaxId] = useState("");
+  const [infoLogo, setInfoLogo] = useState("");
+  const [paymentInfo, setPaymentInfo] = useState("");
   const [openPay, setOpenPay] = useState(false);
   const [openTask, setOpenTask] = useState(false);
   const [openItem, setOpenItem] = useState(false);
+  const [openReminder, setOpenReminder] = useState(false);
+  const [remTitle, setRemTitle] = useState("");
+  const [remDueAt, setRemDueAt] = useState("");
+  const [remRepeat, setRemRepeat] = useState(false);
+  const [reminderEditingId, setReminderEditingId] = useState("");
   const [payAmount, setPayAmount] = useState("");
   const [payMethod, setPayMethod] = useState("Bank Transfer");
   const [payDate, setPayDate] = useState(() => new Date().toISOString().slice(0,10));
@@ -52,6 +79,7 @@ export default function InvoiceDetailPage() {
   const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const [itemQuery, setItemQuery] = useState("");
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const invoiceDbId = useMemo(() => String(inv?._id || ""), [inv?._id]);
 
   const itemCatalog = useMemo(() => ([
     { title:"POS", desc:"", unit:"", rate:0 },
@@ -70,12 +98,16 @@ export default function InvoiceDetailPage() {
     if (!id) return;
     (async () => {
       try {
-        const [invRes, payRes, taskRes] = await Promise.all([
-          fetch(`${API_BASE}/api/invoices/${id}`),
-          fetch(`${API_BASE}/api/payments?invoiceId=${id}`),
-          fetch(`${API_BASE}/api/tasks?invoiceId=${id}`)
+        const invRes = await fetch(`${API_BASE}/api/invoices/${id}`);
+        if (!invRes.ok) return;
+        const invRow = await invRes.json();
+        setInv(invRow);
+
+        const invId = String(invRow?._id || "");
+        const [payRes, taskRes] = await Promise.all([
+          fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invId)}`),
+          fetch(`${API_BASE}/api/tasks?invoiceId=${encodeURIComponent(invId)}`),
         ]);
-        if (invRes.ok) setInv(await invRes.json());
         if (payRes.ok) setPayments(await payRes.json());
         if (taskRes.ok) setTasks(await taskRes.json());
       } catch {}
@@ -83,7 +115,31 @@ export default function InvoiceDetailPage() {
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        if (!invoiceDbId) return;
+        const r = await fetch(`${API_BASE}/api/reminders?invoiceId=${encodeURIComponent(invoiceDbId)}`);
+        if (r.ok) setReminders(await r.json());
+      } catch {}
+    })();
+  }, [id, invoiceDbId]);
+
+  useEffect(() => {
     if (inv) setItems(Array.isArray(inv.items) ? inv.items : []);
+  }, [inv]);
+
+  useEffect(() => {
+    if (!inv) return;
+    const b = inv?.branding || {};
+    setInfoName(b.name || brand.name);
+    setInfoAddress(b.address || brand.address);
+    setInfoPhone(b.phone || brand.phone);
+    setInfoEmail(b.email || brand.email);
+    setInfoWebsite(b.website || brand.website);
+    setInfoTaxId(b.taxId || "");
+    setInfoLogo(b.logo || brand.logo);
+    setPaymentInfo((inv?.paymentInfo || "").trim() ? inv.paymentInfo : DEFAULT_PAYMENT_INFO);
   }, [inv]);
 
   const formatClient = (c: any) => {
@@ -108,6 +164,47 @@ export default function InvoiceDetailPage() {
       setItems(nextItems);
       setInv({ ...(inv||{}), items: nextItems, amount });
     }
+  };
+
+  const openEditInfo = () => {
+    const b = inv?.branding || {};
+    setInfoName(b.name || brand.name);
+    setInfoAddress(b.address || brand.address);
+    setInfoPhone(b.phone || brand.phone);
+    setInfoEmail(b.email || brand.email);
+    setInfoWebsite(b.website || brand.website);
+    setInfoTaxId(b.taxId || "");
+    setInfoLogo(b.logo || brand.logo);
+    setPaymentInfo((inv?.paymentInfo || "").trim() ? inv.paymentInfo : DEFAULT_PAYMENT_INFO);
+    setOpenInfo(true);
+  };
+
+  const saveInvoiceInfo = async () => {
+    if (!inv?._id) return;
+    try {
+      const payload = {
+        branding: {
+          name: infoName,
+          address: infoAddress,
+          phone: infoPhone,
+          email: infoEmail,
+          website: infoWebsite,
+          taxId: infoTaxId,
+          logo: infoLogo,
+        },
+        paymentInfo,
+      };
+      const r = await fetch(`${API_BASE}/api/invoices/${inv._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (r.ok) {
+        const updated = await r.json();
+        setInv(updated);
+        setOpenInfo(false);
+      }
+    } catch {}
   };
 
   const openAddItem = () => {
@@ -147,15 +244,15 @@ export default function InvoiceDetailPage() {
     await saveItems(next);
   };
 
-  const handleSavePayment = async () => {
+  const savePayment = async () => {
     try {
-      const payload = {
-        invoiceId: inv?._id,
+      const payload: any = {
+        invoiceId: invoiceDbId || id,
         clientId: inv?.clientId,
-        client: inv?.client,
-        amount: Number(payAmount) || 0,
+        client: formatClient(inv?.client),
+        amount: Number(payAmount || 0),
         method: payMethod,
-        date: payDate ? new Date(payDate) : undefined,
+        date: payDate ? new Date(payDate) : new Date(),
         note: payNote,
       };
       const method = paymentEditingId ? "PUT" : "POST";
@@ -166,7 +263,7 @@ export default function InvoiceDetailPage() {
         setPaymentEditingId("");
         setOpenPay(false);
         // reload payments
-        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${id}`);
+        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invoiceDbId || id || "")}`);
         if (pRes.ok) setPayments(await pRes.json());
       }
     } catch {}
@@ -204,7 +301,7 @@ export default function InvoiceDetailPage() {
         setTaskEditingId("");
         setOpenTask(false);
         // reload tasks
-        const tRes = await fetch(`${API_BASE}/api/tasks?invoiceId=${id}`);
+        const tRes = await fetch(`${API_BASE}/api/tasks?invoiceId=${encodeURIComponent(invoiceDbId || id || "")}`);
         if (tRes.ok) setTasks(await tRes.json());
       }
     } catch {}
@@ -225,7 +322,91 @@ export default function InvoiceDetailPage() {
     setOpenTask(true);
   };
 
+  const openAddReminder = () => {
+    setReminderEditingId("");
+    setRemTitle("");
+    setRemDueAt("");
+    setRemRepeat(false);
+    setOpenReminder(true);
+  };
+
+  const openEditReminder = (r: any) => {
+    setReminderEditingId(r?._id || "");
+    setRemTitle(r?.title || "");
+    setRemDueAt(r?.dueAt ? new Date(r.dueAt).toISOString().slice(0, 10) : "");
+    setRemRepeat(Boolean(r?.repeat));
+    setOpenReminder(true);
+  };
+
+  const loadReminders = async () => {
+    if (!invoiceDbId) return;
+    const r = await fetch(`${API_BASE}/api/reminders?invoiceId=${encodeURIComponent(invoiceDbId)}`);
+    if (r.ok) setReminders(await r.json());
+  };
+
+  const handleSaveReminder = async () => {
+    if (!invoiceDbId) return;
+    try {
+      const payload = {
+        invoiceId: invoiceDbId,
+        title: remTitle,
+        dueAt: remDueAt ? new Date(remDueAt) : undefined,
+        repeat: remRepeat,
+      };
+      const method = reminderEditingId ? "PUT" : "POST";
+      const url = reminderEditingId ? `${API_BASE}/api/reminders/${reminderEditingId}` : `${API_BASE}/api/reminders`;
+      const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (r.ok) {
+        setOpenReminder(false);
+        await loadReminders();
+      }
+    } catch {}
+  };
+
+  const handleDeleteReminder = async (rid: string) => {
+    if (!confirm("Delete this reminder?")) return;
+    await fetch(`${API_BASE}/api/reminders/${rid}`, { method: "DELETE" });
+    setReminders(reminders.filter((r) => r._id !== rid));
+  };
+
+  const openPrintWindow = (mode: "print" | "pdf") => {
+    if (!id) return;
+    const url =
+      mode === "print"
+        ? `${window.location.origin}/invoices/${id}/preview?print=1&mode=print`
+        : `${window.location.origin}/invoices/${id}/preview?mode=pdf`;
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (w) w.focus();
+  };
+
+  const openShareWindow = async (channel: "email" | "whatsapp") => {
+    try {
+      const sp = new URLSearchParams();
+      sp.set("share", "1");
+      sp.set("channel", channel);
+      const url = `${window.location.origin}/invoices/${id}/preview?${sp.toString()}`;
+      // Must open synchronously to avoid popup blockers.
+      const w = window.open(url, "_blank", "noopener,noreferrer");
+      if (w) {
+        try { w.focus(); } catch {}
+      } else {
+        // Popup blocked: fall back to same-tab navigation.
+        window.location.href = url;
+      }
+    } catch {}
+  };
+
   if (!inv) return <div className="p-4">Loading…</div>;
+
+  const viewBrand = {
+    name: inv?.branding?.name || brand.name,
+    phone: inv?.branding?.phone || brand.phone,
+    email: inv?.branding?.email || brand.email,
+    website: inv?.branding?.website || brand.website,
+    address: inv?.branding?.address || brand.address,
+    taxId: inv?.branding?.taxId || "",
+    logo: inv?.branding?.logo || brand.logo,
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -239,8 +420,11 @@ export default function InvoiceDetailPage() {
             <DropdownMenuTrigger asChild><Button variant="outline" size="sm">Actions</Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => navigate(`/invoices/${id}/preview`)}><FileText className="w-4 h-4 mr-2"/>Preview</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.open(`/invoices/${id}/preview?print=1`, "_blank")!}><Download className="w-4 h-4 mr-2"/>Download PDF</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => window.open(`/invoices/${id}/preview?print=1`, "_blank")!}><Printer className="w-4 h-4 mr-2"/>Print</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openPrintWindow("pdf")}><Download className="w-4 h-4 mr-2"/>Download PDF</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openPrintWindow("print")}><Printer className="w-4 h-4 mr-2"/>Print</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openShareWindow("email")}><Mail className="w-4 h-4 mr-2"/>Email (auto PDF link)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openShareWindow("whatsapp")}><MessageCircle className="w-4 h-4 mr-2"/>WhatsApp (auto PDF link)</DropdownMenuItem>
+              <DropdownMenuItem onClick={openEditInfo}><MoreHorizontal className="w-4 h-4 mr-2"/>Edit invoice info</DropdownMenuItem>
               <DropdownMenuItem onClick={async () => { await fetch(`${API_BASE}/api/invoices/${id}`, { method: "PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ status: "Unpaid" }) }); setInv(inv ? { ...inv, status: "Unpaid" } : inv);} }>Mark as Not paid</DropdownMenuItem>
               <DropdownMenuItem onClick={async () => {
                 if (!inv) return;
@@ -268,12 +452,12 @@ export default function InvoiceDetailPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    <img src={brand.logo} alt="HealthSpire" className="h-10 w-auto" />
+                    <img src={viewBrand.logo} alt="HealthSpire" className="h-14 w-auto" />
                     <div className="text-sm">
-                      <div className="font-semibold">{brand.name}</div>
-                      <div className="text-muted-foreground">{brand.address}</div>
-                      <div className="text-muted-foreground">Email: {brand.email}</div>
-                      <div className="text-muted-foreground">Website: {brand.website}</div>
+                      <div className="font-semibold">{viewBrand.name}</div>
+                      <div className="text-muted-foreground">{viewBrand.address}</div>
+                      <div className="text-muted-foreground">Email: {viewBrand.email}</div>
+                      <div className="text-muted-foreground">Website: {viewBrand.website}</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -350,7 +534,32 @@ export default function InvoiceDetailPage() {
                 <div className="mb-4"><div className="text-muted-foreground">Project</div><div className="font-medium">{inv.project || "-"}</div></div>
                 <div className="mb-4"><div className="text-muted-foreground">Status</div><div><Badge variant={inv.status === "Paid" ? "success" : inv.status === "Partially paid" ? "secondary" : "destructive"}>{inv.status || "Unpaid"}</Badge></div></div>
                 <div className="mb-4"><div className="text-muted-foreground">Last email sent</div><div className="font-medium">Never</div></div>
-                <div className="mb-4"><div className="text-muted-foreground">Reminders (Private)</div><Button size="sm" variant="ghost" className="px-2 py-1 mt-1 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">+ Add reminder</Button></div>
+                <div className="mb-4">
+                  <div className="text-muted-foreground">Reminders (Private)</div>
+                  <div className="mt-2 space-y-2">
+                    {reminders.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">No reminders.</div>
+                    ) : (
+                      reminders.map((r) => (
+                        <div key={r._id} className="rounded border bg-muted/20 p-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">{r.title || "(No title)"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {r.dueAt ? new Date(r.dueAt).toISOString().slice(0, 10) : "No due date"}{r.repeat ? " • Repeat" : ""}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => openEditReminder(r)}>Edit</Button>
+                              <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => handleDeleteReminder(r._id)}>Del</Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={openAddReminder} className="px-2 py-1 mt-2 rounded bg-purple-50 text-purple-700 hover:bg-purple-100">+ Add reminder</Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -443,6 +652,43 @@ export default function InvoiceDetailPage() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={openInfo} onOpenChange={setOpenInfo}>
+        <DialogContent className="bg-card max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit invoice info</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-12">
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Company name</div>
+            <div className="sm:col-span-9"><Input value={infoName} onChange={(e)=>setInfoName(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Address</div>
+            <div className="sm:col-span-9"><Input value={infoAddress} onChange={(e)=>setInfoAddress(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Phone</div>
+            <div className="sm:col-span-9"><Input value={infoPhone} onChange={(e)=>setInfoPhone(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Email</div>
+            <div className="sm:col-span-9"><Input value={infoEmail} onChange={(e)=>setInfoEmail(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Website</div>
+            <div className="sm:col-span-9"><Input value={infoWebsite} onChange={(e)=>setInfoWebsite(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Tax ID</div>
+            <div className="sm:col-span-9"><Input value={infoTaxId} onChange={(e)=>setInfoTaxId(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Logo URL</div>
+            <div className="sm:col-span-9"><Input value={infoLogo} onChange={(e)=>setInfoLogo(e.target.value)} /></div>
+
+            <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Payment information</div>
+            <div className="sm:col-span-9"><Textarea rows={8} value={paymentInfo} onChange={(e)=>setPaymentInfo(e.target.value)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenInfo(false)}>Close</Button>
+            <Button onClick={saveInvoiceInfo}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add/Edit Payment Dialog */}
       <Dialog open={openPay} onOpenChange={setOpenPay}>
         <DialogContent className="bg-card max-w-md" aria-describedby={undefined}>
@@ -464,7 +710,7 @@ export default function InvoiceDetailPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenPay(false)}>Close</Button>
-            <Button onClick={handleSavePayment}>{paymentEditingId ? "Update" : "Save"}</Button>
+            <Button onClick={savePayment}>{paymentEditingId ? "Update" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -556,6 +802,24 @@ export default function InvoiceDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={()=>setOpenItem(false)}>Close</Button>
             <Button onClick={saveItem}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openReminder} onOpenChange={setOpenReminder}>
+        <DialogContent className="bg-card max-w-md" aria-describedby={undefined}>
+          <DialogHeader><DialogTitle>{reminderEditingId ? "Edit reminder" : "Add reminder"}</DialogTitle></DialogHeader>
+          <div className="grid gap-3">
+            <div><Input placeholder="Title" value={remTitle} onChange={(e)=>setRemTitle(e.target.value)} /></div>
+            <div><Input type="date" value={remDueAt} onChange={(e)=>setRemDueAt(e.target.value)} /></div>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={remRepeat} onCheckedChange={(v)=>setRemRepeat(Boolean(v))} />
+              <span className="text-sm">Repeat</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenReminder(false)}>Close</Button>
+            <Button onClick={handleSaveReminder}>{reminderEditingId ? "Update" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

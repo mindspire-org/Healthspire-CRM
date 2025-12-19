@@ -4,7 +4,7 @@ import ClientSignup from "./ClientSignup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AuthLayout() {
-  const logoCandidates = ["/HealthSpire logo image.png", "/HealthSpire logo.png", "/healthspire-logo.svg", "/healthspire-logo.png", "/logo.svg"]; 
+  const logoCandidates = ["/HealthSpire%20logo.png"]; 
   const [logoSrc, setLogoSrc] = useState(logoCandidates[0]);
   const onLogoError = () => { const i = logoCandidates.indexOf(logoSrc); if (i < logoCandidates.length - 1) setLogoSrc(logoCandidates[i+1]); };
   const heroCandidates = ["/CRM login.png", "/crm-login.jpg", "/login.png", "/login.jpg", "/auth.png", "/auth.jpg"]; 

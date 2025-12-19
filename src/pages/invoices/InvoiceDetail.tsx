@@ -59,7 +59,7 @@ export default function InvoiceDetail() {
       <div className="grid lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2 p-6">
           <div className="flex items-start gap-4">
-            <img src="/HealthSpire logo.png" alt="HealthSpire" className="h-12"/>
+            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-16"/>
             <div className="text-sm text-muted-foreground">HealthSpire</div>
             <div className="ml-auto">
               <Badge>{idText}</Badge>

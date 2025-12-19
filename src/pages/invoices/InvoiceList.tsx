@@ -65,6 +65,10 @@ export default function InvoiceList() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const [rows, setRows] = useState<ListInvoice[]>([]);
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterCurrency, setFilterCurrency] = useState<string>("all");
+  const [datePreset, setDatePreset] = useState<string>("all");
   const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
   const [projectOptions, setProjectOptions] = useState<{ id: string; title: string; clientId?: string }[]>([]);
   const [clientSel, setClientSel] = useState("");
@@ -75,9 +79,9 @@ export default function InvoiceList() {
   const [editingInvoiceNum, setEditingInvoiceNum] = useState<string>("");
   const [billDate, setBillDate] = useState<string>(() => new Date().toISOString().slice(0,10));
   const [dueDate, setDueDate] = useState<string>("");
-  const [tax1Sel, setTax1Sel] = useState<string>("10");
-  const [tax2Sel, setTax2Sel] = useState<string>("10");
-  const [tdsSel, setTdsSel] = useState<string>("10");
+  const [tax1Sel, setTax1Sel] = useState<string>("0");
+  const [tax2Sel, setTax2Sel] = useState<string>("0");
+  const [tdsSel, setTdsSel] = useState<string>("0");
   const [note, setNote] = useState<string>("");
   const [labels, setLabels] = useState<string>("");
   const [advanceAmount, setAdvanceAmount] = useState<string>("");
@@ -152,9 +156,9 @@ export default function InvoiceList() {
       setDueDate(inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0,10) : "");
       if (inv.clientId) setClientSel(String(inv.clientId));
       if (inv.projectId) setProjectSel(String(inv.projectId));
-      setTax1Sel(String(inv.tax1 ?? "10"));
-      setTax2Sel(String(inv.tax2 ?? "10"));
-      setTdsSel(String(inv.tds ?? "10"));
+      setTax1Sel(String(inv.tax1 ?? "0"));
+      setTax2Sel(String(inv.tax2 ?? "0"));
+      setTdsSel(String(inv.tds ?? "0"));
       setNote(inv.note || "");
       setLabels(inv.labels || "");
       setAdvanceAmount(inv.advanceAmount != null ? String(inv.advanceAmount) : "");
@@ -220,21 +224,68 @@ export default function InvoiceList() {
         if (pRes.ok) {
           const pData = await pRes.json();
           const pOpts: { id: string; title: string; clientId?: string }[] = (Array.isArray(pData) ? pData : [])
-            .map((p: any) => ({ id: String(p._id || ""), title: (p.title || "-"), clientId: p.clientId ? String(p.clientId) : undefined }))
-            .filter((p: any) => p.id && p.title);
+            .map((p: any) => {
+              const id = String(p._id || p.id || "");
+              const title = String(p.title || p.name || p.projectName || p.project || "Untitled");
+              const clientId = p.clientId ? String(p.clientId) : (p.client?._id ? String(p.client._id) : undefined);
+              return { id, title, clientId };
+            })
+            .filter((p: any) => p.id);
           setProjectOptions(pOpts);
         }
       } catch {}
     })();
   }, []);
 
+  const displayRows = useMemo(() => {
+    const parseISO = (s: string) => {
+      const t = Date.parse(String(s || ""));
+      return Number.isFinite(t) ? new Date(t) : null;
+    };
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+    let start: Date | null = null;
+    let end: Date | null = null;
+    if (datePreset === "monthly") {
+      start = startOfMonth;
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    } else if (datePreset === "yearly") {
+      start = startOfYear;
+      end = new Date(now.getFullYear() + 1, 0, 1);
+    } else if (datePreset === "dec-2025") {
+      start = new Date(2025, 11, 1);
+      end = new Date(2026, 0, 1);
+    }
+
+    return (rows || []).filter((r) => {
+      if (filterType !== "all") {
+        // Current module only lists invoices; keep a future-proof filter.
+        if (filterType === "recurring") return false;
+      }
+      if (filterStatus !== "all" && String(r.status) !== String(filterStatus)) return false;
+      if (filterCurrency !== "all") {
+        // Current invoices are PKR-only in UI.
+        if (filterCurrency !== "PKR") return false;
+      }
+      if (start || end) {
+        const d = parseISO(r.billDate);
+        if (!d) return false;
+        if (start && d < start) return false;
+        if (end && d >= end) return false;
+      }
+      return true;
+    });
+  }, [rows, filterType, filterStatus, filterCurrency, datePreset]);
+
   const totals = useMemo(() => {
     const parse = (s: string) => Number(String(s || "0").replace(/[^0-9.-]/g, "")) || 0;
-    const invoiced = rows.reduce((sum, r) => sum + parse(r.totalInvoiced), 0);
-    const received = rows.reduce((sum, r) => sum + parse(r.paymentReceived), 0);
-    const due = rows.reduce((sum, r) => sum + parse(r.due), 0);
+    const invoiced = displayRows.reduce((sum, r) => sum + parse(r.totalInvoiced), 0);
+    const received = displayRows.reduce((sum, r) => sum + parse(r.paymentReceived), 0);
+    const due = displayRows.reduce((sum, r) => sum + parse(r.due), 0);
     return { invoiced, received, due };
-  }, [rows]);
+  }, [displayRows]);
 
   const getClientName = (val: any) => {
     if (!val) return "-";
@@ -414,7 +465,9 @@ export default function InvoiceList() {
                     <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
                     <SelectContent>
                       {(() => {
-                        const list = clientSel ? projectOptions.filter(p => p.clientId === clientSel) : projectOptions;
+                        const list = clientSel
+                          ? projectOptions.filter(p => !p.clientId || p.clientId === clientSel)
+                          : projectOptions;
                         if (list.length === 0) return <SelectItem value="__no_projects__" disabled>No projects</SelectItem>;
                         return list.map((p) => (
                           <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
@@ -426,32 +479,17 @@ export default function InvoiceList() {
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">TAX</div>
                 <div className="sm:col-span-9">
-                  <Select value={tax1Sel} onValueChange={setTax1Sel}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input type="number" min={0} step="0.01" value={tax1Sel} onChange={(e)=>setTax1Sel(e.target.value)} placeholder="0" />
                 </div>
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Second TAX</div>
                 <div className="sm:col-span-9">
-                  <Select value={tax2Sel} onValueChange={setTax2Sel}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input type="number" min={0} step="0.01" value={tax2Sel} onChange={(e)=>setTax2Sel(e.target.value)} placeholder="0" />
                 </div>
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">TDS</div>
                 <div className="sm:col-span-9">
-                  <Select value={tdsSel} onValueChange={setTdsSel}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input type="number" min={0} step="0.01" value={tdsSel} onChange={(e)=>setTdsSel(e.target.value)} placeholder="0" />
                 </div>
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground flex items-center gap-1">Recurring <HelpCircle className="w-3 h-3 text-muted-foreground"/></div>
@@ -498,7 +536,7 @@ export default function InvoiceList() {
                         if (r.ok) {
                           setOpenAdd(false);
                           // reset form
-                          setDueDate(""); setTax1Sel("10"); setTax2Sel("10"); setTdsSel("10"); setNote(""); setLabels(""); setAdvanceAmount("");
+                          setDueDate(""); setTax1Sel("0"); setTax2Sel("0"); setTdsSel("0"); setNote(""); setLabels(""); setAdvanceAmount("");
                           setIsEditing(false); setEditingInvoiceId(""); setEditingInvoiceNum("");
                           await loadInvoices();
                         }
@@ -538,14 +576,10 @@ export default function InvoiceList() {
                 <Button variant="outline" onClick={()=>setOpenPay(false)}>Close</Button>
                 <Button onClick={async ()=>{
                   try {
-                    if (!payInvoiceNum) return;
-                    const invRes = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(payInvoiceNum)}`);
-                    if (!invRes.ok) return;
-                    const inv = await invRes.json();
+                    if (!payInvoiceId) return;
                     const payload:any = {
-                      invoiceId: inv._id,
-                      clientId: inv.clientId,
-                      client: inv.client,
+                      invoiceId: payInvoiceId,
+                      clientId: (rows || []).find((r) => String(r.dbId) === String(payInvoiceId))?.client || undefined,
                       amount: payAmount ? Number(payAmount) : 0,
                       method: payMethod,
                       date: payDate ? new Date(payDate) : undefined,
@@ -616,34 +650,40 @@ export default function InvoiceList() {
           <div className="flex items-center justify-between">
             {/* Toolbar */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Select>
+              <Select value={filterType} onValueChange={setFilterType}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="- Type -"/></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="-">- Type -</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="invoice">Invoice</SelectItem>
+                  <SelectItem value="recurring">Recurring</SelectItem>
                 </SelectContent>
               </Select>
-              <Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="- Status -"/></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="-">- Status -</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="Paid">Paid</SelectItem>
+                  <SelectItem value="Partially paid">Partially paid</SelectItem>
+                  <SelectItem value="Unpaid">Unpaid</SelectItem>
                 </SelectContent>
               </Select>
-              <Select>
+              <Select value={filterCurrency} onValueChange={setFilterCurrency}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="- Currency -"/></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="-">- Currency -</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="PKR">PKR</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline">Monthly</Button>
-              <Button variant="outline">Yearly</Button>
-              <Button variant="outline">Custom</Button>
-              <Button variant="outline">Dynamic</Button>
-              <Button variant="outline">December 2025</Button>
-              <Button variant="success" size="sm">↻</Button>
+              <Button variant="outline" onClick={() => setDatePreset("monthly")}>Monthly</Button>
+              <Button variant="outline" onClick={() => setDatePreset("yearly")}>Yearly</Button>
+              <Button variant="outline" onClick={() => setDatePreset("all")}>Custom</Button>
+              <Button variant="outline" onClick={() => setDatePreset("all")}>Dynamic</Button>
+              <Button variant="outline" onClick={() => setDatePreset("dec-2025")}>December 2025</Button>
+              <Button variant="success" size="sm" onClick={loadInvoices}>↻</Button>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">Excel</Button>
-              <Button variant="outline" size="sm">Print</Button>
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>Excel</Button>
+              <Button variant="outline" size="sm" onClick={handlePrintInvoices}>Print</Button>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input placeholder="Search" value={query} onChange={(e)=>setQuery(e.target.value)} className="pl-9 w-56" />
@@ -672,7 +712,7 @@ export default function InvoiceList() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {rows.map((r)=> (
+                      {displayRows.map((r)=> (
                         <TableRow key={r.id}>
                           <TableCell className="text-primary underline cursor-pointer" onClick={()=>navigate(`/invoices/${encodeURIComponent(r.id.split('#')[1] || '1')}`)}>{r.id}</TableCell>
                           <TableCell>{getClientName(r.client)}</TableCell>
