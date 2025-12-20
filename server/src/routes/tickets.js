@@ -84,6 +84,43 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+router.post("/:id/merge", async (req, res) => {
+  try {
+    const sourceId = req.body?.sourceId?.toString();
+    if (!sourceId) return res.status(400).json({ error: "sourceId is required" });
+    if (sourceId === req.params.id) return res.status(400).json({ error: "Cannot merge into same ticket" });
+
+    const target = await Ticket.findById(req.params.id);
+    const source = await Ticket.findById(sourceId);
+    if (!target || !source) return res.status(404).json({ error: "Not found" });
+
+    const targetLabels = Array.isArray(target.labels) ? target.labels : [];
+    const sourceLabels = Array.isArray(source.labels) ? source.labels : [];
+    const labels = Array.from(new Set([...targetLabels, ...sourceLabels]));
+
+    const targetMsgs = Array.isArray(target.messages) ? target.messages : [];
+    const sourceMsgs = Array.isArray(source.messages) ? source.messages : [];
+    const messages = [...targetMsgs, ...sourceMsgs].sort((a, b) => {
+      const at = new Date(a?.createdAt || 0).getTime();
+      const bt = new Date(b?.createdAt || 0).getTime();
+      return at - bt;
+    });
+
+    target.labels = labels;
+    target.messages = messages;
+    target.lastActivity = new Date();
+    await target.save();
+
+    source.status = "closed";
+    source.lastActivity = new Date();
+    await source.save();
+
+    res.json(await Ticket.findById(req.params.id).lean());
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post("/:id/messages", async (req, res) => {
   try {
     const text = req.body?.text?.toString() || "";

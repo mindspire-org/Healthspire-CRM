@@ -68,6 +68,7 @@ const TaskSchema = new mongoose.Schema(
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice" },
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project" },
     leadId: { type: mongoose.Schema.Types.ObjectId, ref: "Lead" },
+    ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket" },
     projectTitle: { type: String, default: "" },
     title: { type: String, required: true },
     description: { type: String, default: "" },

@@ -1,8 +1,11 @@
-import express from "express";
 import cors from "cors";
-import morgan from "morgan";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
+import express from "express";
+import mongoose from "mongoose";
+import morgan from "morgan";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import http from "node:http";
 import path from "path";
 import fs from "fs";
 import contactsRouter from "./routes/contacts.js";
@@ -31,10 +34,12 @@ import contractsRouter from "./routes/contracts.js";
 import proposalsRouter from "./routes/proposals.js";
 import ticketsRouter from "./routes/tickets.js";
 import ticketLabelsRouter from "./routes/ticketLabels.js";
+import ticketTemplatesRouter from "./routes/ticketTemplates.js";
 import eventsApiRouter from "./routes/events.js";
 import itemsRouter from "./routes/items.js";
 import estimateRequestsRouter from "./routes/estimateRequests.js";
 import subscriptionsRouter from "./routes/subscriptions.js";
+import subscriptionLabelsRouter from "./routes/subscriptionLabels.js";
 import authRouter from "./routes/auth.js";
 import estimateFormsRouter from "./routes/estimateForms.js";
 import leadsRouter from "./routes/leads.js";
@@ -45,6 +50,8 @@ import bcrypt from "bcryptjs";
 import User from "./models/User.js";
 
 dotenv.config();
+
+const execAsync = promisify(exec);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -117,11 +124,15 @@ app.use("/api/leads", leadsRouter);
 app.use("/api/lead-labels", leadLabelsRouter);
 app.use("/api/task-labels", taskLabelsRouter);
 app.use("/api/ticket-labels", ticketLabelsRouter);
+app.use("/api/ticket-templates", ticketTemplatesRouter);
 app.use("/api/reminders", remindersRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/events", eventsApiRouter);
 app.use("/api/estimate-requests", estimateRequestsRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
+app.use("/api/subscription-labels", subscriptionLabelsRouter);
+// Backward/alternative path alias to avoid 404s from different frontends
+app.use("/api/subscriptionlabels", subscriptionLabelsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/estimate-forms", estimateFormsRouter);
 // Backward/alternative path alias to avoid 404s from different frontends
@@ -156,9 +167,68 @@ mongoose
     console.log("MongoDB connected");
     (async () => {
       await seedAdmin();
-      app.listen(PORT, () => {
-        console.log(`Server listening on http://localhost:${PORT}`);
-      });
+      const isDev = (process.env.NODE_ENV || "development") !== "production";
+
+      const freePort = async (port) => {
+        if (!isDev) return;
+        if (process.platform === "win32") {
+          const { stdout } = await execAsync(`powershell -NoProfile -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`).catch(() => ({ stdout: "" }));
+          const pids = (stdout || "")
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => parseInt(s, 10))
+            .filter((n) => Number.isFinite(n));
+          for (const pid of pids) {
+            // Only kill node/nodemon to avoid terminating other apps that might legitimately use 5000.
+            // eslint-disable-next-line no-await-in-loop
+            const { stdout: nameOut } = await execAsync(
+              `powershell -NoProfile -Command "(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).ProcessName"`
+            ).catch(() => ({ stdout: "" }));
+            const proc = (nameOut || "").trim().toLowerCase();
+            if (proc === "node" || proc === "nodemon") {
+              // eslint-disable-next-line no-await-in-loop
+              await execAsync(`taskkill /F /PID ${pid}`).catch(() => null);
+            }
+          }
+          return;
+        }
+
+        await execAsync(`lsof -ti tcp:${port} | xargs kill -9`).catch(() => null);
+      };
+
+      const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      const listenWithRetry = async (retriesLeft = 8) => {
+        const server = http.createServer(app);
+        server.on("error", async (err) => {
+          const code = err?.code;
+          if (code === "EADDRINUSE" && isDev && retriesLeft > 0) {
+            try {
+              await freePort(PORT);
+              await delay(800);
+              await listenWithRetry(retriesLeft - 1);
+            } catch (e) {
+              console.error("Failed to recover from port conflict:", e?.message || e);
+              process.exit(1);
+            }
+            return;
+          }
+          console.error("Server error:", code || "unknown", err?.message || err);
+          if (code === "EADDRINUSE" && isDev && retriesLeft <= 0) {
+            console.error(`Port ${PORT} is still in use after retries. Try closing other backend terminals.`);
+          }
+          process.exit(1);
+        });
+
+        server.listen(PORT, () => {
+          console.log(`Server listening on http://localhost:${PORT}`);
+        });
+      };
+
+      await freePort(PORT);
+      await delay(500);
+      await listenWithRetry();
     })();
   })
   .catch((err) => {

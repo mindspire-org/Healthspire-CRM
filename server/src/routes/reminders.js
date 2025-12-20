@@ -8,12 +8,14 @@ router.get("/", async (req, res) => {
     const leadId = req.query.leadId?.toString().trim();
     const invoiceId = req.query.invoiceId?.toString().trim();
     const estimateId = req.query.estimateId?.toString().trim();
-    if (!leadId && !invoiceId && !estimateId) return res.status(400).json({ error: "leadId, invoiceId, or estimateId is required" });
+    const subscriptionId = req.query.subscriptionId?.toString().trim();
+    if (!leadId && !invoiceId && !estimateId && !subscriptionId) return res.status(400).json({ error: "leadId, invoiceId, estimateId, or subscriptionId is required" });
 
     const filter = {};
     if (leadId) filter.leadId = leadId;
     if (invoiceId) filter.invoiceId = invoiceId;
     if (estimateId) filter.estimateId = estimateId;
+    if (subscriptionId) filter.subscriptionId = subscriptionId;
 
     const items = await Reminder.find(filter).sort({ dueAt: 1, createdAt: -1 }).lean();
     res.json(items);
@@ -27,13 +29,22 @@ router.post("/", async (req, res) => {
     const leadId = (req.body?.leadId?.toString?.() ?? "").trim();
     const invoiceId = (req.body?.invoiceId?.toString?.() ?? "").trim();
     const estimateId = (req.body?.estimateId?.toString?.() ?? "").trim();
-    if (!leadId && !invoiceId && !estimateId) return res.status(400).json({ error: "leadId, invoiceId, or estimateId is required" });
+    const subscriptionId = (req.body?.subscriptionId?.toString?.() ?? "").trim();
+    if (!leadId && !invoiceId && !estimateId && !subscriptionId) return res.status(400).json({ error: "leadId, invoiceId, estimateId, or subscriptionId is required" });
 
     const title = (req.body?.title ?? "").toString();
     const repeat = Boolean(req.body?.repeat);
     const dueAt = req.body?.dueAt ? new Date(req.body.dueAt) : undefined;
 
-    const doc = await Reminder.create({ leadId: leadId || undefined, invoiceId: invoiceId || undefined, estimateId: estimateId || undefined, title, repeat, dueAt });
+    const doc = await Reminder.create({
+      leadId: leadId || undefined,
+      invoiceId: invoiceId || undefined,
+      estimateId: estimateId || undefined,
+      subscriptionId: subscriptionId || undefined,
+      title,
+      repeat,
+      dueAt,
+    });
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

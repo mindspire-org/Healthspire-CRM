@@ -29,10 +29,14 @@ router.get("/", async (req, res) => {
   const employeeId = req.query.employeeId?.toString();
   const projectId = req.query.projectId?.toString();
   const leadId = req.query.leadId?.toString();
+  const ticketId = req.query.ticketId?.toString();
+  const subscriptionId = req.query.subscriptionId?.toString();
   const filter = {};
   if (employeeId) filter.employeeId = employeeId;
   if (projectId) filter.projectId = projectId;
   if (leadId) filter.leadId = leadId;
+  if (ticketId) filter.ticketId = ticketId;
+  if (subscriptionId) filter.subscriptionId = subscriptionId;
   if (q) filter.$or = [{ name: { $regex: q, $options: "i" } }];
   const items = await File.find(filter).sort({ createdAt: -1 }).lean();
   res.json(items);
@@ -47,6 +51,8 @@ router.post("/", upload.single("file"), async (req, res) => {
       employeeId: req.body.employeeId,
       projectId: req.body.projectId,
       leadId: req.body.leadId,
+      ticketId: req.body.ticketId,
+      subscriptionId: req.body.subscriptionId,
       name: req.body.name || req.file?.originalname || "file",
       type: req.body.type || "",
       path: req.file ? `/uploads/${req.file.filename}` : (req.body.path || ""),

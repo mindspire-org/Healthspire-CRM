@@ -54,9 +54,11 @@ router.get("/", async (req, res) => {
     const projectId = req.query.projectId?.toString();
     const invoiceIdQ = req.query.invoiceId?.toString();
     const leadIdQ = req.query.leadId?.toString();
+    const ticketIdQ = req.query.ticketId?.toString();
     const filter = {};
     if (projectId) filter.projectId = projectId;
     if (leadIdQ) filter.leadId = leadIdQ;
+    if (ticketIdQ) filter.ticketId = ticketIdQ;
 
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
