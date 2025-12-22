@@ -49,6 +49,8 @@ import leadsRouter from "./routes/leads.js";
 import leadLabelsRouter from "./routes/leadLabels.js";
 import taskLabelsRouter from "./routes/taskLabels.js";
 import remindersRouter from "./routes/reminders.js";
+import helpArticlesRouter from "./routes/helpArticles.js";
+import helpCategoriesRouter from "./routes/helpCategories.js";
 import bcrypt from "bcryptjs";
 import User from "./models/User.js";
 
@@ -143,6 +145,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/estimate-forms", estimateFormsRouter);
 // Backward/alternative path alias to avoid 404s from different frontends
 app.use("/api/estimateforms", estimateFormsRouter);
+// Help & Support
+app.use("/api/help/articles", helpArticlesRouter);
+app.use("/api/help/categories", helpCategoriesRouter);
 
 async function seedAdmin() {
   try {

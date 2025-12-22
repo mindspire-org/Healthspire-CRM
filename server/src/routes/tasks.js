@@ -4,15 +4,18 @@ import { authenticate } from "../middleware/auth.js";
 import Task from "../models/Task.js";
 import Invoice from "../models/Invoice.js";
 import Counter from "../models/Counter.js";
+<<<<<<< HEAD
 import Employee from "../models/Employee.js";
+=======
+>>>>>>> 730fa665efcb7325c76fac1f1d5c841e9f138166
 
 const router = Router();
 
 const ensureCounterAtLeast = async (minSeq) => {
   const n = Number(minSeq || 0) || 0;
   await Counter.findOneAndUpdate(
-    { name: "task" },
-    { $max: { seq: n } },
+    { $or: [{ key: "task" }, { name: "task" }] },
+    { $max: { value: n }, $set: { key: "task", name: "task" } },
     { upsert: true, new: true }
   );
 };
@@ -20,11 +23,11 @@ const ensureCounterAtLeast = async (minSeq) => {
 const assignTaskNoIfMissing = async (doc) => {
   if (!doc || doc.taskNo) return doc;
   const c = await Counter.findOneAndUpdate(
-    { name: "task" },
-    { $inc: { seq: 1 } },
+    { $or: [{ key: "task" }, { name: "task" }] },
+    { $inc: { value: 1 }, $set: { key: "task", name: "task" } },
     { new: true, upsert: true }
   );
-  const nextNo = c?.seq;
+  const nextNo = c?.value;
   if (!nextNo) return doc;
 
   // only set if still missing to avoid races
@@ -264,13 +267,13 @@ router.put("/:id", authenticate, async (req, res) => {
 
     if (!doc.taskNo) {
       const c = await Counter.findOneAndUpdate(
-        { name: "task" },
-        { $inc: { seq: 1 } },
+        { $or: [{ key: "task" }, { name: "task" }] },
+        { $inc: { value: 1 }, $set: { key: "task", name: "task" } },
         { new: true, upsert: true }
       );
       const updated = await Task.findByIdAndUpdate(
         req.params.id,
-        { taskNo: c.seq },
+        { taskNo: c.value },
         { new: true }
       );
       return res.json(updated || doc);

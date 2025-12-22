@@ -8,7 +8,7 @@ import {
   FolderKanban,
   MessageSquare,
   Calendar,
-  Mail,
+  
   Settings,
   ChevronDown,
   Building2,
@@ -17,7 +17,7 @@ import {
   Clock,
   CreditCard,
   Folder,
-  Video,
+  
   CheckSquare,
   StickyNote,
   Activity,
@@ -118,8 +118,6 @@ const navigation: NavItem[] = [
   { title: "Announcements", href: "/announcements", icon: Megaphone },
   { title: "Subscriptions", href: "/subscriptions", icon: CreditCard },
   { title: "Calendar", href: "/calendar", icon: Calendar },
-  { title: "Email", href: "/email", icon: Mail },
-  { title: "Video Calls", href: "/calls", icon: Video },
   { title: "Notes", href: "/notes", icon: StickyNote },
   { title: "Files", href: "/files", icon: Folder },
 
@@ -150,56 +148,7 @@ const navigation: NavItem[] = [
       { title: "Manage Users", href: "/user-management/users" },
     ],
   },
-  {
-    title: "Client portal",
-    href: "/client",
-    icon: Building2,
-    children: [
-      { title: "Portal Home", href: "/client" },
-      { title: "Announcements", href: "/announcements" },
-      { title: "Tickets", href: "/tickets" },
-    ],
-  },
-  {
-    title: "Sales & Prospects",
-    href: "/sales-prospects",
-    icon: Megaphone,
-    children: [
-      // Sales
-      { title: "Invoices", href: "/invoices" },
-      { title: "Orders", href: "/sales/orders" },
-      { title: "Store", href: "/sales/store" },
-      { title: "Payments", href: "/sales/payments" },
-      { title: "Expenses", href: "/sales/expenses" },
-      { title: "Items", href: "/sales/items" },
-      { title: "Contracts", href: "/sales/contracts" },
-      // Prospects
-      { title: "Estimate List", href: "/prospects/estimates" },
-      { title: "Estimate Requests", href: "/prospects/estimate-requests" },
-      { title: "Estimate Forms", href: "/prospects/estimate-forms" },
-      { title: "Proposals", href: "/prospects/proposals" },
-    ],
-  },
-  {
-    title: "Setup",
-    href: "/setup",
-    icon: CheckSquare,
-    children: [
-      { title: "Departments", href: "/hrm/departments" },
-      { title: "Help Categories", href: "/help-support/categories" },
-      { title: "KB Categories", href: "/help-support/knowledge-base/categories" },
-    ],
-  },
-  {
-    title: "Plugins",
-    href: "/plugins",
-    icon: Activity,
-    children: [
-      { title: "Email", href: "/email" },
-      { title: "Video Calls", href: "/calls" },
-      { title: "Calendar", href: "/calendar" },
-    ],
-  },
+  
 
   // User Management just above Settings
   {

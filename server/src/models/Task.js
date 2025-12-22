@@ -91,11 +91,11 @@ TaskSchema.pre("save", async function preSave(next) {
   try {
     if (!this.isNew || this.taskNo) return next();
     const c = await Counter.findOneAndUpdate(
-      { name: "task" },
-      { $inc: { seq: 1 } },
+      { key: "task" },
+      { $inc: { value: 1 } },
       { new: true, upsert: true }
     );
-    this.taskNo = c.seq;
+    this.taskNo = c.value;
     return next();
   } catch (e) {
     return next(e);

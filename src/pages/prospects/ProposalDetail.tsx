@@ -8,6 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/components/ui/sonner";
 import { ArrowLeft, Copy, CheckCircle2, XCircle, Send, Printer, Eye, FileDown, PenLine, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Link2, Code, ChevronDown } from "lucide-react";
 
@@ -32,6 +33,8 @@ type Proposal = {
   number?: number;
   tax1?: number;
   tax2?: number;
+  leadId?: string;
+  clientId?: string;
 };
 
 type Project = {
@@ -42,6 +45,9 @@ type Project = {
   start?: string;
   deadline?: string;
 };
+
+// Tasks related to this proposal (by leadId or project context)
+type TaskRow = { id: string; title: string; status: string; projectTitle?: string; deadline?: string; assignee?: string };
 
 export default function ProposalDetail() {
   const { id } = useParams<{ id: string }>();
@@ -62,6 +68,10 @@ export default function ProposalDetail() {
   const [note, setNote] = useState("");
   const [tax1, setTax1] = useState("0");
   const [tax2, setTax2] = useState("0");
+
+  // Tasks state
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
 
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [editorHtml, setEditorHtml] = useState<string>("");
@@ -212,6 +222,8 @@ export default function ProposalDetail() {
         number: typeof d.number === 'number' ? d.number : undefined,
         tax1: typeof d.tax1 === 'number' ? d.tax1 : 0,
         tax2: typeof d.tax2 === 'number' ? d.tax2 : 0,
+        leadId: d.leadId ? String(d.leadId) : undefined,
+        clientId: d.clientId ? String(d.clientId) : undefined,
       };
       setP(mapped);
       setTax1(String(mapped.tax1 ?? 0));
@@ -222,6 +234,32 @@ export default function ProposalDetail() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadTasks = async (leadId?: string, projectId?: string) => {
+    setTasksLoading(true);
+    setTasks([]);
+    try {
+      let url: string | null = null;
+      const valid = (v?: string) => !!v && v !== "-" && v !== "undefined";
+      if (valid(leadId)) url = `${API_BASE}/api/tasks?leadId=${encodeURIComponent(String(leadId))}`;
+      else if (valid(projectId)) url = `${API_BASE}/api/tasks?projectId=${encodeURIComponent(String(projectId))}`;
+      if (!url) { setTasksLoading(false); return; }
+      const r = await fetch(url);
+      const data = await r.json().catch(()=>[]);
+      if (!r.ok) throw new Error(data?.error || "Failed to load tasks");
+      const list: TaskRow[] = (Array.isArray(data) ? data : []).map((t:any) => ({
+        id: String(t._id || ""),
+        title: t.title || "-",
+        status: t.status || "-",
+        projectTitle: t.projectTitle || undefined,
+        deadline: t.deadline ? new Date(t.deadline).toISOString().slice(0,10) : undefined,
+        assignee: Array.isArray(t.assignees) && t.assignees[0]?.name ? String(t.assignees[0].name) : undefined,
+      })).filter(x=>x.id);
+      setTasks(list);
+    } catch (e:any) {
+      toast.error(e?.message || "Failed to load tasks");
+    } finally { setTasksLoading(false); }
   };
 
   const buildPreviewDocument = () => {
@@ -374,6 +412,13 @@ export default function ProposalDetail() {
   };
 
   useEffect(() => { load(); }, [id]);
+
+  // Fetch tasks once we have the proposal with leadId or a project context
+  useEffect(() => {
+    if (p?.leadId || project?.id) loadTasks(p?.leadId, project?.id);
+    else setTasks([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p?.leadId, project?.id]);
 
   const openEdit = () => {
     if (!p) return;
@@ -843,7 +888,46 @@ export default function ProposalDetail() {
 
                 {/* TASKS */}
                 <TabsContent value="tasks-outer" className="mt-4">
-                  <div className="text-sm text-muted-foreground">No tasks found.</div>
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm text-muted-foreground">
+                          {p?.leadId ? "Tasks linked to this proposal's lead" : project?.id ? "Tasks from the current project context" : "Tasks"}
+                        </div>
+                        <div>
+                          <Button variant="outline" size="sm" onClick={()=>loadTasks(p?.leadId, project?.id)}>Refresh</Button>
+                        </div>
+                      </div>
+                      {tasksLoading ? (
+                        <div className="text-sm text-muted-foreground">Loading…</div>
+                      ) : tasks.length ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/40">
+                              <TableHead>Title</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Project</TableHead>
+                              <TableHead>Assignee</TableHead>
+                              <TableHead>Deadline</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {tasks.map(t => (
+                              <TableRow key={t.id}>
+                                <TableCell className="whitespace-nowrap">{t.title}</TableCell>
+                                <TableCell className="whitespace-nowrap">{t.status}</TableCell>
+                                <TableCell className="whitespace-nowrap">{t.projectTitle || '-'}</TableCell>
+                                <TableCell className="whitespace-nowrap">{t.assignee || '-'}</TableCell>
+                                <TableCell className="whitespace-nowrap">{t.deadline || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">No tasks found.</div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
               </Tabs>
             </CardContent>

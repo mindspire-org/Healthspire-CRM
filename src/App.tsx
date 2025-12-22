@@ -193,9 +193,14 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+<<<<<<< HEAD
       <MessagingProvider>
         <BrowserRouter future={{ v7_relativeSplatPath: true }}>
           <Routes>
+=======
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <Routes>
+>>>>>>> 730fa665efcb7325c76fac1f1d5c841e9f138166
           {/* Public auth route */}
           <Route path="/auth" element={<AuthLayout />} />
 
@@ -245,10 +250,15 @@ const App = () => (
             <Route path="/projects/:id" element={<ProjectDashboard />} />
             <Route path="/projects/timeline" element={<Timeline />} />
             {/* Communication */}
+<<<<<<< HEAD
             <Route path="/messages" element={<Messaging />} />
             <Route path="/email" element={<Chat />} />
             <Route path="/calls" element={<Chat />} />
             <Route path="/messaging" element={<Messaging />} />
+=======
+            <Route path="/messages" element={<Chat />} />
+            {/* Removed: /email and /calls */}
+>>>>>>> 730fa665efcb7325c76fac1f1d5c841e9f138166
             {/* General */}
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/announcements/new" element={<AddAnnouncement />} />
@@ -302,7 +312,10 @@ const App = () => (
             <Route path="/reports/leads/team-members" element={<LeadsTeamMembers />} />
             <Route path="/reports/tickets/statistics" element={<TicketsStatistics />} />
             {/* Portals */}
+<<<<<<< HEAD
             <Route path="/client" element={<ClientDashboard />} />
+=======
+>>>>>>> 730fa665efcb7325c76fac1f1d5c841e9f138166
             <Route path="/admin" element={<Dashboard />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/:section" element={<SettingsPage />} />

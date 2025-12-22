@@ -8,6 +8,9 @@ const CounterSchema = new mongoose.Schema(
     // Others use { key, value }
     key: { type: String, trim: true },
     value: { type: Number, default: 0 },
+    // Legacy fields kept for backward compatibility with old code and indexes
+    name: { type: String },
+    seq: { type: Number, default: 0 },
   },
   { timestamps: false }
 );
