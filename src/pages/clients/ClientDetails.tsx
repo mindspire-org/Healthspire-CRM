@@ -64,7 +64,7 @@ export default function ClientDetails() {
           try { const r = await fetch(`${API_BASE}/api/orders?clientId=${encodeURIComponent(String(id))}`); setOrders(await r.json().catch(()=>[])); } catch {}
           try { const r = await fetch(`${API_BASE}/api/contracts?clientId=${encodeURIComponent(String(id))}`); setContracts(await r.json().catch(()=>[])); } catch {}
           try { const r = await fetch(`${API_BASE}/api/proposals?clientId=${encodeURIComponent(String(id))}`); setProposals(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); setTickets(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); const arr = await r.json().catch(()=>[]); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
           try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`); setEvents(await r.json().catch(()=>[])); } catch {}
           try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`); setSubscriptions(await r.json().catch(()=>[])); } catch {}
         }

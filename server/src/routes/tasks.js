@@ -2,24 +2,15 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Task from "../models/Task.js";
 import Invoice from "../models/Invoice.js";
+import Counter from "../models/Counter.js";
 
 const router = Router();
-
-const CounterSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, unique: true },
-    seq: { type: Number, default: 0 },
-  },
-  { timestamps: true }
-);
-
-const Counter = mongoose.models.Counter || mongoose.model("Counter", CounterSchema);
 
 const ensureCounterAtLeast = async (minSeq) => {
   const n = Number(minSeq || 0) || 0;
   await Counter.findOneAndUpdate(
-    { name: "task" },
-    { $max: { seq: n } },
+    { $or: [{ key: "task" }, { name: "task" }] },
+    { $max: { value: n }, $set: { key: "task", name: "task" } },
     { upsert: true, new: true }
   );
 };
@@ -27,11 +18,11 @@ const ensureCounterAtLeast = async (minSeq) => {
 const assignTaskNoIfMissing = async (doc) => {
   if (!doc || doc.taskNo) return doc;
   const c = await Counter.findOneAndUpdate(
-    { name: "task" },
-    { $inc: { seq: 1 } },
+    { $or: [{ key: "task" }, { name: "task" }] },
+    { $inc: { value: 1 }, $set: { key: "task", name: "task" } },
     { new: true, upsert: true }
   );
-  const nextNo = c?.seq;
+  const nextNo = c?.value;
   if (!nextNo) return doc;
 
   // only set if still missing to avoid races
@@ -146,13 +137,13 @@ router.put("/:id", async (req, res) => {
 
     if (!doc.taskNo) {
       const c = await Counter.findOneAndUpdate(
-        { name: "task" },
-        { $inc: { seq: 1 } },
+        { $or: [{ key: "task" }, { name: "task" }] },
+        { $inc: { value: 1 }, $set: { key: "task", name: "task" } },
         { new: true, upsert: true }
       );
       const updated = await Task.findByIdAndUpdate(
         req.params.id,
-        { taskNo: c.seq },
+        { taskNo: c.value },
         { new: true }
       );
       return res.json(updated || doc);

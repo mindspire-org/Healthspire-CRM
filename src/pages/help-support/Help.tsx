@@ -1,11 +1,54 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, HelpCircle } from "lucide-react";
+
+type HelpArticle = { _id?: string; title: string; content?: string; updatedAt?: string };
+type HelpCategory = { _id?: string; name: string; description?: string };
 
 export default function HelpSupportHelp() {
   const [query, setQuery] = useState("");
+  const [articles, setArticles] = useState<HelpArticle[]>([]);
+  const [categories, setCategories] = useState<HelpCategory[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const API_BASE_ENV = (import.meta as any)?.env?.VITE_API_BASE as string | undefined;
+  const LOCAL_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:5000` : "http://localhost:5000";
+  const API_BASES = Array.from(new Set([API_BASE_ENV || "", LOCAL_BASE]));
+
+  const getJson = async (path: string) => {
+    for (const base of API_BASES) {
+      try {
+        const res = await fetch(`${base}${path}`);
+        const ct = res.headers.get("content-type") || "";
+        if (res.ok && ct.includes("application/json")) return await res.json();
+      } catch {}
+    }
+    return [] as any[];
+  };
+
+  const fetchAll = async () => {
+    setLoading(true); setError("");
+    try {
+      const a = await getJson(`/api/help/articles?scope=help`);
+      const c = await getJson(`/api/help/categories?scope=help`);
+      setArticles(Array.isArray(a)?a.slice(0, 8):[]);
+      setCategories(Array.isArray(c)?c:[]);
+    } catch (e) {
+      setError("Failed to load data");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(()=>{ fetchAll(); }, []);
+
+  const filtered = useMemo(()=>{
+    if (!query.trim()) return articles;
+    const q = query.toLowerCase();
+    return articles.filter(a => a.title.toLowerCase().includes(q) || (a.content||"").toLowerCase().includes(q));
+  }, [articles, query]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -13,28 +56,62 @@ export default function HelpSupportHelp() {
         <h1 className="text-base font-semibold flex items-center gap-2"><HelpCircle className="w-5 h-5"/> Help</h1>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search help" value={query} onChange={(e)=>setQuery(e.target.value)} className="pl-9 w-72" />
+          <Input placeholder="Search help" value={query} onChange={(e)=>setQuery(e.target.value)} className="pl-9 w-80" />
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="rounded-lg border p-4">
-              <h3 className="font-semibold mb-1">Getting started</h3>
-              <p className="text-sm text-muted-foreground">Learn the basics of using HealthSpire Enterprise Suite.</p>
+      <div className="grid lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-muted-foreground">Top help articles</div>
+              <Button size="sm" variant="ghost" onClick={fetchAll}>Refresh</Button>
             </div>
-            <div className="rounded-lg border p-4">
-              <h3 className="font-semibold mb-1">Account & billing</h3>
-              <p className="text-sm text-muted-foreground">Manage your account, billing and subscriptions.</p>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Title</TableHead>
+                  <TableHead className="w-40">Updated</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={2}>Loading...</TableCell></TableRow>
+                ) : error ? (
+                  <TableRow><TableCell colSpan={2} className="text-red-600">{error}</TableCell></TableRow>
+                ) : filtered.length ? (
+                  filtered.map(a => (
+                    <TableRow key={String(a._id)}>
+                      <TableCell className="font-medium">{a.title}</TableCell>
+                      <TableCell className="text-muted-foreground whitespace-nowrap">{a.updatedAt? new Date(a.updatedAt).toLocaleString():""}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground">No articles found.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="text-sm text-muted-foreground mb-2">Categories</div>
+            <div className="grid gap-2">
+              {error ? (
+                <div className="text-sm text-red-600">{error}</div>
+              ) : categories.length ? categories.map(c => (
+                <div key={String(c._id)} className="rounded-md border p-3">
+                  <div className="font-medium">{c.name}</div>
+                  <div className="text-xs text-muted-foreground">{c.description || ""}</div>
+                </div>
+              )) : (
+                <div className="text-sm text-muted-foreground">No categories yet.</div>
+              )}
             </div>
-            <div className="rounded-lg border p-4">
-              <h3 className="font-semibold mb-1">Troubleshooting</h3>
-              <p className="text-sm text-muted-foreground">Fix common issues and get support.</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

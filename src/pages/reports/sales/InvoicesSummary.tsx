@@ -504,7 +504,7 @@ export default function InvoicesSummary() {
                   const display = r.clientId && clientNameById.get(String(r.clientId)) ? clientNameById.get(String(r.clientId))! : r.client;
                   return (
                     <TableRow key={`${r.clientId || r.client}`}>
-                      <TableCell className="whitespace-nowrap">{display}</TableCell>
+                      <TableCell className="whitespace-nowrap">{r.clientId ? (<Link to={`/clients/${r.clientId}`}>{display}</Link>) : display}</TableCell>
                       <TableCell>{r.count}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.total)}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.tax1)}</TableCell>
@@ -572,7 +572,7 @@ export default function InvoicesSummary() {
                     return (
                       <TableRow key={r.id}>
                         <TableCell className="whitespace-nowrap">{r.number}</TableCell>
-                        <TableCell className="whitespace-nowrap">{displayClient}</TableCell>
+                        <TableCell className="whitespace-nowrap">{r.clientId ? (<Link to={`/clients/${r.clientId}`}>{displayClient}</Link>) : displayClient}</TableCell>
                         <TableCell>{r.issueDate}</TableCell>
                         <TableCell>{r.dueDate}</TableCell>
                         <TableCell className="whitespace-nowrap">{money(r.amount)}</TableCell>
@@ -634,7 +634,7 @@ export default function InvoicesSummary() {
                   const display = r.clientId && clientNameById.get(String(r.clientId)) ? clientNameById.get(String(r.clientId))! : r.client;
                   return (
                     <TableRow key={`${r.clientId || r.client}`}>
-                      <TableCell className="whitespace-nowrap">{display}</TableCell>
+                      <TableCell className="whitespace-nowrap">{r.clientId ? (<Link to={`/clients/${r.clientId}`}>{display}</Link>) : display}</TableCell>
                       <TableCell>{r.count}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.amount)}</TableCell>
                     </TableRow>
@@ -679,7 +679,7 @@ export default function InvoicesSummary() {
                   const display = r.clientId && clientNameById.get(String(r.clientId)) ? clientNameById.get(String(r.clientId))! : r.client;
                   return (
                     <TableRow key={`${r.clientId || r.client}`}>
-                      <TableCell className="whitespace-nowrap">{display}</TableCell>
+                      <TableCell className="whitespace-nowrap">{r.clientId ? (<Link to={`/clients/${r.clientId}`}>{display}</Link>) : display}</TableCell>
                       <TableCell>{r.count}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.amount)}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.tax1)}</TableCell>
@@ -727,7 +727,7 @@ export default function InvoicesSummary() {
                   const display = r.clientId && clientNameById.get(String(r.clientId)) ? clientNameById.get(String(r.clientId))! : "-";
                   return (
                     <TableRow key={`${r.clientId || '-'}`}>
-                      <TableCell className="whitespace-nowrap">{display}</TableCell>
+                      <TableCell className="whitespace-nowrap">{r.clientId ? (<Link to={`/clients/${r.clientId}`}>{display}</Link>) : display}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.amount)}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.tax)}</TableCell>
                       <TableCell className="whitespace-nowrap">{money(r.tax2)}</TableCell>

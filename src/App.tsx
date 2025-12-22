@@ -102,7 +102,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter future={{ v7_relativeSplatPath: true }}>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <Routes>
           {/* Public auth route */}
           <Route path="/auth" element={<AuthLayout />} />
@@ -150,8 +150,7 @@ const App = () => (
             <Route path="/projects/timeline" element={<Timeline />} />
             {/* Communication */}
             <Route path="/messages" element={<Chat />} />
-            <Route path="/email" element={<Chat />} />
-            <Route path="/calls" element={<Chat />} />
+            {/* Removed: /email and /calls */}
             {/* General */}
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/subscriptions" element={<Subscriptions />} />
@@ -203,7 +202,6 @@ const App = () => (
             <Route path="/reports/leads/team-members" element={<LeadsTeamMembers />} />
             <Route path="/reports/tickets/statistics" element={<TicketsStatistics />} />
             {/* Portals */}
-            <Route path="/client" element={<Dashboard />} />
             <Route path="/admin" element={<Dashboard />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/:section" element={<SettingsPage />} />

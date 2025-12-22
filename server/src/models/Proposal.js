@@ -27,8 +27,8 @@ ProposalSchema.pre("save", async function (next) {
   try {
     if (!this.isNew || typeof this.number === "number") return next();
     const ctr = await Counter.findOneAndUpdate(
-      { key: "proposal" },
-      { $inc: { value: 1 } },
+      { $or: [ { key: "proposal" }, { name: "proposal" } ] },
+      { $inc: { value: 1 }, $set: { key: "proposal", name: "proposal" } },
       { new: true, upsert: true }
     ).lean();
     this.number = ctr.value;

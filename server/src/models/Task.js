@@ -1,14 +1,5 @@
 import mongoose from "mongoose";
-
-const CounterSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, unique: true },
-    seq: { type: Number, default: 0 },
-  },
-  { timestamps: true }
-);
-
-const Counter = mongoose.models.Counter || mongoose.model("Counter", CounterSchema);
+import Counter from "./Counter.js";
 
 const AssigneeSchema = new mongoose.Schema(
   {
@@ -99,11 +90,11 @@ TaskSchema.pre("save", async function preSave(next) {
   try {
     if (!this.isNew || this.taskNo) return next();
     const c = await Counter.findOneAndUpdate(
-      { name: "task" },
-      { $inc: { seq: 1 } },
+      { key: "task" },
+      { $inc: { value: 1 } },
       { new: true, upsert: true }
     );
-    this.taskNo = c.seq;
+    this.taskNo = c.value;
     return next();
   } catch (e) {
     return next(e);

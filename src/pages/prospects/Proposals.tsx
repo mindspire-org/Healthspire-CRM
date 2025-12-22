@@ -42,6 +42,8 @@ export default function Proposals() {
   const [proposalDate, setProposalDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [client, setClient] = useState("");
+  const [clientId, setClientId] = useState<string>("-");
+  const [clients, setClients] = useState<any[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [tax1, setTax1] = useState("0");
@@ -78,6 +80,20 @@ export default function Proposals() {
     load();
   }, []);
 
+  // Load clients list when the Add/Edit dialog opens
+  useEffect(() => {
+    (async () => {
+      if (!openAdd) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/clients`);
+        const data = await res.json().catch(() => []);
+        setClients(Array.isArray(data) ? data : []);
+      } catch { setClients([]); }
+    })();
+  }, [openAdd]);
+
+  const clientDisplay = (c: any) => (c?.name || c?.company || c?.person || "-").toString();
+
   useEffect(() => {
     const t = window.setTimeout(() => {
       load();
@@ -107,6 +123,7 @@ export default function Proposals() {
     setProposalDate(r.proposalDate && r.proposalDate !== "-" ? r.proposalDate : "");
     setValidUntil(r.validUntil && r.validUntil !== "-" ? r.validUntil : "");
     setClient(r.client || "");
+    setClientId("-");
     setTitle(r.title || "");
     setAmount(r.amount ? String(r.amount) : "");
     setTax1("0");
@@ -148,6 +165,7 @@ export default function Proposals() {
     setProposalDate("");
     setValidUntil("");
     setClient("");
+    setClientId("-");
     setTitle("");
     setAmount("");
     setTax1("0");
@@ -162,6 +180,7 @@ export default function Proposals() {
     try {
       const payload: any = {
         client: client || "",
+        clientId: clientId && clientId !== "-" ? clientId : undefined,
         title: title || "",
         proposalDate: proposalDate ? new Date(proposalDate).toISOString() : undefined,
         validUntil: validUntil ? new Date(validUntil).toISOString() : undefined,
@@ -226,7 +245,17 @@ export default function Proposals() {
                 <div className="sm:col-span-9"><Input type="date" placeholder="Valid until" value={validUntil} onChange={(e)=>setValidUntil(e.target.value)} /></div>
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Client/Lead</div>
-                <div className="sm:col-span-9"><Input placeholder="Client/Lead" value={client} onChange={(e)=>setClient(e.target.value)} /></div>
+                <div className="sm:col-span-9">
+                  <Select value={clientId} onValueChange={(v)=>{ setClientId(v); const c = clients.find((x:any)=>String(x._id)===String(v)); if (c) setClient(clientDisplay(c)); }}>
+                    <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="-">- Select client -</SelectItem>
+                      {clients.map((c:any)=> (
+                        <SelectItem key={String(c._id)} value={String(c._id)}>{clientDisplay(c)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Title</div>
                 <div className="sm:col-span-9"><Input placeholder="Title" value={title} onChange={(e)=>setTitle(e.target.value)} /></div>

@@ -1,24 +1,15 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 import Ticket from "../models/Ticket.js";
+import Counter from "../models/Counter.js";
 
 const router = Router();
-
-const CounterSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true, unique: true },
-    seq: { type: Number, default: 0 },
-  },
-  { timestamps: true }
-);
-
-const Counter = mongoose.models.Counter || mongoose.model("Counter", CounterSchema);
 
 const ensureCounterAtLeast = async (minSeq) => {
   const n = Number(minSeq || 0) || 0;
   await Counter.findOneAndUpdate(
-    { name: "ticket" },
-    { $max: { seq: n } },
+    { key: "ticket" },
+    { $max: { value: n } },
     { upsert: true, new: true }
   );
 };
@@ -26,11 +17,11 @@ const ensureCounterAtLeast = async (minSeq) => {
 const assignTicketNoIfMissing = async (doc) => {
   if (!doc || doc.ticketNo) return doc;
   const c = await Counter.findOneAndUpdate(
-    { name: "ticket" },
-    { $inc: { seq: 1 } },
+    { key: "ticket" },
+    { $inc: { value: 1 } },
     { new: true, upsert: true }
   );
-  const nextNo = c?.seq;
+  const nextNo = c?.value;
   if (!nextNo) return doc;
   await Ticket.updateOne({ _id: doc._id, ticketNo: { $exists: false } }, { $set: { ticketNo: nextNo } });
   await Ticket.updateOne({ _id: doc._id, ticketNo: null }, { $set: { ticketNo: nextNo } });
@@ -43,7 +34,18 @@ router.get("/", async (req, res) => {
     const q = req.query.q?.toString().trim();
     const clientId = req.query.clientId?.toString();
     const filter = {};
-    if (clientId) filter.clientId = clientId;
+    if (clientId) {
+      if (mongoose.isValidObjectId(clientId)) {
+        filter.clientId = new mongoose.Types.ObjectId(clientId);
+      } else {
+        // be tolerant: try matching by stored string clientId or by client name
+        filter.$or = [
+          ...(filter.$or || []),
+          { clientId: clientId },
+          { client: { $regex: clientId, $options: "i" } },
+        ];
+      }
+    }
     if (q) filter.$or = [
       { title: { $regex: q, $options: "i" } },
       { client: { $regex: q, $options: "i" } },
