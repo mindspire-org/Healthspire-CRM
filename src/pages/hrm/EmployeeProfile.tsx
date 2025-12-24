@@ -151,6 +151,19 @@ export default function EmployeeProfile() {
   const handleAvatarChange = async (imageBlob: Blob) => {
     const file = new File([imageBlob], "avatar.jpg", { type: "image/jpeg" });
     await uploadAvatar(file);
+    // Refresh employee data to get updated avatar URL
+    if (dbId) {
+      try {
+        const res = await fetch(`${API_BASE}/api/employees/${dbId}`, { headers: getAuthHeaders() });
+        if (res.ok) {
+          const updatedEmp = await res.json();
+          const url = updatedEmp?.avatar ? (String(updatedEmp.avatar).startsWith("http") ? updatedEmp.avatar : `${API_BASE}${updatedEmp.avatar}`) : undefined;
+          if (url) setPhotoUrl(url);
+        }
+      } catch (error) {
+        console.error("Failed to refresh employee data:", error);
+      }
+    }
   };
 
   const handleAvatarRemove = async () => {

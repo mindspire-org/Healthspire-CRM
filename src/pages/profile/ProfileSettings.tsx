@@ -186,6 +186,8 @@ export default function ProfileSettings() {
   const handleAvatarChange = async (imageBlob: Blob) => {
     const file = new File([imageBlob], "avatar.jpg", { type: "image/jpeg" });
     await uploadNewAvatar(file);
+    await loadMe(); // Refresh user data to get new avatar URL
+    setAvatarVer(Date.now()); // Update cache-busting version
   };
 
   const handleAvatarRemove = async () => {
