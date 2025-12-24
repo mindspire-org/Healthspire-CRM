@@ -84,6 +84,10 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 app.use("/uploads", express.static(UPLOAD_DIR));
 
+app.get("/", (_req, res) => {
+  res.json({ ok: true, name: "Healthspire API", health: "/api/health" });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, env: process.env.NODE_ENV || "development" });
 });
