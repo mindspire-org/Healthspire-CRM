@@ -14,8 +14,6 @@ import { getAuthHeaders } from "@/lib/api/auth";
 import { ImageManager } from "@/components/ImageManager";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui/sonner";
-import { getAuthHeaders } from "@/lib/api/auth";
 
 export default function EmployeeProfile() {
   const { id } = useParams();
