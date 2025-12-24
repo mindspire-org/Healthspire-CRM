@@ -608,8 +608,8 @@ export default function Dashboard() {
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-3 px-4">ID</th>
