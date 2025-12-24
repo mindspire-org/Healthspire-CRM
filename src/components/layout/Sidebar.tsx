@@ -180,6 +180,8 @@ const navigation: NavItem[] = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen: boolean;
+  onClose: () => void;
 }
 
 const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?: string } | null => {
@@ -192,9 +194,11 @@ const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?
   }
 };
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
+  ? "https://healthspire-crm.onrender.com"
+  : "http://localhost:5000";
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
 
@@ -285,12 +289,27 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   };
 
   return (
-    <aside
-      className={cn(
-        "fixed left-0 top-0 z-40 h-screen bg-sidebar transition-all duration-300 flex flex-col",
-        collapsed ? "w-[72px]" : "w-64"
-      )}
-    >
+    <>
+      {/* Mobile overlay */}
+      <div
+        onClick={onClose}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/40 lg:hidden transition-opacity",
+          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      />
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-50 h-screen bg-sidebar flex flex-col",
+          "transition-transform duration-300 lg:transition-all",
+          // width behavior
+          collapsed ? "lg:w-[72px]" : "lg:w-64",
+          "w-64",
+          // mobile drawer translate
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:translate-x-0"
+        )}
+      >
       {/* Logo */}
       <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border bg-sidebar">
         <div className="flex items-center gap-3">
@@ -412,6 +431,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div />
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

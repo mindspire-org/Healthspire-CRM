@@ -19,7 +19,9 @@ interface TopNavProps {
   onMenuClick: () => void;
 }
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
+  ? "https://healthspire-crm.onrender.com"
+  : "http://localhost:5000";
 
 type MeUser = {
   _id?: string;
