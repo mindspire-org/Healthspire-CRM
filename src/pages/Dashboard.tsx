@@ -140,14 +140,28 @@ export default function Dashboard() {
   const [projectsList, setProjectsList] = useState<ProjectRow[]>([]);
   const [tasksTable, setTasksTable] = useState<TaskRow[]>([]);
 
-  const adminAvatarSrc = useMemo(() => {
-    const a = String(meAvatar || "").trim();
-    if (!a) return "/api/placeholder/64/64";
-    if (a.startsWith("http")) return a;
-    if (a.startsWith("<")) return "/api/placeholder/64/64";
-    const rel = a.startsWith("/") ? a : `/${a}`;
-    return `${API_BASE}${rel}`;
-  }, [meAvatar]);
+  const normalizeAvatarSrc = useMemo(() => (input: string) => {
+    const s = String(input || "").trim();
+    if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
+    try {
+      const isAbs = /^https?:\/\//i.test(s);
+      if (isAbs) {
+        const u = new URL(s);
+        if ((u.hostname === "localhost" || u.hostname === "127.0.0.1") && u.pathname.includes("/uploads/")) {
+          return `${API_BASE}${u.pathname}`;
+        }
+        if (u.pathname.includes("/uploads/")) return `${API_BASE}${u.pathname}`;
+        return s;
+      }
+      const rel = s.startsWith("/") ? s : `/${s}`;
+      return `${API_BASE}${rel}`;
+    } catch {
+      const rel = s.startsWith("/") ? s : `/${s}`;
+      return `${API_BASE}${rel}`;
+    }
+  }, [API_BASE]);
+
+  const adminAvatarSrc = useMemo(() => normalizeAvatarSrc(meAvatar), [meAvatar, normalizeAvatarSrc]);
 
   useEffect(() => {
     (async () => {
