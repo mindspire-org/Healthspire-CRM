@@ -58,6 +58,8 @@ import notificationsRouter from "./routes/notifications.js";
 import settingsRouter from "./routes/settings.js";
 import bcrypt from "bcryptjs";
 import User from "./models/User.js";
+import accountsRouter from "./routes/accounts.js";
+import journalsRouter from "./routes/journals.js";
 
 dotenv.config();
 
@@ -225,6 +227,9 @@ app.use("/api/estimateforms", estimateFormsRouter);
 // Help & Support
 app.use("/api/help/articles", helpArticlesRouter);
 app.use("/api/help/categories", helpCategoriesRouter);
+// Accounting core
+app.use("/api/accounts", accountsRouter);
+app.use("/api/journals", journalsRouter);
 
 async function seedAdmin() {
   try {
