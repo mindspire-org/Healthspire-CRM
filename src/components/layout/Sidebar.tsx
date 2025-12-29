@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -198,6 +198,28 @@ const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].i
   ? "https://healthspire-crm.onrender.com"
   : "http://localhost:5000";
 
+const normalizeAvatarSrc = (input: string) => {
+  const s = String(input || "").trim();
+  if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
+      const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
+    try {
+    const isAbs = /^https?:\/\//i.test(s);
+    if (isAbs) {
+      const u = new URL(s);
+      if ((u.hostname === "localhost" || u.hostname === "127.0.0.1") && u.pathname.includes("/uploads/")) {
+        return `${base}${u.pathname}`;
+      }
+      if (u.pathname.includes("/uploads/")) return `${base}${u.pathname}`;
+      return s;
+    }
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    return `${base}${rel}`;
+  } catch {
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    return `${base}${rel}`;
+  }
+};
+
 export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const [openMenus, setOpenMenus] = useState<string[]>([]);
@@ -304,26 +326,26 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
           "transition-transform duration-300 lg:transition-all",
           // width behavior
           collapsed ? "lg:w-[72px]" : "lg:w-64",
-          "w-64",
+          "w-64 max-w-[80vw]",
           // mobile drawer translate
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
         )}
       >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border bg-sidebar">
-        <div className="flex items-center gap-3">
+      <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-sidebar-border bg-sidebar">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {collapsed ? (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-12 rounded-lg object-contain" />
+            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg object-contain flex-shrink-0" />
           ) : (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-auto max-w-[300px] object-contain" />
+            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-10 w-auto max-h-12 object-contain flex-shrink-0" />
           )}
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onToggle}
-          className="text-sidebar-foreground hover:bg-sidebar-accent"
+          className="text-sidebar-foreground hover:bg-sidebar-accent flex-shrink-0"
         >
           <ChevronLeft
             className={cn(
@@ -335,7 +357,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-3 sm:py-4 px-2 sm:px-3 scrollbar-thin">
         <ul className="space-y-1">
           {visibleNavigation.map((item) => (
             <li key={item.title}>
@@ -406,21 +428,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-3 sm:p-4 border-t border-sidebar-border">
         {!collapsed ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
               <div className="w-10 h-10 rounded-full bg-white border border-sidebar-border flex items-center justify-center font-semibold text-sidebar-foreground overflow-hidden">
                 {meAvatar ? (
                   <img
-                    src={(() => {
-                      const a = String(meAvatar || "");
-                      if (!a) return "/api/placeholder/64/64";
-                      if (a.startsWith("http")) return a;
-                      if (a.startsWith("<")) return "/api/placeholder/64/64";
-                      const rel = a.startsWith("/") ? a : `/${a}`;
-                      return `${API_BASE}${rel}`;
-                    })()}
+                    src={normalizeAvatarSrc(String(meAvatar || ""))}
                     alt="User"
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64"; }}
                     className="w-full h-full object-cover"
@@ -447,3 +462,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
     </>
   );
 }
+
+
+
