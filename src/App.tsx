@@ -94,6 +94,11 @@ import NotFound from "./pages/NotFound";
 import SettingsPage from "./pages/settings/Settings";
 import ProfileSettings from "./pages/profile/ProfileSettings";
 import AuthLayout from "./pages/auth/AuthLayout";
+import Journal from "./pages/accounting/Journal";
+import GeneralLedger from "./pages/accounting/GeneralLedger";
+import TrialBalance from "./pages/accounting/TrialBalance";
+import IncomeStatement from "./pages/accounting/IncomeStatement";
+import BalanceSheet from "./pages/accounting/BalanceSheet";
 
 const queryClient = new QueryClient();
 

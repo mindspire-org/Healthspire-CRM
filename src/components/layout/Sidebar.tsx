@@ -125,6 +125,20 @@ const navigation: NavItem[] = [
   { title: "Notes", href: "/notes", icon: StickyNote },
   { title: "Files", href: "/files", icon: Folder },
 
+  // Accounting
+  {
+    title: "Accounting",
+    href: "/accounting",
+    icon: BarChart3,
+    children: [
+      { title: "Journal", href: "/accounting/journal" },
+      { title: "General Ledger", href: "/accounting/ledger" },
+      { title: "Trial Balance", href: "/accounting/trial-balance" },
+      { title: "Income Statement", href: "/accounting/income-statement" },
+      { title: "Balance Sheet", href: "/accounting/balance-sheet" },
+    ],
+  },
+
   // Extra groups requested: App Settings, Access Permission, Client portal, Sales & Prospects, Setup, Settings
   {
     title: "Settings",
