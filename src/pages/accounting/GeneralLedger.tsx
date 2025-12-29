@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function GeneralLedger() {
   const [accountCode, setAccountCode] = useState("");
@@ -21,7 +22,7 @@ export default function GeneralLedger() {
       if (from) sp.set("from", from);
       if (to) sp.set("to", to);
       sp.set("accountCode", accountCode);
-      const res = await fetch(`/api/ledgers/general?${sp.toString()}`, {
+      const res = await fetch(`${API_BASE}/api/ledgers/general?${sp.toString()}`, {
         headers: { ...getAuthHeaders() },
       });
       const json = await res.json();

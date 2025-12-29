@@ -18,6 +18,12 @@ import { useNavigate } from "react-router-dom";
 
 const API_BASE = "http://localhost:5000";
 
+const getStoredAuthUser = () => {
+  const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+};
+
 interface Row {
   id: string;
   title: string;
@@ -35,6 +41,8 @@ interface Row {
 
 export default function Overview() {
   const navigate = useNavigate();
+  const user = getStoredAuthUser();
+  const isAdmin = user?.role === "admin";
   const [rows, setRows] = useState<Row[]>([]);
   const [query, setQuery] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
@@ -432,60 +440,62 @@ export default function Overview() {
             </DialogContent>
           </Dialog>
           <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={onImportFile} />
-          <Button variant="outline" onClick={triggerImport}><Upload className="w-4 h-4 mr-2"/>Import projects</Button>
-          <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-            <DialogTrigger asChild>
-              <Button variant="gradient"><Plus className="w-4 h-4 mr-2"/>Add project</Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card">
-              <DialogHeader>
-                <DialogTitle>Add project</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4">
-                <div className="space-y-1">
-                  <Label>Title</Label>
-                  <Input placeholder="Title" value={title} onChange={(e)=>setTitle(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label>Project type</Label>
-                    <Select value={projectType} onValueChange={setProjectType}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Client Project">Client Project</SelectItem>
-                        <SelectItem value="Internal">Internal</SelectItem>
-                      </SelectContent>
-                    </Select>
+          {isAdmin && (
+            <>
+              <Button variant="outline" onClick={triggerImport}><Upload className="w-4 h-4 mr-2"/>Import projects</Button>
+              <Dialog open={openAdd} onOpenChange={setOpenAdd}>
+                <DialogTrigger asChild>
+                  <Button variant="gradient"><Plus className="w-4 h-4 mr-2"/>Add project</Button>
+                </DialogTrigger>
+                <DialogContent className="bg-card">
+                  <DialogHeader>
+                    <DialogTitle>Add project</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4">
+                    <div className="space-y-1">
+                      <Label>Title</Label>
+                      <Input placeholder="Title" value={title} onChange={(e)=>setTitle(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label>Project type</Label>
+                        <Select value={projectType} onValueChange={setProjectType}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Client Project">Client Project</SelectItem>
+                            <SelectItem value="Internal">Internal</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Client</Label>
+                        <Select value={clientIdSel} onValueChange={(v)=>{ setClientIdSel(v); const opt = clientOptions.find(o=>o.id===v); setClient(opt?.name || ""); }}>
+                          <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
+                          <SelectContent>
+                            {clientOptions.length === 0 ? (
+                              <SelectItem value="__no_clients__" disabled>No clients</SelectItem>
+                            ) : (
+                              clientOptions.map((opt)=> (
+                                <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Description</Label>
+                      <Textarea placeholder="Description" value={desc} onChange={(e)=>setDesc(e.target.value)} className="min-h-[120px]" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1"><Label>Start date</Label><Input type="date" placeholder="Start date" value={start} onChange={(e)=>setStart(e.target.value)} /></div>
+                      <div className="space-y-1"><Label>Deadline</Label><Input type="date" placeholder="Deadline" value={deadline} onChange={(e)=>setDeadline(e.target.value)} /></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1"><Label>Price</Label><Input placeholder="Price" value={price} onChange={(e)=>setPrice(e.target.value)} /></div>
+                      <div className="space-y-1"><Label>Labels</Label><Input placeholder="Labels" value={labels} onChange={(e)=>setLabels(e.target.value)} /></div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label>Client</Label>
-                    <Select value={clientIdSel} onValueChange={(v)=>{ setClientIdSel(v); const opt = clientOptions.find(o=>o.id===v); setClient(opt?.name || ""); }}>
-                      <SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger>
-                      <SelectContent>
-                        {clientOptions.length === 0 ? (
-                          <SelectItem value="__no_clients__" disabled>No clients</SelectItem>
-                        ) : (
-                          clientOptions.map((opt)=> (
-                            <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label>Description</Label>
-                  <Textarea placeholder="Description" value={desc} onChange={(e)=>setDesc(e.target.value)} className="min-h-[120px]" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label>Start date</Label><Input type="date" placeholder="Start date" value={start} onChange={(e)=>setStart(e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Deadline</Label><Input type="date" placeholder="Deadline" value={deadline} onChange={(e)=>setDeadline(e.target.value)} /></div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1"><Label>Price</Label><Input placeholder="Price" value={price} onChange={(e)=>setPrice(e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Labels</Label><Input placeholder="Labels" value={labels} onChange={(e)=>setLabels(e.target.value)} /></div>
-                </div>
-              </div>
               <DialogFooter>
                 <div className="flex-1"><Button variant="outline" type="button"><Paperclip className="w-4 h-4 mr-2"/>Upload File</Button></div>
                 <Button variant="outline" onClick={()=>setOpenAdd(false)}>Close</Button>
@@ -494,6 +504,8 @@ export default function Overview() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+            </>
+          )}
         </div>
       </div>
 

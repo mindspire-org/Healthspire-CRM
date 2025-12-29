@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Lead from "../models/Lead.js";
 import Employee from "../models/Employee.js";
+import Client from "../models/Client.js";
 import { authenticate } from "../middleware/auth.js";
 
 const router = Router();
@@ -127,6 +128,48 @@ router.post("/", authenticate, async (req, res) => {
     }
     const doc = await Lead.create(payload);
     res.status(201).json(doc);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Approve a lead (admin only): converts to a Client and marks lead as Qualified
+router.post("/:id/approve", authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const lead = await Lead.findById(req.params.id).lean();
+    if (!lead) return res.status(404).json({ error: "Not found" });
+
+    // Create client from lead
+    const isPerson = String(lead.type || "").toLowerCase() === "person";
+    const clientPayload = {
+      type: isPerson ? "person" : "org",
+      company: isPerson ? "" : (lead.company || lead.name || ""),
+      person: isPerson ? (lead.name || "") : "",
+      address: lead.address || "",
+      city: lead.city || "",
+      state: lead.state || "",
+      zip: lead.zip || "",
+      country: lead.country || "",
+      phone: lead.phone || "",
+      website: lead.website || "",
+      vatNumber: lead.vatNumber || "",
+      gstNumber: lead.gstNumber || "",
+      currency: lead.currency || "",
+      currencySymbol: lead.currencySymbol || "",
+      labels: Array.isArray(lead.labels) ? lead.labels.map(String) : [],
+      createdBy: "lead-approve",
+      status: "active",
+      email: lead.email || "",
+    };
+    const client = await Client.create(clientPayload);
+
+    // Mark lead as Qualified (still retained in leads)
+    await Lead.findByIdAndUpdate(lead._id, { $set: { status: "Qualified" } });
+
+    res.json({ ok: true, clientId: client._id });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

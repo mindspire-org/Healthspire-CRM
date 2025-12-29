@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate, isAdmin } from "../middleware/auth.js";
 import Payroll from "../models/Payroll.js";
 import Employee from "../models/Employee.js";
+import { ensureLinkedAccount, getSettings, postJournal } from "../services/accounting.js";
 
 const router = Router();
 
@@ -75,6 +76,43 @@ router.put("/:id", authenticate, async (req, res) => {
     }
     
     const doc = await Payroll.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    // Automation: journals on status transition
+    try {
+      const prevStatus = payroll.status;
+      const newStatus = doc?.status;
+      const amt = Number(doc?.net || 0);
+      if (amt > 0 && prevStatus !== newStatus) {
+        const settings = await getSettings();
+        if (newStatus === "processed") {
+          // Accrual
+          const empAcc = await ensureLinkedAccount("employee", doc.employeeId, doc.employee || "Employee");
+          await postJournal({
+            date: new Date(),
+            memo: `Payroll processed ${doc.period} - ${doc.employee}`,
+            lines: [
+              { accountCode: settings.salaryExpense, debit: amt, credit: 0 },
+              { accountCode: empAcc.code, debit: 0, credit: amt, entityType: "employee", entityId: doc.employeeId },
+            ],
+            postedBy: "system",
+          });
+        } else if (newStatus === "paid") {
+          // Payment
+          const empAcc = await ensureLinkedAccount("employee", doc.employeeId, doc.employee || "Employee");
+          const cashOrBank = settings.bankAccount || settings.cashAccount;
+          await postJournal({
+            date: new Date(),
+            memo: `Salary paid ${doc.period} - ${doc.employee}`,
+            lines: [
+              { accountCode: empAcc.code, debit: amt, credit: 0, entityType: "employee", entityId: doc.employeeId },
+              { accountCode: cashOrBank, debit: 0, credit: amt },
+            ],
+            postedBy: "system",
+          });
+        }
+      }
+    } catch (_) {}
+
     res.json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

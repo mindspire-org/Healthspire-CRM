@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { authenticate, isAdmin } from "../middleware/auth.js";
+import { ensureLinkedAccount } from "../services/accounting.js";
 import Employee from "../models/Employee.js";
+import User from "../models/User.js";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -51,6 +53,35 @@ router.get("/", authenticate, async (req, res) => {
 router.post("/", authenticate, isAdmin, async (req, res) => {
   try {
     const doc = await Employee.create(req.body);
+    try {
+      await ensureLinkedAccount("employee", doc._id, doc.name || doc.email || "Employee");
+    } catch (_) {}
+    // Ensure staff User exists for login purposes
+    try {
+      const email = String(doc?.email || "").toLowerCase().trim();
+      const dept = String(doc?.department || "").trim().toLowerCase();
+      const userRole = dept === "marketing" ? "marketer" : "staff";
+      if (email) {
+        await User.findOneAndUpdate(
+          { email },
+          {
+            $setOnInsert: {
+              email,
+              username: email,
+              role: userRole,
+              status: "active",
+              createdBy: "employee-create",
+            },
+            $set: {
+              name: doc.name || "",
+              avatar: doc.avatar || "",
+              role: userRole,
+            },
+          },
+          { new: true, upsert: true }
+        ).lean();
+      }
+    } catch (_) {}
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -129,6 +160,35 @@ router.put("/:id", authenticate, async (req, res) => {
     // Admins can update any field
     const doc = await Employee.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
+    try {
+      await ensureLinkedAccount("employee", doc._id, doc.name || doc.email || "Employee");
+    } catch (_) {}
+    // Ensure staff User exists / is updated for login purposes
+    try {
+      const email = String(doc?.email || "").toLowerCase().trim();
+      const dept = String(doc?.department || "").trim().toLowerCase();
+      const userRole = dept === "marketing" ? "marketer" : "staff";
+      if (email) {
+        await User.findOneAndUpdate(
+          { email },
+          {
+            $setOnInsert: {
+              email,
+              username: email,
+              role: userRole,
+              status: "active",
+              createdBy: "employee-update",
+            },
+            $set: {
+              name: doc.name || "",
+              avatar: doc.avatar || "",
+              role: userRole,
+            },
+          },
+          { new: true, upsert: true }
+        ).lean();
+      }
+    } catch (_) {}
     res.json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

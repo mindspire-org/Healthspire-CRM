@@ -63,15 +63,12 @@ const navigation: NavItem[] = [
     icon: Users,
     children: [
       { title: "Employees", href: "/hrm/employees" },
-      { title: "Departments", href: "/hrm/departments" },
-      { title: "Attendance", href: "/hrm/attendance" },
-      { title: "Leaves", href: "/hrm/leaves" },
-      { title: "Recruitment", href: "/hrm/recruitment" },
       { title: "Payroll", href: "/hrm/payroll" },
+      { title: "My Salary Ledger", href: "/hrm/my-salary-ledger" },
     ],
   },
 
-  // 5. Projects
+  // 5. Projects (View-only for non-admin)
   {
     title: "Projects",
     href: "/projects",
@@ -79,7 +76,6 @@ const navigation: NavItem[] = [
     children: [
       { title: "Overview", href: "/projects" },
       { title: "Timeline", href: "/projects/timeline" },
-      { title: "Project Requests", href: "/project-requests" },
     ],
   },
 
@@ -136,6 +132,11 @@ const navigation: NavItem[] = [
       { title: "Trial Balance", href: "/accounting/trial-balance" },
       { title: "Income Statement", href: "/accounting/income-statement" },
       { title: "Balance Sheet", href: "/accounting/balance-sheet" },
+      { title: "Accounts", href: "/accounting/accounts" },
+      { title: "Vendors", href: "/accounting/vendors" },
+      { title: "Vendor Ledger", href: "/accounting/vendor-ledger" },
+      { title: "Settings", href: "/accounting/settings" },
+      { title: "Periods", href: "/accounting/periods" },
     ],
   },
 
@@ -171,10 +172,10 @@ const navigation: NavItem[] = [
     href: "/client",
     icon: Building2,
     children: [
+      { title: "Ledger", href: "/client/ledger" },
       { title: "Messages", href: "/client/messages" },
       { title: "Announcements", href: "/client/announcements" },
       { title: "Tickets", href: "/client/tickets" },
-      { title: "Project Requests", href: "/client/project-requests" },
     ],
   },
   
@@ -408,7 +409,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
                   {!collapsed && openMenus.includes(item.title) && (
                     <ul className="mt-1 ml-6 space-y-1 border-l border-sidebar-border pl-4">
                       {item.children
-                        .filter((child) => role === "admin" || child.href !== "/project-requests")
+                        .filter((child) => {
+                          // Hide Project Requests from non-admins
+                          if (child.href === "/project-requests") return role === "admin";
+                          return true;
+                        })
                         .map((child) => (
                         <li key={child.href}>
                           <NavLink

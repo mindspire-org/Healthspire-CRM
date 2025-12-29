@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import multer from "multer";
 import path from "path";
 import Invoice from "../models/Invoice.js";
+import Project from "../models/Project.js";
+import { ensureLinkedAccount, getSettings, postJournal } from "../services/accounting.js";
 
 const router = Router();
 
@@ -34,8 +36,10 @@ router.get("/", async (req, res) => {
   try {
     const q = req.query.q?.toString().trim();
     const clientId = req.query.clientId?.toString();
+    const projectId = req.query.projectId?.toString();
     const filter = {};
     if (clientId) filter.clientId = clientId;
+    if (projectId) filter.projectId = projectId;
     if (q) {
       Object.assign(filter, {
         $or: [
@@ -75,7 +79,53 @@ router.post("/", async (req, res) => {
   try {
     const body = req.body || {};
     const number = body.number || String(Math.floor(Date.now() / 1000));
-    const doc = await Invoice.create({ ...body, number });
+    const amount = Number(body.amount ?? body.total ?? 0) || 0;
+    const issueDate = body.issueDate || body.date || new Date();
+
+    let clientId = body.clientId;
+    let client = body.client;
+    let projectId = body.projectId;
+    let projectTitle = body.project;
+
+    if (projectId && !clientId) {
+      try {
+        const proj = await Project.findById(projectId).lean();
+        if (proj) {
+          clientId = proj.clientId || clientId;
+          client = proj.client || client;
+          projectTitle = proj.title || projectTitle;
+        }
+      } catch {}
+    }
+
+    const doc = await Invoice.create({
+      ...body,
+      number,
+      amount,
+      issueDate,
+      clientId,
+      client,
+      projectId,
+      project: projectTitle,
+    });
+    // Auto-post: DR AR-[Client], CR Revenue
+    try {
+      const amt = Number(doc.amount || 0);
+      if (amt > 0 && doc.clientId) {
+        const settings = await getSettings();
+        const clientAcc = await ensureLinkedAccount("client", doc.clientId, doc.client || "Client");
+        await postJournal({
+          date: doc.issueDate || new Date(),
+          memo: `Invoice ${doc.number}`,
+          refNo: String(doc.number || ""),
+          lines: [
+            { accountCode: clientAcc.code, debit: amt, credit: 0, entityType: "client", entityId: doc.clientId },
+            { accountCode: settings.revenueAccount, debit: 0, credit: amt },
+          ],
+          postedBy: "system",
+        });
+      }
+    } catch (_) {}
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

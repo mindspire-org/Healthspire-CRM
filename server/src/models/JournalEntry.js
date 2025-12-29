@@ -21,6 +21,7 @@ const JournalEntrySchema = new mongoose.Schema(
     currency: { type: String, default: "PKR" },
     postedAt: { type: Date },
     postedBy: { type: String },
+    adjusting: { type: Boolean, default: false },
     lines: { type: [JournalLineSchema], validate: (v) => Array.isArray(v) && v.length >= 2 },
     reversalOf: { type: mongoose.Schema.Types.ObjectId, ref: "JournalEntry", default: undefined },
   },

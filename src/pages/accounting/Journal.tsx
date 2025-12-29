@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Line = {
   accountCode: string;
@@ -37,7 +38,7 @@ export default function Journal() {
     setBusy(true);
     setMessage("");
     try {
-      const res = await fetch(`/api/journals`, {
+      const res = await fetch(`${API_BASE}/api/journals`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ date, memo, lines }),

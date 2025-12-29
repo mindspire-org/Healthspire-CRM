@@ -62,6 +62,10 @@ import accountsRouter from "./routes/accounts.js";
 import journalsRouter from "./routes/journals.js";
 import ledgersRouter from "./routes/ledgers.js";
 import reportsRouter from "./routes/reports.js";
+import accountingSettingsRouter from "./routes/accountingSettings.js";
+import accountingPeriodsRouter from "./routes/accountingPeriods.js";
+import vendorsRouter from "./routes/vendors.js";
+import statementsRouter from "./routes/statements.js";
 
 dotenv.config();
 
@@ -234,6 +238,10 @@ app.use("/api/accounts", accountsRouter);
 app.use("/api/journals", journalsRouter);
 app.use("/api/ledgers", ledgersRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/accounting", accountingSettingsRouter);
+app.use("/api/accounting-periods", accountingPeriodsRouter);
+app.use("/api/vendors", vendorsRouter);
+app.use("/api/statements", statementsRouter);
 
 async function seedAdmin() {
   try {

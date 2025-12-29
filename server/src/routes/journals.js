@@ -1,15 +1,18 @@
 import { Router } from "express";
 import Account from "../models/Account.js";
 import JournalEntry from "../models/JournalEntry.js";
+import { authenticate } from "../middleware/auth.js";
+import { assertNotLocked } from "../services/accounting.js";
 
 const router = Router();
 
 // Post a journal entry
-router.post("/", async (req, res) => {
+router.post("/", authenticate, async (req, res) => {
   try {
     const payload = req.body || {};
     const date = payload.date ? new Date(payload.date) : new Date();
     const lines = Array.isArray(payload.lines) ? payload.lines : [];
+    await assertNotLocked(date);
 
     // Map accountCode -> accountId for convenience
     for (const l of lines) {
@@ -29,7 +32,8 @@ router.post("/", async (req, res) => {
       refNo: String(payload.refNo || ""),
       currency: String(payload.currency || "PKR"),
       postedAt: new Date(),
-      postedBy: String(payload.postedBy || "system"),
+      postedBy: req.user?.email || req.user?._id || String(payload.postedBy || "system"),
+      adjusting: Boolean(payload.adjusting) || false,
       lines,
     });
 

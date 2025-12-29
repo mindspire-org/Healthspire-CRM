@@ -85,18 +85,26 @@ router.get("/balance-sheet", async (req, res) => {
     const liabilities = rows.filter((r) => r.type === "liability");
     const equity = rows.filter((r) => r.type === "equity");
 
+    // Compute retained earnings (net income up to asOf) and include in equity section
+    const incomeExpenseRows = await summarizeByAccount({ asOf });
+    const totalRevenue = incomeExpenseRows.filter((r) => r.type === "revenue").reduce((s, r) => s + (r.credit - r.debit), 0);
+    const totalExpense = incomeExpenseRows.filter((r) => r.type === "expense").reduce((s, r) => s + (r.debit - r.credit), 0);
+    const retainedEarnings = totalRevenue - totalExpense;
+
     const sumBalance = (rs, sign = 1) => rs.reduce((s, r) => s + sign * (Number(r.debit || 0) - Number(r.credit || 0)), 0);
 
     const totalAssets = sumBalance(assets, +1);
     const totalLiabilities = -sumBalance(liabilities, +1); // liabilities normally credit balance
-    const totalEquity = -sumBalance(equity, +1); // equity normally credit balance
+    const equityFromAccounts = -sumBalance(equity, +1); // equity normally credit balance
+    const totalEquity = equityFromAccounts + retainedEarnings;
 
     res.json({
       asOf,
-      totals: { assets: totalAssets, liabilities: totalLiabilities, equity: totalEquity },
+      totals: { assets: totalAssets, liabilities: totalLiabilities, equity: totalEquity, retainedEarnings },
       assets,
       liabilities,
       equity,
+      retainedEarnings,
       // Basic check: A = L + E (differences likely come from retained earnings via P&L outside this simple snapshot)
       balanced: Math.round((totalAssets - (totalLiabilities + totalEquity)) * 100) === 0,
     });

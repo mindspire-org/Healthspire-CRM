@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function BalanceSheet() {
   const [asOf, setAsOf] = useState<string>(new Date().toISOString().slice(0,10));
@@ -15,7 +16,7 @@ export default function BalanceSheet() {
     try {
       const sp = new URLSearchParams();
       if (asOf) sp.set("asOf", asOf);
-      const res = await fetch(`/api/reports/balance-sheet?${sp.toString()}`, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}/api/reports/balance-sheet?${sp.toString()}`, { headers: { ...getAuthHeaders() } });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed");
       setData(json);

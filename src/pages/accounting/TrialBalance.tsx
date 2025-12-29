@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function TrialBalance() {
   const [from, setFrom] = useState<string>("");
@@ -18,7 +19,7 @@ export default function TrialBalance() {
       const sp = new URLSearchParams();
       if (from) sp.set("from", from);
       if (to) sp.set("to", to);
-      const res = await fetch(`/api/reports/trial-balance?${sp.toString()}` , { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}/api/reports/trial-balance?${sp.toString()}` , { headers: { ...getAuthHeaders() } });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Failed");
       setRows(Array.isArray(json?.rows) ? json.rows : []);
