@@ -232,9 +232,9 @@ export function TopNav({ onMenuClick }: TopNavProps) {
     navigate("/auth", { replace: true });
   };
   return (
-    <header className="sticky top-0 z-30 h-14 bg-white border-b border-border flex items-center justify-between px-4 lg:px-6">
+    <header className="sticky top-0 z-30 h-14 bg-card border-b border-border flex items-center justify-between px-4 lg:px-6">
       {/* Left Section: menu + icon row */}
-      <div className="flex items-center gap-4 text-muted-foreground">
+      <div className="flex items-center gap-4 text-foreground">
         <Button
           variant="ghost"
           size="icon"
@@ -257,7 +257,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
       </div>
 
       {/* Right Section: icons + avatar + brand */}
-      <div className="flex items-center gap-3 text-muted-foreground">
+      <div className="flex items-center gap-3 text-foreground">
         <Button
           variant="ghost"
           size="icon"

@@ -333,12 +333,20 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
         )}
       >
       {/* Logo */}
-      <div className="flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4 border-b border-sidebar-border bg-sidebar">
+      <div className="flex h-16 sm:h-[72px] items-center justify-between px-3 sm:px-4 border-b border-sidebar-border bg-sidebar">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {collapsed ? (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg object-contain flex-shrink-0" />
+            <img
+              src="/HealthSpire%20logo.png"
+              alt="HealthSpire"
+              className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg object-contain flex-shrink-0 filter brightness-110 contrast-110 dark:brightness-125 dark:contrast-125"
+            />
           ) : (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-10 w-auto max-h-12 object-contain flex-shrink-0" />
+            <img
+              src="/HealthSpire%20logo.png"
+              alt="HealthSpire"
+              className="h-12 sm:h-14 w-auto max-h-14 object-contain flex-shrink-0 filter brightness-110 contrast-110 dark:brightness-125 dark:contrast-125"
+            />
           )}
         </div>
         <Button
