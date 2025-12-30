@@ -68,7 +68,7 @@ router.post("/admin/login1", async (req, res) => {
   }
 });
 
-// Team login (admin + staff)
+// Team login (admin + staff + marketer)
 router.post("/team/login", async (req, res) => {
   try {
     const { identifier, password } = req.body || {};
@@ -78,7 +78,7 @@ router.post("/team/login", async (req, res) => {
     const query = { $or: [{ email: identifierLc }, { username: identifier }] };
     let user = await User.findOne(query).lean();
 
-    // If user doesn't exist yet, allow employee login by email and auto-create staff User.
+    // If user doesn't exist yet, allow employee login by email and auto-create staff/marketer User.
     if (!user) {
       const emp = identifierLc ? await Employee.findOne({ email: identifierLc }).lean() : null;
       if (!emp || emp.disableLogin || emp.markAsInactive) {
@@ -87,29 +87,46 @@ router.post("/team/login", async (req, res) => {
       const ok = String(emp.password || "") === String(password);
       if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
+      const inferredRole = String(emp?.department || "").trim().toLowerCase() === "marketing" ? "marketer" : "staff";
       user = await User.findOneAndUpdate(
         { email: identifierLc },
         {
           $setOnInsert: {
             email: identifierLc,
             username: identifierLc,
-            role: "staff",
+            role: inferredRole,
             status: "active",
             createdBy: "employee-login",
           },
           $set: {
             name: emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim(),
             avatar: emp.avatar || "",
+            role: inferredRole,
           },
         },
         { new: true, upsert: true }
       ).lean();
     }
 
-    if (user.role !== "admin" && user.role !== "staff") return res.status(403).json({ error: "Unauthorized role" });
+    // If user exists already, reconcile marketer/staff role from Employee.department
+    try {
+      if (user && user.role !== "admin") {
+        const email = String(user.email || "").toLowerCase().trim();
+        const empRoleSrc = email ? await Employee.findOne({ email }).lean() : null;
+        if (empRoleSrc) {
+          const inferredRole = String(empRoleSrc.department || "").trim().toLowerCase() === "marketing" ? "marketer" : "staff";
+          if (user.role !== inferredRole) {
+            await User.updateOne({ _id: user._id }, { $set: { role: inferredRole } });
+            user.role = inferredRole;
+          }
+        }
+      }
+    } catch {}
+
+    if (user.role !== "admin" && user.role !== "staff" && user.role !== "marketer") return res.status(403).json({ error: "Unauthorized role" });
     if (user.status !== "active") return res.status(403).json({ error: "Inactive user" });
 
-    // Admin uses hashed password; staff uses Employee.password
+    // Admin uses hashed password; staff/marketer use Employee.password
     let ok = false;
     if (user.role === "admin") {
       ok = await bcrypt.compare(password, user.passwordHash);
