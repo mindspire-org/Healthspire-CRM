@@ -55,6 +55,12 @@ import { getAuthHeaders } from "@/lib/api/auth";
 
 const API_BASE = "http://localhost:5000";
 
+const getStoredAuthUser = () => {
+  const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+};
+
 type Employee = { _id: string; name?: string; firstName?: string; lastName?: string; image?: string; avatar?: string };
 type LeadLabel = { _id: string; name: string; color?: string };
 
@@ -113,6 +119,7 @@ export default function Leads() {
   const [labels, setLabels] = useState<LeadLabel[]>([]);
   const [contacts, setContacts] = useState<ContactDoc[]>([]);
   const [loading, setLoading] = useState(false);
+  const role = (getStoredAuthUser()?.role || "admin") as string;
 
   const [kanbanCounts, setKanbanCounts] = useState<Record<string, { contacts: number; files: number; contracts: number }>>({});
 
@@ -255,6 +262,22 @@ export default function Leads() {
     if (!c) return "-";
     const n = `${c.firstName || ""}${c.lastName ? ` ${c.lastName}` : ""}`.trim();
     return n || c.name || "-";
+  };
+
+  const approveLead = async (leadId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/leads/${leadId}/approve`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to approve");
+      toast.success("Lead approved and converted to client");
+      await loadLeads();
+      if (json?.clientId) navigate(`/clients/${json.clientId}`);
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to approve lead");
+    }
   };
 
   const updateLeadStatus = async (leadId: string, status: string) => {
@@ -1253,6 +1276,9 @@ export default function Leads() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEditLead(lead)}><Edit className="w-4 h-4 mr-2"/>Edit</DropdownMenuItem>
+                              {role === "admin" && (
+                                <DropdownMenuItem onClick={() => approveLead(lead._id)}><Check className="w-4 h-4 mr-2"/>Approve to Client</DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => deleteLead(lead._id)} className="text-destructive"><Trash2 className="w-4 h-4 mr-2"/>Delete</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

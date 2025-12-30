@@ -1,5 +1,6 @@
 import { Router } from "express";
 import Client from "../models/Client.js";
+import { ensureLinkedAccount } from "../services/accounting.js";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -44,6 +45,10 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const doc = await Client.create(req.body);
+    try {
+      const displayName = doc.company || doc.person || doc.firstName || doc.lastName || "Client";
+      await ensureLinkedAccount("client", doc._id, displayName);
+    } catch (_) {}
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -66,6 +71,10 @@ router.put("/:id", async (req, res) => {
   try {
     const doc = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
+    try {
+      const displayName = doc.company || doc.person || doc.firstName || doc.lastName || "Client";
+      await ensureLinkedAccount("client", doc._id, displayName);
+    } catch (_) {}
     res.json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

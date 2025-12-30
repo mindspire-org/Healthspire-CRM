@@ -383,7 +383,7 @@ export default function Employees() {
       // backend update
       if (editingDbId) {
         try {
-          const payload = {
+          let payload: any = {
             firstName,
             lastName,
             name,
@@ -396,6 +396,9 @@ export default function Employees() {
             joinDate: hireDate ? new Date(hireDate) : undefined,
             initials,
           };
+          if (password && password !== "********") {
+            payload.password = password;
+          }
           await fetch(`${API_BASE}/api/employees/${editingDbId}`, {
             method: "PUT",
             headers: getAuthHeaders({ "Content-Type": "application/json" }),
@@ -424,7 +427,7 @@ export default function Employees() {
       ]);
       // backend create
       try {
-        const payload = {
+        let payload: any = {
           firstName,
           lastName,
           name,
@@ -437,6 +440,9 @@ export default function Employees() {
           joinDate: hireDate ? new Date(hireDate) : undefined,
           initials,
         };
+        if (password && password !== "********") {
+          payload.password = password;
+        }
         await fetch(`${API_BASE}/api/employees`, {
           method: "POST",
           headers: getAuthHeaders({ "Content-Type": "application/json" }),

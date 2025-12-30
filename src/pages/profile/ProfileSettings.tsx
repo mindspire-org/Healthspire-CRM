@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,40 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { ImageManager } from "@/components/ImageManager";
 
 const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
   ? "https://healthspire-crm.onrender.com"
   : "http://localhost:5000";
+const RENDER_BASE = "https://healthspire-crm.onrender.com";
+const ASSET_BASE = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? RENDER_BASE : API_BASE;
+
+const normalizeAvatarSrc = (input: string, ver?: number) => {
+  const s = String(input || "").trim();
+  if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
+  try {
+    const isAbs = /^https?:\/\//i.test(s);
+    if (isAbs) {
+      const u = new URL(s);
+      if ((u.hostname === "localhost" || u.hostname === "127.0.0.1") && u.pathname.includes("/uploads/")) {
+        const url = `${ASSET_BASE}${u.pathname}`;
+        return ver ? `${url}?v=${ver}` : url;
+      }
+      if (u.pathname.includes("/uploads/")) {
+        const url = `${ASSET_BASE}${u.pathname}`;
+        return ver ? `${url}?v=${ver}` : url;
+      }
+      return ver ? `${s}?v=${ver}` : s;
+    }
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    const url = `${ASSET_BASE}${rel}`;
+    return ver ? `${url}?v=${ver}` : url;
+  } catch {
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    const url = `${ASSET_BASE}${rel}`;
+    return ver ? `${url}?v=${ver}` : url;
+  }
+};
 
 type MeResponse = {
   user?: {
@@ -155,8 +185,31 @@ export default function ProfileSettings() {
     }
   };
 
+  const handleAvatarChange = async (imageBlob: Blob) => {
+    const file = new File([imageBlob], "avatar.jpg", { type: "image/jpeg" });
+    await uploadNewAvatar(file);
+    await loadMe(); // Refresh user data to get new avatar URL
+    setAvatarVer(Date.now()); // Update cache-busting version
+  };
+
+  const handleAvatarRemove = async () => {
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${API_BASE}/api/users/me/avatar`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) throw new Error("Failed to remove avatar");
+      toast.success("Avatar removed");
+      await loadMe();
+      setAvatarVer(Date.now());
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to remove avatar");
+    }
+  };
+
   if (loading) {
-    return <div className="text-sm text-muted-foreground">Loading profile…</div>;
+    return <div className="text-sm text-muted-foreground">Loading profileâ€¦</div>;
   }
 
   return (
@@ -166,40 +219,32 @@ export default function ProfileSettings() {
           <CardTitle>Profile Settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 border">
-              <AvatarImage
-                src={(() => {
-                  if (!avatar) return "/api/placeholder/64/64";
-                  const url = avatar.startsWith("http") ? avatar : `${API_BASE}${avatar}`;
-                  return avatarVer ? `${url}?v=${avatarVer}` : url;
-                })()}
-                onError={(e) => {
-                  const img = e.currentTarget as HTMLImageElement;
-                  img.src = "/api/placeholder/64/64";
-                }}
-              />
-              <AvatarFallback className="text-lg">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <div className="text-sm font-medium">{name || ""}</div>
-              <div className="text-xs text-muted-foreground">{email || ""}</div>
-              <div className="text-xs text-muted-foreground">{role ? String(role).toUpperCase() : ""}</div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16 border">
+                <AvatarImage
+                  src={normalizeAvatarSrc(avatar, avatarVer)}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    img.src = "/api/placeholder/64/64";
+                  }}
+                />
+                <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+              </Avatar>
+              <div className="space-y-1">
+                <div className="text-sm font-medium">{name || ""}</div>
+                <div className="text-xs text-muted-foreground">{email || ""}</div>
+                <div className="text-xs text-muted-foreground">{role ? String(role).toUpperCase() : ""}</div>
+              </div>
             </div>
-            <div className="flex-1" />
-            <div className="flex items-center gap-2">
-              <Input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="max-w-[240px]"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void uploadNewAvatar(f);
-                }}
-                disabled={uploading}
-              />
-            </div>
+            
+            <ImageManager
+              currentImage={normalizeAvatarSrc(avatar, avatarVer)}
+              onImageChange={handleAvatarChange}
+              onImageRemove={handleAvatarRemove}
+              aspectRatio={1}
+              disabled={uploading}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -238,3 +283,5 @@ export default function ProfileSettings() {
     </div>
   );
 }
+
+

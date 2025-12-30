@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
@@ -63,15 +63,12 @@ const navigation: NavItem[] = [
     icon: Users,
     children: [
       { title: "Employees", href: "/hrm/employees" },
-      { title: "Departments", href: "/hrm/departments" },
-      { title: "Attendance", href: "/hrm/attendance" },
-      { title: "Leaves", href: "/hrm/leaves" },
-      { title: "Recruitment", href: "/hrm/recruitment" },
       { title: "Payroll", href: "/hrm/payroll" },
+      { title: "My Salary Ledger", href: "/hrm/my-salary-ledger" },
     ],
   },
 
-  // 5. Projects
+  // 5. Projects (View-only for non-admin)
   {
     title: "Projects",
     href: "/projects",
@@ -79,7 +76,6 @@ const navigation: NavItem[] = [
     children: [
       { title: "Overview", href: "/projects" },
       { title: "Timeline", href: "/projects/timeline" },
-      { title: "Project Requests", href: "/project-requests" },
     ],
   },
 
@@ -125,6 +121,25 @@ const navigation: NavItem[] = [
   { title: "Notes", href: "/notes", icon: StickyNote },
   { title: "Files", href: "/files", icon: Folder },
 
+  // Accounting
+  {
+    title: "Accounting",
+    href: "/accounting",
+    icon: BarChart3,
+    children: [
+      { title: "Journal", href: "/accounting/journal" },
+      { title: "General Ledger", href: "/accounting/ledger" },
+      { title: "Trial Balance", href: "/accounting/trial-balance" },
+      { title: "Income Statement", href: "/accounting/income-statement" },
+      { title: "Balance Sheet", href: "/accounting/balance-sheet" },
+      { title: "Accounts", href: "/accounting/accounts" },
+      { title: "Vendors", href: "/accounting/vendors" },
+      { title: "Vendor Ledger", href: "/accounting/vendor-ledger" },
+      { title: "Settings", href: "/accounting/settings" },
+      { title: "Periods", href: "/accounting/periods" },
+    ],
+  },
+
   // Extra groups requested: App Settings, Access Permission, Client portal, Sales & Prospects, Setup, Settings
   {
     title: "Settings",
@@ -157,10 +172,10 @@ const navigation: NavItem[] = [
     href: "/client",
     icon: Building2,
     children: [
+      { title: "Ledger", href: "/client/ledger" },
       { title: "Messages", href: "/client/messages" },
       { title: "Announcements", href: "/client/announcements" },
       { title: "Tickets", href: "/client/tickets" },
-      { title: "Project Requests", href: "/client/project-requests" },
     ],
   },
   
@@ -197,6 +212,28 @@ const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?
 const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
   ? "https://healthspire-crm.onrender.com"
   : "http://localhost:5000";
+
+const normalizeAvatarSrc = (input: string) => {
+  const s = String(input || "").trim();
+  if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
+      const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
+    try {
+    const isAbs = /^https?:\/\//i.test(s);
+    if (isAbs) {
+      const u = new URL(s);
+      if ((u.hostname === "localhost" || u.hostname === "127.0.0.1") && u.pathname.includes("/uploads/")) {
+        return `${base}${u.pathname}`;
+      }
+      if (u.pathname.includes("/uploads/")) return `${base}${u.pathname}`;
+      return s;
+    }
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    return `${base}${rel}`;
+  } catch {
+    const rel = s.startsWith("/") ? s : `/${s}`;
+    return `${base}${rel}`;
+  }
+};
 
 export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarProps) {
   const location = useLocation();
@@ -304,26 +341,34 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
           "transition-transform duration-300 lg:transition-all",
           // width behavior
           collapsed ? "lg:w-[72px]" : "lg:w-64",
-          "w-64",
+          "w-64 max-w-[80vw]",
           // mobile drawer translate
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
         )}
       >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border bg-sidebar">
-        <div className="flex items-center gap-3">
+      <div className="flex h-16 sm:h-[72px] items-center justify-between px-3 sm:px-4 border-b border-sidebar-border bg-sidebar">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {collapsed ? (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-12 rounded-lg object-contain" />
+            <img
+              src="/HealthSpire%20logo.png"
+              alt="HealthSpire"
+              className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg object-contain flex-shrink-0 filter brightness-110 contrast-110 dark:brightness-125 dark:contrast-125"
+            />
           ) : (
-            <img src="/HealthSpire%20logo.png" alt="HealthSpire" className="h-12 w-auto max-w-[300px] object-contain" />
+            <img
+              src="/HealthSpire%20logo.png"
+              alt="HealthSpire"
+              className="h-12 sm:h-14 w-auto max-h-14 object-contain flex-shrink-0 filter brightness-110 contrast-110 dark:brightness-125 dark:contrast-125"
+            />
           )}
         </div>
         <Button
           variant="ghost"
           size="icon-sm"
           onClick={onToggle}
-          className="text-sidebar-foreground hover:bg-sidebar-accent"
+          className="text-sidebar-foreground hover:bg-sidebar-accent flex-shrink-0"
         >
           <ChevronLeft
             className={cn(
@@ -335,7 +380,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-3 sm:py-4 px-2 sm:px-3 scrollbar-thin">
         <ul className="space-y-1">
           {visibleNavigation.map((item) => (
             <li key={item.title}>
@@ -364,7 +409,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
                   {!collapsed && openMenus.includes(item.title) && (
                     <ul className="mt-1 ml-6 space-y-1 border-l border-sidebar-border pl-4">
                       {item.children
-                        .filter((child) => role === "admin" || child.href !== "/project-requests")
+                        .filter((child) => {
+                          // Hide Project Requests from non-admins
+                          if (child.href === "/project-requests") return role === "admin";
+                          return true;
+                        })
                         .map((child) => (
                         <li key={child.href}>
                           <NavLink
@@ -406,21 +455,14 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-3 sm:p-4 border-t border-sidebar-border">
         {!collapsed ? (
           <div className="space-y-3">
             <div className="flex items-center gap-3 p-2 rounded-lg bg-sidebar-accent">
               <div className="w-10 h-10 rounded-full bg-white border border-sidebar-border flex items-center justify-center font-semibold text-sidebar-foreground overflow-hidden">
                 {meAvatar ? (
                   <img
-                    src={(() => {
-                      const a = String(meAvatar || "");
-                      if (!a) return "/api/placeholder/64/64";
-                      if (a.startsWith("http")) return a;
-                      if (a.startsWith("<")) return "/api/placeholder/64/64";
-                      const rel = a.startsWith("/") ? a : `/${a}`;
-                      return `${API_BASE}${rel}`;
-                    })()}
+                    src={normalizeAvatarSrc(String(meAvatar || ""))}
                     alt="User"
                     onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64"; }}
                     className="w-full h-full object-cover"
@@ -447,3 +489,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
     </>
   );
 }
+
+
+

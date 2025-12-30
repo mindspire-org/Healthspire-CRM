@@ -58,6 +58,14 @@ import notificationsRouter from "./routes/notifications.js";
 import settingsRouter from "./routes/settings.js";
 import bcrypt from "bcryptjs";
 import User from "./models/User.js";
+import accountsRouter from "./routes/accounts.js";
+import journalsRouter from "./routes/journals.js";
+import ledgersRouter from "./routes/ledgers.js";
+import reportsRouter from "./routes/reports.js";
+import accountingSettingsRouter from "./routes/accountingSettings.js";
+import accountingPeriodsRouter from "./routes/accountingPeriods.js";
+import vendorsRouter from "./routes/vendors.js";
+import statementsRouter from "./routes/statements.js";
 
 dotenv.config();
 
@@ -67,11 +75,12 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mindspire";
 
-// CORS configuration: allow Vercel frontend, Render preview, and local dev
+// CORS configuration: allow Vercel frontend, Render preview, custom domain, and local dev
 const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5000",
+  "https://crm.healthspire.org",
   "https://healthspire-crm.vercel.app",
   "https://healthspire-crm.onrender.com",
 ];
@@ -125,6 +134,28 @@ const UPLOAD_DIR = path.join(SERVER_ROOT, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
+// Handle missing avatar files gracefully
+app.get(/^\/uploads\/avatar_user_/, (req, res) => {
+  const filePath = path.join(UPLOAD_DIR, path.basename(req.path));
+  if (!fs.existsSync(filePath)) {
+    // Return 204 No Content for missing avatars
+    res.status(204).send();
+    return;
+  }
+  res.sendFile(filePath);
+});
+
+// Handle missing employee avatar files gracefully
+app.get(/^\/uploads\/emp_/, (req, res) => {
+  const filePath = path.join(UPLOAD_DIR, path.basename(req.path));
+  if (!fs.existsSync(filePath)) {
+    // Return 204 No Content for missing avatars
+    res.status(204).send();
+    return;
+  }
+  res.sendFile(filePath);
+});
+
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 app.get("/", (_req, res) => {
@@ -203,6 +234,15 @@ app.use("/api/estimateforms", estimateFormsRouter);
 // Help & Support
 app.use("/api/help/articles", helpArticlesRouter);
 app.use("/api/help/categories", helpCategoriesRouter);
+// Accounting core
+app.use("/api/accounts", accountsRouter);
+app.use("/api/journals", journalsRouter);
+app.use("/api/ledgers", ledgersRouter);
+app.use("/api/reports", reportsRouter);
+app.use("/api/accounting", accountingSettingsRouter);
+app.use("/api/accounting-periods", accountingPeriodsRouter);
+app.use("/api/vendors", vendorsRouter);
+app.use("/api/statements", statementsRouter);
 
 async function seedAdmin() {
   try {
@@ -228,7 +268,12 @@ async function seedAdmin() {
 }
 
 mongoose
-  .connect(MONGODB_URI, { dbName: process.env.MONGODB_DB || "mindspire" })
+  .connect(MONGODB_URI, { 
+    dbName: process.env.MONGODB_DB || "mindspire",
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
+  })
   .then(() => {
     console.log("MongoDB connected");
     (async () => {

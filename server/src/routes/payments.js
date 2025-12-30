@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Payment from "../models/Payment.js";
 import Invoice from "../models/Invoice.js";
+import { ensureLinkedAccount, getSettings, postJournal } from "../services/accounting.js";
 
 const router = Router();
 
@@ -95,6 +96,26 @@ router.post("/", async (req, res) => {
     if (payload.date) payload.date = new Date(payload.date);
     const doc = await Payment.create(payload);
     if (doc?.invoiceId) await updateInvoiceStatus(String(doc.invoiceId));
+    // Auto-post: DR Cash/Bank, CR AR-[Client]
+    try {
+      const amt = Number(doc.amount || 0);
+      if (amt > 0 && doc.clientId) {
+        const settings = await getSettings();
+        const method = String(doc.method || "cash").toLowerCase();
+        const cashOrBank = method.includes("bank") || method.includes("transfer") ? settings.bankAccount : settings.cashAccount;
+        const clientAcc = await ensureLinkedAccount("client", doc.clientId, doc.client || "Client");
+        await postJournal({
+          date: doc.date || new Date(),
+          memo: `Payment ${doc.reference || doc.transactionId || doc._id}`,
+          refNo: String(doc.reference || doc.transactionId || ""),
+          lines: [
+            { accountCode: cashOrBank, debit: amt, credit: 0 },
+            { accountCode: clientAcc.code, debit: 0, credit: amt, entityType: "client", entityId: doc.clientId },
+          ],
+          postedBy: "system",
+        });
+      }
+    } catch (_) {}
     res.status(201).json(doc);
   } catch (e) {
     res.status(400).json({ error: e.message });

@@ -43,6 +43,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 type ListInvoice = {
   id: string;
@@ -209,9 +210,10 @@ export default function InvoiceList() {
   useEffect(() => {
     (async () => {
       try {
+        const headers = { ...getAuthHeaders() } as any;
         const [cRes, pRes] = await Promise.all([
-          fetch(`${API_BASE}/api/clients`),
-          fetch(`${API_BASE}/api/projects`),
+          fetch(`${API_BASE}/api/clients`, { headers }),
+          fetch(`${API_BASE}/api/projects`, { headers }),
         ]);
         if (cRes.ok) {
           const cData = await cRes.json();
@@ -695,7 +697,8 @@ export default function InvoiceList() {
             <TabsContent value="list">
               <Card>
                 <CardContent className="p-0">
-                  <Table>
+                  <div className="overflow-x-auto">
+                    <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40">
                         <TableHead>Invoice ID</TableHead>
@@ -758,6 +761,7 @@ export default function InvoiceList() {
                       </TableRow>
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -765,7 +769,8 @@ export default function InvoiceList() {
             <TabsContent value="recurring">
               <Card>
                 <CardContent className="p-0">
-                  <Table>
+                  <div className="overflow-x-auto">
+                    <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/40">
                         <TableHead>Invoice ID</TableHead>
@@ -785,6 +790,7 @@ export default function InvoiceList() {
                       </TableRow>
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

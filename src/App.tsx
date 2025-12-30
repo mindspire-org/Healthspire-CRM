@@ -13,8 +13,6 @@ import ClientTickets from "./pages/client/ClientTickets";
 import ClientTicketDetails from "./pages/client/ClientTicketDetails";
 import ClientAnnouncements from "./pages/client/ClientAnnouncements";
 import ClientMessages from "./pages/client/ClientMessages.tsx";
-import ClientProjectRequests from "./pages/client/ProjectRequests";
-import ProjectRequestsAdmin from "./pages/project-requests/ProjectRequests";
 import Events from "./pages/events/Events";
 import Clients from "./pages/clients/Clients";
 import ClientDetails from "./pages/clients/ClientDetails";
@@ -30,8 +28,6 @@ import EmployeeProfile from "./pages/hrm/EmployeeProfile";
 import Attendance from "./pages/hrm/Attendance";
 import Leave from "./pages/hrm/Leave";
 import Payroll from "./pages/hrm/Payroll";
-import Recruitment from "./pages/hrm/Recruitment";
-import Departments from "./pages/hrm/Departments";
 import Announcements from "./pages/announcements/Announcements";
 import AddAnnouncement from "./pages/announcements/AddAnnouncement";
 import AnnouncementView from "./pages/announcements/AnnouncementView";
@@ -45,6 +41,8 @@ import OrderDetailPage from "./pages/sales/OrderDetailPage";
 import Payments from "./pages/sales/Payments";
 import Items from "./pages/sales/Items";
 import Contracts from "./pages/sales/Contracts";
+import ContractDetail from "./pages/sales/ContractDetail";
+import ContractPreview from "./pages/sales/ContractPreview";
 import Expenses from "./pages/sales/Expenses";
 import EstimateList from "./pages/prospects/EstimateList";
 import EstimateDetail from "./pages/prospects/EstimateDetail";
@@ -76,7 +74,6 @@ import KnowledgeBaseArticles from "./pages/help-support/knowledge-base/Articles"
 import KnowledgeBaseCategories from "./pages/help-support/knowledge-base/Categories";
 import CalendarPage from "./pages/calendar/Calendar";
 import Overview from "./pages/projects/Overview";
-
 import Timeline from "./pages/projects/Timeline";
 import ProjectDashboard from "./pages/projects/ProjectDashboard";
 import ProjectOverviewPage from "./pages/projects/ProjectOverview";
@@ -92,6 +89,18 @@ import NotFound from "./pages/NotFound";
 import SettingsPage from "./pages/settings/Settings";
 import ProfileSettings from "./pages/profile/ProfileSettings";
 import AuthLayout from "./pages/auth/AuthLayout";
+import Journal from "./pages/accounting/Journal";
+import Accounts from "./pages/accounting/Accounts";
+import GeneralLedger from "./pages/accounting/GeneralLedger";
+import TrialBalance from "./pages/accounting/TrialBalance";
+import IncomeStatement from "./pages/accounting/IncomeStatement";
+import BalanceSheet from "./pages/accounting/BalanceSheet";
+import AccountingSettings from "./pages/accounting/AccountingSettings";
+import AccountingPeriods from "./pages/accounting/AccountingPeriods";
+import ClientLedger from "./pages/client/ClientLedger";
+import MySalaryLedger from "./pages/hrm/MySalaryLedger";
+import VendorLedger from "./pages/accounting/VendorLedger";
+import Vendors from "./pages/accounting/Vendors";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +112,15 @@ const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?
   } catch {
     return null;
   }
+};
+
+const ContractPreviewAccess = () => {
+  const hasToken = Boolean(localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token"));
+  const location = useLocation();
+  const sp = new URLSearchParams(location.search || "");
+  const isPrintMode = sp.get("print") === "1";
+  const isPdfMode = sp.get("mode") === "pdf";
+  return hasToken || isPrintMode || isPdfMode ? <ContractPreview /> : <Navigate to="/auth" replace />;
 };
 
 const normalizePerms = (p?: any): Set<string> => {
@@ -154,6 +172,26 @@ const RoleGuard = ({ children }: { children: React.ReactNode }) => {
     const allowed = new Set(["client_portal", "messages", "dashboard", "profile"]);
     if (allowed.has(moduleKey)) return <>{children}</>;
     return <Navigate to="/client" replace />;
+  }
+
+  // marketer: allow CRM in addition to staff defaults
+  if (role === "marketer") {
+    const marketerDefault = new Set([
+      "dashboard",
+      "messages",
+      "announcements",
+      "calendar",
+      "tasks",
+      "profile",
+      "files",
+      "notes",
+      "projects",
+      "hrm",
+      "crm",
+    ]);
+    if (marketerDefault.has(moduleKey)) return <>{children}</>;
+    if (perms.has(moduleKey)) return <>{children}</>;
+    return <Navigate to="/" replace />;
   }
 
   // staff (including marketer)
@@ -214,6 +252,9 @@ const App = () => (
           {/* Public/print-safe estimate preview */}
           <Route path="/prospects/estimates/:id/preview" element={<EstimatePreviewAccess />} />
 
+          {/* Public/print-safe contract preview */}
+          <Route path="/sales/contracts/:id/preview" element={<ContractPreviewAccess />} />
+
           {/* Protected app */}
           <Route
             element={
@@ -237,10 +278,6 @@ const App = () => (
               path="/tasks/activity"
               element={getStoredAuthUser()?.role === "admin" ? <TeamActivity /> : <Navigate to="/" replace />}
             />
-            <Route
-              path="/project-requests"
-              element={getStoredAuthUser()?.role === "admin" ? <ProjectRequestsAdmin /> : <Navigate to="/" replace />}
-            />
             {/* CRM Routes */}
             <Route path="/crm/leads" element={<Leads />} />
             <Route path="/crm/leads/:id" element={<LeadDetails />} />
@@ -251,11 +288,13 @@ const App = () => (
             {/* HRM Routes */}
             <Route path="/hrm/employees" element={<Employees />} />
             <Route path="/hrm/employees/:id" element={<EmployeeProfile />} />
-            <Route path="/hrm/departments" element={<Departments />} />
             <Route path="/hrm/attendance" element={<Attendance />} />
             <Route path="/hrm/leaves" element={<Leave />} />
-            <Route path="/hrm/recruitment" element={<Recruitment />} />
             <Route path="/hrm/payroll" element={<Payroll />} />
+            <Route
+              path="/hrm/my-salary-ledger"
+              element={(getStoredAuthUser()?.role === "staff" || getStoredAuthUser()?.role === "admin") ? <MySalaryLedger /> : <Navigate to="/" replace />}
+            />
             {/* Project Routes */}
             <Route path="/projects" element={<Overview />} />
             <Route path="/projects/overview/:id" element={<ProjectOverviewPage />} />
@@ -276,6 +315,8 @@ const App = () => (
             <Route path="/subscriptions" element={<Subscriptions />} />
             <Route path="/subscriptions/:id" element={<SubscriptionDetails />} />
             <Route path="/orders" element={<Orders />} />
+            {/* Alias route so Sidebar link /sales/orders resolves to the same Orders list */}
+            <Route path="/sales/orders" element={<Orders />} />
             <Route path="/sales/orders/:id" element={<OrderDetailPage />} />
             <Route path="/sales/store" element={<Store />} />
             <Route path="/sales/checkout" element={<Checkout />} />
@@ -283,6 +324,7 @@ const App = () => (
             <Route path="/sales/expenses" element={<Expenses />} />
             <Route path="/sales/items" element={<Items />} />
             <Route path="/sales/contracts" element={<Contracts />} />
+            <Route path="/sales/contracts/:id" element={<ContractDetail />} />
             {/* Prospects */}
             <Route path="/prospects/estimates" element={<EstimateList />} />
             <Route path="/prospects/estimates/:id" element={<EstimateDetail />} />
@@ -321,13 +363,39 @@ const App = () => (
             <Route path="/reports/leads/conversions" element={<LeadsConversions />} />
             <Route path="/reports/leads/team-members" element={<LeadsTeamMembers />} />
             <Route path="/reports/tickets/statistics" element={<TicketsStatistics />} />
+            {/* Accounting */}
+            <Route path="/accounting/accounts" element={<Accounts />} />
+            <Route path="/accounting/journal" element={<Journal />} />
+            <Route path="/accounting/ledger" element={<GeneralLedger />} />
+            <Route path="/accounting/trial-balance" element={<TrialBalance />} />
+            <Route path="/accounting/income-statement" element={<IncomeStatement />} />
+            <Route path="/accounting/balance-sheet" element={<BalanceSheet />} />
+            <Route
+              path="/accounting/vendors"
+              element={getStoredAuthUser()?.role === "admin" ? <Vendors /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/accounting/vendor-ledger"
+              element={getStoredAuthUser()?.role === "admin" ? <VendorLedger /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/accounting/settings"
+              element={getStoredAuthUser()?.role === "admin" ? <AccountingSettings /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/accounting/periods"
+              element={getStoredAuthUser()?.role === "admin" ? <AccountingPeriods /> : <Navigate to="/" replace />}
+            />
             {/* Portals */}
             <Route path="/client" element={<ClientDashboard />} />
+            <Route
+              path="/client/ledger"
+              element={getStoredAuthUser()?.role === "client" ? <ClientLedger /> : <Navigate to="/" replace />}
+            />
             <Route path="/client/messages" element={<ClientMessages />} />
             <Route path="/client/announcements" element={<ClientAnnouncements />} />
             <Route path="/client/tickets" element={<ClientTickets />} />
             <Route path="/client/tickets/:id" element={<ClientTicketDetails />} />
-            <Route path="/client/project-requests" element={<ClientProjectRequests />} />
             <Route path="/admin" element={<Dashboard />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/:section" element={<SettingsPage />} />
