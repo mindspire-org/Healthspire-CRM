@@ -16,7 +16,7 @@ export default function IncomeVsExpenses() {
   const [payments, setPayments] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

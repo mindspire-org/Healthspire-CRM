@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type TaskDoc = {
   _id: string;

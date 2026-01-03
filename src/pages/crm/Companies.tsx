@@ -80,7 +80,7 @@ const SAMPLE: Company[] = [
   },
 ];
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 export default function Companies() {
   const [query, setQuery] = useState("");

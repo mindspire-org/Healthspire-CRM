@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { RefreshCw, Search, Eye, UserPlus } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ProjectRequestStatus = "pending" | "approved" | "rejected" | "in_progress";
 

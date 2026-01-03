@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type Row = {
   id: string;

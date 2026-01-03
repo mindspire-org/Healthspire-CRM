@@ -43,7 +43,7 @@ import {
   Upload,
 } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type Employee = { _id: string; name?: string; firstName?: string; lastName?: string };
 

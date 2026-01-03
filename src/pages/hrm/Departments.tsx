@@ -17,7 +17,7 @@ export type Department = {
   createdAt?: string;
 };
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 export default function Departments() {
   const [items, setItems] = useState<Department[]>([]);

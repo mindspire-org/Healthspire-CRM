@@ -10,7 +10,7 @@ import { ImageManager } from "@/components/ImageManager";
 
 const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
   ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5000";
+  : "http://localhost:5050";
 const RENDER_BASE = "https://healthspire-crm.onrender.com";
 const ASSET_BASE = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? RENDER_BASE : API_BASE;
 

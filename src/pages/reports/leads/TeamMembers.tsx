@@ -16,7 +16,7 @@ export default function LeadsTeamMembers() {
   const [loading, setLoading] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

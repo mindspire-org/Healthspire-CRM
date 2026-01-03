@@ -87,7 +87,7 @@ const SAMPLE: Contact[] = [
   },
 ];
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 export default function Contacts() {
   const [query, setQuery] = useState("");

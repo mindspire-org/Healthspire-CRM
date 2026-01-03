@@ -9,8 +9,10 @@ import { ChevronLeft, ChevronRight, RefreshCw, Search, FileDown, Printer, Trendi
 import ReportsNav from "../ReportsNav";
 import { Link } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+// API base centralized via Vite env
 
 type Invoice = {
   _id: string;
@@ -49,13 +51,14 @@ export default function InvoicesSummary() {
   const load = async () => {
     try {
       setLoading(true);
+      const headers = getAuthHeaders();
       const [invRes, payRes, cliRes, ordRes, conRes, expRes] = await Promise.all([
-        fetch(`${API_BASE}/api/invoices`),
-        fetch(`${API_BASE}/api/payments`),
-        fetch(`${API_BASE}/api/clients`),
-        fetch(`${API_BASE}/api/orders`),
-        fetch(`${API_BASE}/api/contracts`),
-        fetch(`${API_BASE}/api/expenses`),
+        fetch(`${API_BASE}/api/invoices`, { headers }),
+        fetch(`${API_BASE}/api/payments`, { headers }),
+        fetch(`${API_BASE}/api/clients`, { headers }),
+        fetch(`${API_BASE}/api/orders`, { headers }),
+        fetch(`${API_BASE}/api/contracts`, { headers }),
+        fetch(`${API_BASE}/api/expenses`, { headers }),
       ]);
       const invData = invRes.ok ? await invRes.json() : [];
       const payData = payRes.ok ? await payRes.json() : [];

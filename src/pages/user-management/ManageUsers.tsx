@@ -10,15 +10,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, ChevronDown, RefreshCw, Settings, MoreHorizontal } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return { headers, token };
-};
+// API_BASE and getAuthHeaders centralized in lib/api
 
 type UserRow = {
   _id: string;
@@ -68,8 +63,7 @@ export default function ManageUsers() {
   const load = async () => {
     try {
       setLoading(true);
-      const { headers } = getAuthHeaders();
-      const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers });
+      const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load users");
       setItems(Array.isArray(json) ? json : []);
@@ -112,10 +106,9 @@ export default function ManageUsers() {
 
   const saveEdit = async () => {
     if (!editing?._id) return;
-    const { headers } = getAuthHeaders();
     const res = await fetch(`${API_BASE}/api/users/admin/${editing._id}`, {
       method: "PUT",
-      headers,
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ role: editRole, status: editStatus, permissions: Array.from(editPerms) }),
     });
     const json = await res.json().catch(() => null);

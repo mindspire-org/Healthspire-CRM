@@ -37,7 +37,7 @@ export default function EmployeeProfile() {
     | undefined) || undefined
   );
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
   const isObjectId = (s?: string) => !!s && /^[a-fA-F0-9]{24}$/.test(s);
   const routeDbId = isObjectId(id) ? id : undefined;
   const stateDbId = isObjectId(location.state?.dbId) ? (location.state?.dbId as string) : undefined;

@@ -34,7 +34,7 @@ export default function Leave() {
     approver?: string;
   };
 
-  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5000";
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
   const [leaves, setLeaves] = useState<LeaveItem[]>([]);
 
   // Get current user role to determine UI permissions

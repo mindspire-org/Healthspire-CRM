@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import Notes from "../notes/Notes";
 import Files from "../files/Files";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 export default function ClientDetails() {
   const { id } = useParams();

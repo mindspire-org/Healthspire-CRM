@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, Trash2, Calendar, DollarSign, Tag, FileText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 interface SubscriptionDoc {
   _id: string;

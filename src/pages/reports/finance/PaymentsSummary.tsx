@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { toast } from "@/components/ui/sonner";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type Payment = { _id: string; clientId?: string; client?: string; invoiceId?: string; amount?: number; date?: string; method?: string };
 type Invoice = { _id: string; clientId?: string; client?: string };

@@ -12,7 +12,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { ChevronLeft, ChevronRight, Plus, Tag, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 interface CalendarEvent {
   id: string;

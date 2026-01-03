@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { CheckCircle2, MoreHorizontal, Paperclip, Send, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5000";
+// API base centralized via Vite env
 
 type TicketMessage = {
   text?: string;
