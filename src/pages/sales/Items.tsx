@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Plus, Edit, X, Paperclip } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 interface Item {
   _id: string;

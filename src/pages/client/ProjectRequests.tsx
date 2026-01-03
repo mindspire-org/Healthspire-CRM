@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Plus, Briefcase, Calendar, DollarSign, Clock } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ProjectRequest = {
   _id: string;

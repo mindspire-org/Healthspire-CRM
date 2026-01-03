@@ -40,7 +40,7 @@ export default function Attendance() {
   >("clock");
   const [loading, setLoading] = useState(false);
 
-  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5000";
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
   const toAbsoluteAvatar = (v?: string) => {    const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
     if (!v) return "";

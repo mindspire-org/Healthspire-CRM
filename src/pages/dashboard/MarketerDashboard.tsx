@@ -52,7 +52,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 const leadConversionData = [
   { month: "Jan", leads: 120, conversions: 24, rate: 20 },

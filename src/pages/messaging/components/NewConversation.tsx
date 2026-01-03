@@ -29,7 +29,7 @@ export const NewConversation: React.FC<{
     queryKey: ['users', searchQuery],
     queryFn: async () => {
       const response = await fetch(
-        `http://localhost:5000/api/users?search=${encodeURIComponent(searchQuery)}&limit=50`,
+        `http://localhost:5050/api/users?search=${encodeURIComponent(searchQuery)}&limit=50`,
         { headers: getAuthHeaders() }
       );
       if (!response.ok) throw new Error('Failed to fetch users');

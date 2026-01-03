@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type AnnouncementDoc = {
   _id: string;

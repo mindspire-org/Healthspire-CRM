@@ -9,7 +9,7 @@ import { Home, Star, Search, FolderPlus, Upload, Info, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type FileDoc = {
   _id: string;

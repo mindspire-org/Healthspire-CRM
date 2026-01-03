@@ -79,7 +79,7 @@ export default function Overview() {
     const activeProjects = rows.filter(r => r.status === "Open").length;
     const onHoldProjects = rows.filter(r => r.status === "Hold").length;
     const avgProgress = totalProjects > 0 ? Math.round(rows.reduce((acc, r) => acc + r.progress, 0) / totalProjects) : 0;
-    
+
     return {
       totalProjects,
       completedProjects,
@@ -132,14 +132,14 @@ export default function Overview() {
         if (!res.ok) return;
         const data = await res.json();
         const opts: { id: string; name: string }[] = (Array.isArray(data) ? data : [])
-          .map((c:any)=> ({ id: String(c._id || ""), name: (c.company || c.person || "-") }))
-          .filter((c:any)=> c.id && c.name);
+          .map((c: any) => ({ id: String(c._id || ""), name: (c.company || c.person || "-") }))
+          .filter((c: any) => c.id && c.name);
         setClientOptions(opts);
         if (!client && opts.length) {
           setClient(opts[0].name);
           setClientIdSel(opts[0].id);
         }
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -147,7 +147,7 @@ export default function Overview() {
     try {
       const ls = JSON.parse(localStorage.getItem("project_labels") || "[]");
       if (Array.isArray(ls)) setLabelOptions(ls.filter((x: any) => typeof x === "string" && x.trim()).map((x: string) => x.trim()));
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -178,10 +178,10 @@ export default function Overview() {
         description: desc,
         labels: labels
           ? labels
-              .split(",")
-              .map((l) => l.trim())
-              .filter(Boolean)
-              .join(", ")
+            .split(",")
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .join(", ")
           : "",
       };
       const res = await fetch(`${API_BASE}/api/projects`, {
@@ -217,7 +217,7 @@ export default function Overview() {
       await fetch(`${API_BASE}/api/projects/${id}`, { method: "DELETE", headers: getAuthHeaders() });
       setRows((prev) => prev.filter((r) => r.id !== id));
       toast.success("Project removed");
-    } catch {}
+    } catch { }
   };
 
   const updateProjectStatus = async (id: string, status: Row["status"]) => {
@@ -231,7 +231,7 @@ export default function Overview() {
         setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status, progress: status === "Completed" ? 100 : r.progress } : r)));
         toast.success("Status updated");
       }
-    } catch {}
+    } catch { }
   };
 
   const openEdit = (r: Row) => {
@@ -283,7 +283,7 @@ export default function Overview() {
       out = out.filter(r => [r.title, r.client, r.status].some(v => v.toLowerCase().includes(s)));
     }
     if (statusFilter && statusFilter !== "__all__") out = out.filter(r => r.status.toLowerCase() === statusFilter.toLowerCase());
-    if (labelFilter && labelFilter !== "__all__") out = out.filter(r => (r.labels || "").split(",").map(x=>x.trim().toLowerCase()).includes(labelFilter.toLowerCase()));
+    if (labelFilter && labelFilter !== "__all__") out = out.filter(r => (r.labels || "").split(",").map(x => x.trim().toLowerCase()).includes(labelFilter.toLowerCase()));
     if (startFrom) out = out.filter(r => r.start && r.start !== "-" && r.start >= startFrom);
     if (deadlineTo) out = out.filter(r => r.due && r.due !== "-" && r.due <= deadlineTo);
     return out;
@@ -310,7 +310,7 @@ export default function Overview() {
   };
 
   const exportToCSV = () => {
-    const header = ["ID","Title","Client","Price","Start date","Deadline","Progress","Status","Labels"];
+    const header = ["ID", "Title", "Client", "Price", "Start date", "Deadline", "Progress", "Status", "Labels"];
     const lines = filtered.map((r, idx) => [idx + 1, r.title, r.client, r.price, r.start, r.due, `${r.progress}%`, r.status, r.labels || ""]);
     const csv = [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -357,7 +357,7 @@ export default function Overview() {
       const lines = text.split(/\r?\n/).filter((l) => l.trim());
       if (lines.length === 0) return;
       const header = lines[0].toLowerCase();
-      const hasHeader = ["title","client","price","start","deadline"].every(k => header.includes(k));
+      const hasHeader = ["title", "client", "price", "start", "deadline"].every(k => header.includes(k));
       const body = hasHeader ? lines.slice(1) : lines;
       let imported = 0;
       for (const line of body) {
@@ -385,8 +385,8 @@ export default function Overview() {
           clientId: d.clientId ? String(d.clientId) : undefined,
           client: d.client || "-",
           price: d.price != null ? String(d.price) : "-",
-          start: d.start ? new Date(d.start).toISOString().slice(0,10) : "-",
-          due: d.deadline ? new Date(d.deadline).toISOString().slice(0,10) : "-",
+          start: d.start ? new Date(d.start).toISOString().slice(0, 10) : "-",
+          due: d.deadline ? new Date(d.deadline).toISOString().slice(0, 10) : "-",
           progress: d.status === "Completed" ? 100 : 0,
           status: (d.status as any) || "Open",
           labels: typeof d.labels === "string" ? d.labels : Array.isArray(d.labels) ? d.labels.join(", ") : "",
@@ -405,7 +405,7 @@ export default function Overview() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
       {/* Hero Header */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-800 dark:via-indigo-800 dark:to-purple-800">
-        <div className="absolute inset-0 opacity-30" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, animation: 'pulse 3s ease-in-out infinite'}} />
+        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, animation: 'pulse 3s ease-in-out infinite' }} />
         <div className="relative px-6 py-12 sm:px-12 lg:px-16">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-4">
@@ -539,7 +539,7 @@ export default function Overview() {
         {/* Analytics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-            <div className="absolute inset-0 opacity-50" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}} />
+            <div className="absolute inset-0 opacity-50" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
             <CardHeader className="relative pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-100">
                 <Briefcase className="w-5 h-5" /> Total Projects
@@ -555,7 +555,7 @@ export default function Overview() {
           </Card>
 
           <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-            <div className="absolute inset-0 opacity-50" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}} />
+            <div className="absolute inset-0 opacity-50" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
             <CardHeader className="relative pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2 text-blue-100">
                 <Activity className="w-5 h-5" /> Active Projects
@@ -571,7 +571,7 @@ export default function Overview() {
           </Card>
 
           <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-            <div className="absolute inset-0 opacity-50" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}} />
+            <div className="absolute inset-0 opacity-50" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
             <CardHeader className="relative pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2 text-purple-100">
                 <Star className="w-5 h-5" /> Completed
@@ -587,7 +587,7 @@ export default function Overview() {
           </Card>
 
           <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 text-white shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-            <div className="absolute inset-0 opacity-50" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}} />
+            <div className="absolute inset-0 opacity-50" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
             <CardHeader className="relative pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2 text-amber-100">
                 <Target className="w-5 h-5" /> Avg Progress
@@ -611,7 +611,7 @@ export default function Overview() {
                 <Filter className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm font-medium">Filters:</span>
               </div>
-              
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Status" />
@@ -642,7 +642,7 @@ export default function Overview() {
                   type="date"
                   className="w-40"
                   value={startFrom}
-                  onChange={(e)=>setStartFrom(e.target.value)}
+                  onChange={(e) => setStartFrom(e.target.value)}
                   placeholder="Start from"
                 />
               </div>
@@ -652,7 +652,7 @@ export default function Overview() {
                   type="date"
                   className="w-40"
                   value={deadlineTo}
-                  onChange={(e)=>setDeadlineTo(e.target.value)}
+                  onChange={(e) => setDeadlineTo(e.target.value)}
                   placeholder="Deadline to"
                 />
               </div>
@@ -710,7 +710,7 @@ export default function Overview() {
                   <Upload className="w-4 h-4 mr-2" />
                   Export
                 </Button>
-                
+
                 <Button variant="outline" size="sm" onClick={printTable}>
                   <Printer className="w-4 h-4 mr-2" />
                   Print
@@ -718,11 +718,11 @@ export default function Overview() {
 
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    className="pl-9 w-64" 
-                    placeholder="Search projects..." 
-                    value={query} 
-                    onChange={(e)=>setQuery(e.target.value)} 
+                  <Input
+                    className="pl-9 w-64"
+                    placeholder="Search projects..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
                   />
                 </div>
               </div>
@@ -759,8 +759,8 @@ export default function Overview() {
                     <TableRow key={r.id} className="hover:bg-muted/50">
                       <TableCell className="font-medium">{idx + 1}</TableCell>
                       <TableCell>
-                        <Button 
-                          variant="link" 
+                        <Button
+                          variant="link"
                           className="p-0 h-auto font-medium text-primary"
                           onClick={() => navigate(`/projects/overview/${r.id}`)}
                         >
@@ -769,8 +769,8 @@ export default function Overview() {
                       </TableCell>
                       <TableCell>
                         {r.clientId ? (
-                          <Button 
-                            variant="link" 
+                          <Button
+                            variant="link"
                             className="p-0 h-auto text-primary"
                             onClick={() => navigate(`/clients/${r.clientId}`)}
                           >
@@ -786,9 +786,9 @@ export default function Overview() {
                         {r.due}
                       </TableCell>
                       <TableCell className="min-w-[140px]">
-                        <button 
-                          className="w-full text-left hover:opacity-80 transition-opacity" 
-                          onClick={() => openProgressEditor(r)} 
+                        <button
+                          className="w-full text-left hover:opacity-80 transition-opacity"
+                          onClick={() => openProgressEditor(r)}
                           title="Click to update progress"
                         >
                           <div className="flex items-center gap-2">
@@ -833,17 +833,17 @@ export default function Overview() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => navigate(`/projects/overview/${r.id}`)}>
-                              <Eye className="w-4 h-4 mr-2"/> View Details
+                              <Eye className="w-4 h-4 mr-2" /> View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEdit(r)}>
-                              <Pencil className="w-4 h-4 mr-2"/> Edit Project
+                              <Pencil className="w-4 h-4 mr-2" /> Edit Project
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => deleteProject(r.id)} 
+                            <DropdownMenuItem
+                              onClick={() => deleteProject(r.id)}
                               className="text-destructive"
                             >
-                              <Trash2 className="w-4 h-4 mr-2"/> Delete Project
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete Project
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -876,24 +876,24 @@ export default function Overview() {
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Progress: {progressValue}%</Label>
-                <Input 
-                  type="range" 
-                  min={0} 
-                  max={100} 
-                  value={progressValue} 
-                  onChange={(e)=>setProgressValue(Number(e.target.value))} 
+                <Input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(Number(e.target.value))}
                   className="w-full"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="progress-number">Progress Percentage</Label>
-                <Input 
+                <Input
                   id="progress-number"
-                  type="number" 
-                  min={0} 
-                  max={100} 
-                  value={progressValue} 
-                  onChange={(e)=>setProgressValue(Math.max(0, Math.min(100, Number(e.target.value)||0)))} 
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={progressValue}
+                  onChange={(e) => setProgressValue(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
                 />
               </div>
             </div>

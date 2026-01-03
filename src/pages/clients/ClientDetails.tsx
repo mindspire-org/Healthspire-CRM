@@ -78,19 +78,19 @@ export default function ClientDetails() {
           const resE = await fetch(`${API_BASE}/api/estimates?q=${encodeURIComponent(name)}`);
           setEstimates(await resE.json().catch(() => []));
           // fetch expenses/notes/files using q by client display name (best-effort)
-          try { const r1 = await fetch(`${API_BASE}/api/expenses?q=${encodeURIComponent(name)}`); setExpenses(await r1.json().catch(()=>[])); } catch {}
+          try { const r1 = await fetch(`${API_BASE}/api/expenses?q=${encodeURIComponent(name)}`); setExpenses(await r1.json().catch(() => [])); } catch { }
           // Notes & Files are loaded via embedded modules below
           // fetch modules with clientId filters (precise)
-          try { const r = await fetch(`${API_BASE}/api/invoices?clientId=${encodeURIComponent(String(id))}`); setInvoices(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/payments?clientId=${encodeURIComponent(String(id))}`); setPayments(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/estimate-requests?clientId=${encodeURIComponent(String(id))}`); setEstimateRequests(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/orders?clientId=${encodeURIComponent(String(id))}`); setOrders(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/contracts?clientId=${encodeURIComponent(String(id))}`); setContracts(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/proposals?clientId=${encodeURIComponent(String(id))}`); setProposals(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); const arr = await r.json().catch(()=>[]); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
-          try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`); setEvents(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`); setSubscriptions(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(id))}`); setLicenses(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/invoices?clientId=${encodeURIComponent(String(id))}`); setInvoices(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/payments?clientId=${encodeURIComponent(String(id))}`); setPayments(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/estimate-requests?clientId=${encodeURIComponent(String(id))}`); setEstimateRequests(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/orders?clientId=${encodeURIComponent(String(id))}`); setOrders(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/contracts?clientId=${encodeURIComponent(String(id))}`); setContracts(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/proposals?clientId=${encodeURIComponent(String(id))}`); setProposals(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); const arr = await r.json().catch(() => []); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
+          try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`); setEvents(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`); setSubscriptions(await r.json().catch(() => [])); } catch { }
+          try { const r = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(id))}`); setLicenses(await r.json().catch(() => [])); } catch { }
         }
       } catch (e: any) {
         toast.error(String(e?.message || "Failed to load client"));
@@ -178,7 +178,7 @@ export default function ClientDetails() {
       try {
         const rr = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(client._id))}`);
         setLicenses(await rr.json().catch(() => []));
-      } catch {}
+      } catch { }
     } catch {
       toast.error("Failed to add license");
     }
@@ -256,7 +256,7 @@ export default function ClientDetails() {
         setOpenAddEvent(false);
         setEventForm({ title: "", description: "", date: "", startTime: "", endDate: "", endTime: "", location: "", type: "" });
         // reload events
-        try { const re = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(client._id || ""))}`); setEvents(await re.json().catch(()=>[])); } catch {}
+        try { const re = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(client._id || ""))}`); setEvents(await re.json().catch(() => [])); } catch { }
       } else {
         toast.error("Failed to add event");
       }
@@ -273,11 +273,11 @@ export default function ClientDetails() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Save failed"); return; }
+      if (!res.ok) { const e = await res.json().catch(() => null); toast.error(e?.error || "Save failed"); return; }
       const updated = await res.json();
       setClient(updated);
       toast.success("Saved");
-    } catch {}
+    } catch { }
   };
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -378,27 +378,27 @@ export default function ClientDetails() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label>Title</Label>
-                <Input value={projectForm.title} onChange={(e)=>setProjectForm((p)=>({...p, title: e.target.value}))} />
+                <Input value={projectForm.title} onChange={(e) => setProjectForm((p) => ({ ...p, title: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Price</Label>
-                <Input value={projectForm.price} onChange={(e)=>setProjectForm((p)=>({...p, price: e.target.value}))} />
+                <Input value={projectForm.price} onChange={(e) => setProjectForm((p) => ({ ...p, price: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Start</Label>
-                <Input type="date" value={projectForm.start} onChange={(e)=>setProjectForm((p)=>({...p, start: e.target.value}))} />
+                <Input type="date" value={projectForm.start} onChange={(e) => setProjectForm((p) => ({ ...p, start: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Deadline</Label>
-                <Input type="date" value={projectForm.deadline} onChange={(e)=>setProjectForm((p)=>({...p, deadline: e.target.value}))} />
+                <Input type="date" value={projectForm.deadline} onChange={(e) => setProjectForm((p) => ({ ...p, deadline: e.target.value }))} />
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label>Labels</Label>
-                <Input value={projectForm.labels} onChange={(e)=>setProjectForm((p)=>({...p, labels: e.target.value}))} />
+                <Input value={projectForm.labels} onChange={(e) => setProjectForm((p) => ({ ...p, labels: e.target.value }))} />
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label>Description</Label>
-                <Textarea value={projectForm.description} onChange={(e)=>setProjectForm((p)=>({...p, description: e.target.value}))} />
+                <Textarea value={projectForm.description} onChange={(e) => setProjectForm((p) => ({ ...p, description: e.target.value }))} />
               </div>
               <div className="sm:col-span-2 text-xs text-muted-foreground">Client: {client?.company || client?.person || "-"}</div>
             </div>
@@ -415,27 +415,27 @@ export default function ClientDetails() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1 sm:col-span-2">
                 <Label>Product</Label>
-                <Input value={licenseForm.product} onChange={(e)=>setLicenseForm((p)=>({...p, product: e.target.value}))} />
+                <Input value={licenseForm.product} onChange={(e) => setLicenseForm((p) => ({ ...p, product: e.target.value }))} />
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label>License key</Label>
-                <Input value={licenseForm.licenseKey} onChange={(e)=>setLicenseForm((p)=>({...p, licenseKey: e.target.value}))} />
+                <Input value={licenseForm.licenseKey} onChange={(e) => setLicenseForm((p) => ({ ...p, licenseKey: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
-                <Input value={licenseForm.status} onChange={(e)=>setLicenseForm((p)=>({...p, status: e.target.value}))} />
+                <Input value={licenseForm.status} onChange={(e) => setLicenseForm((p) => ({ ...p, status: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Issued at</Label>
-                <Input type="date" value={licenseForm.issuedAt} onChange={(e)=>setLicenseForm((p)=>({...p, issuedAt: e.target.value}))} />
+                <Input type="date" value={licenseForm.issuedAt} onChange={(e) => setLicenseForm((p) => ({ ...p, issuedAt: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Expires at</Label>
-                <Input type="date" value={licenseForm.expiresAt} onChange={(e)=>setLicenseForm((p)=>({...p, expiresAt: e.target.value}))} />
+                <Input type="date" value={licenseForm.expiresAt} onChange={(e) => setLicenseForm((p) => ({ ...p, expiresAt: e.target.value }))} />
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label>Note</Label>
-                <Textarea value={licenseForm.note} onChange={(e)=>setLicenseForm((p)=>({...p, note: e.target.value}))} />
+                <Textarea value={licenseForm.note} onChange={(e) => setLicenseForm((p) => ({ ...p, note: e.target.value }))} />
               </div>
               <div className="sm:col-span-2 text-xs text-muted-foreground">Client: {client?.company || client?.person || "-"}</div>
             </div>
@@ -452,25 +452,25 @@ export default function ClientDetails() {
             <DialogHeader><DialogTitle>Add estimate</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-12">
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Estimate date</div>
-              <div className="sm:col-span-9"><Input type="date" value={estimateForm.estimateDate} onChange={(e)=>setEstimateForm((p)=>({...p, estimateDate: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Input type="date" value={estimateForm.estimateDate} onChange={(e) => setEstimateForm((p) => ({ ...p, estimateDate: e.target.value }))} /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Valid until</div>
-              <div className="sm:col-span-9"><Input type="date" value={estimateForm.validUntil} onChange={(e)=>setEstimateForm((p)=>({...p, validUntil: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Input type="date" value={estimateForm.validUntil} onChange={(e) => setEstimateForm((p) => ({ ...p, validUntil: e.target.value }))} /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Client</div>
               <div className="sm:col-span-9"><Input value={client?.company || client?.person || "-"} disabled /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">TAX</div>
-              <div className="sm:col-span-9"><Input type="number" value={estimateForm.tax} onChange={(e)=>setEstimateForm((p)=>({...p, tax: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Input type="number" value={estimateForm.tax} onChange={(e) => setEstimateForm((p) => ({ ...p, tax: e.target.value }))} /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Second TAX</div>
-              <div className="sm:col-span-9"><Input type="number" value={estimateForm.tax2} onChange={(e)=>setEstimateForm((p)=>({...p, tax2: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Input type="number" value={estimateForm.tax2} onChange={(e) => setEstimateForm((p) => ({ ...p, tax2: e.target.value }))} /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Note</div>
-              <div className="sm:col-span-9"><Textarea value={estimateForm.note} onChange={(e)=>setEstimateForm((p)=>({...p, note: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Textarea value={estimateForm.note} onChange={(e) => setEstimateForm((p) => ({ ...p, note: e.target.value }))} /></div>
 
               <div className="sm:col-span-3 sm:text-right sm:pt-2 text-sm text-muted-foreground">Advanced Amount</div>
-              <div className="sm:col-span-9"><Input type="number" value={estimateForm.advancedAmount} onChange={(e)=>setEstimateForm((p)=>({...p, advancedAmount: e.target.value}))} /></div>
+              <div className="sm:col-span-9"><Input type="number" value={estimateForm.advancedAmount} onChange={(e) => setEstimateForm((p) => ({ ...p, advancedAmount: e.target.value }))} /></div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenAddEstimate(false)}>Close</Button>
@@ -486,42 +486,42 @@ export default function ClientDetails() {
             <div className="grid gap-4">
               <div className="space-y-1">
                 <Label>Title</Label>
-                <Input value={eventForm.title} onChange={(e)=>setEventForm((p)=>({...p, title: e.target.value}))} />
+                <Input value={eventForm.title} onChange={(e) => setEventForm((p) => ({ ...p, title: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Description</Label>
-                <Textarea value={eventForm.description} onChange={(e)=>setEventForm((p)=>({...p, description: e.target.value}))} />
+                <Textarea value={eventForm.description} onChange={(e) => setEventForm((p) => ({ ...p, description: e.target.value }))} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label>Start date</Label>
-                    <Input type="date" value={eventForm.date} onChange={(e)=>setEventForm((p)=>({...p, date: e.target.value}))} />
+                    <Input type="date" value={eventForm.date} onChange={(e) => setEventForm((p) => ({ ...p, date: e.target.value }))} />
                   </div>
                   <div className="space-y-1">
                     <Label>Start time</Label>
-                    <Input type="time" value={eventForm.startTime} onChange={(e)=>setEventForm((p)=>({...p, startTime: e.target.value}))} />
+                    <Input type="time" value={eventForm.startTime} onChange={(e) => setEventForm((p) => ({ ...p, startTime: e.target.value }))} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label>End date</Label>
-                    <Input type="date" value={eventForm.endDate} onChange={(e)=>setEventForm((p)=>({...p, endDate: e.target.value}))} />
+                    <Input type="date" value={eventForm.endDate} onChange={(e) => setEventForm((p) => ({ ...p, endDate: e.target.value }))} />
                   </div>
                   <div className="space-y-1">
                     <Label>End time</Label>
-                    <Input type="time" value={eventForm.endTime} onChange={(e)=>setEventForm((p)=>({...p, endTime: e.target.value}))} />
+                    <Input type="time" value={eventForm.endTime} onChange={(e) => setEventForm((p) => ({ ...p, endTime: e.target.value }))} />
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Location</Label>
-                  <Input value={eventForm.location} onChange={(e)=>setEventForm((p)=>({...p, location: e.target.value}))} />
+                  <Input value={eventForm.location} onChange={(e) => setEventForm((p) => ({ ...p, location: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <Label>Type</Label>
-                  <Input value={eventForm.type} onChange={(e)=>setEventForm((p)=>({...p, type: e.target.value}))} />
+                  <Input value={eventForm.type} onChange={(e) => setEventForm((p) => ({ ...p, type: e.target.value }))} />
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">Client: {client?.company || client?.person || "-"}</div>
@@ -570,18 +570,18 @@ export default function ClientDetails() {
         <TabsContent value="info">
           <Card className="p-4">
             <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>Type</Label><Input value={(form.type||"org")} onChange={(e)=>setForm((s:any)=>({...s,type:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Company</Label><Input value={form.company||""} onChange={(e)=>setForm((s:any)=>({...s,company:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Person</Label><Input value={form.person||""} onChange={(e)=>setForm((s:any)=>({...s,person:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Email</Label><Input value={form.email||""} onChange={(e)=>setForm((s:any)=>({...s,email:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Phone</Label><Input value={form.phone||""} onChange={(e)=>setForm((s:any)=>({...s,phone:e.target.value}))} /></div>
-              <div className="space-y-1 sm:col-span-2"><Label>Address</Label><Textarea value={form.address||""} onChange={(e)=>setForm((s:any)=>({...s,address:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>City</Label><Input value={form.city||""} onChange={(e)=>setForm((s:any)=>({...s,city:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>State</Label><Input value={form.state||""} onChange={(e)=>setForm((s:any)=>({...s,state:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Zip</Label><Input value={form.zip||""} onChange={(e)=>setForm((s:any)=>({...s,zip:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Country</Label><Input value={form.country||""} onChange={(e)=>setForm((s:any)=>({...s,country:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Website</Label><Input value={form.website||""} onChange={(e)=>setForm((s:any)=>({...s,website:e.target.value}))} /></div>
-              <div className="space-y-1"><Label>Labels</Label><Input value={(form.labels||[]).join(', ')} onChange={(e)=>setForm((s:any)=>({...s,labels:e.target.value.split(',').map((x)=>x.trim()).filter(Boolean)}))} /></div>
+              <div className="space-y-1"><Label>Type</Label><Input value={(form.type || "org")} onChange={(e) => setForm((s: any) => ({ ...s, type: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Company</Label><Input value={form.company || ""} onChange={(e) => setForm((s: any) => ({ ...s, company: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Person</Label><Input value={form.person || ""} onChange={(e) => setForm((s: any) => ({ ...s, person: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Email</Label><Input value={form.email || ""} onChange={(e) => setForm((s: any) => ({ ...s, email: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Phone</Label><Input value={form.phone || ""} onChange={(e) => setForm((s: any) => ({ ...s, phone: e.target.value }))} /></div>
+              <div className="space-y-1 sm:col-span-2"><Label>Address</Label><Textarea value={form.address || ""} onChange={(e) => setForm((s: any) => ({ ...s, address: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>City</Label><Input value={form.city || ""} onChange={(e) => setForm((s: any) => ({ ...s, city: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>State</Label><Input value={form.state || ""} onChange={(e) => setForm((s: any) => ({ ...s, state: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Zip</Label><Input value={form.zip || ""} onChange={(e) => setForm((s: any) => ({ ...s, zip: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Country</Label><Input value={form.country || ""} onChange={(e) => setForm((s: any) => ({ ...s, country: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Website</Label><Input value={form.website || ""} onChange={(e) => setForm((s: any) => ({ ...s, website: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Labels</Label><Input value={(form.labels || []).join(', ')} onChange={(e) => setForm((s: any) => ({ ...s, labels: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) }))} /></div>
             </div>
             <div className="flex justify-end mt-4"><Button onClick={saveInfo}>Save</Button></div>
           </Card>
@@ -599,12 +599,12 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(Array.isArray(projects) ? projects : []).map((p:any, idx: number)=> (
+                {(Array.isArray(projects) ? projects : []).map((p: any, idx: number) => (
                   <TableRow key={String(p._id)}>
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                     <TableCell className="whitespace-nowrap">{p.title}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.status||"Open"}</TableCell>
-                    <TableCell className="whitespace-nowrap">{p.price?`Rs.${p.price}`:"Rs.0"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.status || "Open"}</TableCell>
+                    <TableCell className="whitespace-nowrap">{p.price ? `Rs.${p.price}` : "Rs.0"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -624,14 +624,14 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {estimates.map((e:any)=> (
+                {estimates.map((e: any) => (
                   <TableRow key={String(e._id)}>
                     <TableCell className="whitespace-nowrap text-primary underline cursor-pointer">
                       <NavLink to={`/prospects/estimates/${e._id}`}>{e.number}</NavLink>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{e.amount?`Rs.${e.amount}`:"Rs.0"}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{e.status||"-"}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{e.estimateDate ? new Date(e.estimateDate).toISOString().slice(0,10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{e.amount ? `Rs.${e.amount}` : "Rs.0"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{e.status || "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{e.estimateDate ? new Date(e.estimateDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -652,13 +652,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasks.map((t:any)=> (
+                {tasks.map((t: any) => (
                   <TableRow key={String(t._id)}>
                     <TableCell className="whitespace-nowrap">{t.title}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{t.status}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{t.priority}</TableCell>
                     <TableCell className="whitespace-nowrap">{t.projectTitle || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.dueDate ? new Date(t.dueDate).toISOString().slice(0,10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -685,11 +685,11 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.map((ex:any)=> (
+                {expenses.map((ex: any) => (
                   <TableRow key={String(ex._id)}>
                     <TableCell className="whitespace-nowrap">{ex.title}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{ex.category}</TableCell>
-                    <TableCell className="whitespace-nowrap">{ex.amount?`Rs.${ex.amount}`:'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{ex.amount ? `Rs.${ex.amount}` : 'Rs.0'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -711,15 +711,15 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoices.map((inv:any)=> (
+                {invoices.map((inv: any) => (
                   <TableRow key={String(inv._id)}>
                     <TableCell className="whitespace-nowrap text-primary underline">
                       <NavLink to={`/invoices/${encodeURIComponent(String(inv._id || ""))}`}>{inv.number}</NavLink>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{inv.amount?`Rs.${inv.amount}`:'Rs.0'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.issueDate?new Date(inv.issueDate).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.dueDate?new Date(inv.dueDate).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{inv.amount ? `Rs.${inv.amount}` : 'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.issueDate ? new Date(inv.issueDate).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -740,13 +740,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {licenses.map((l:any)=> (
+                {licenses.map((l: any) => (
                   <TableRow key={String(l._id)}>
                     <TableCell className="whitespace-nowrap">{l.product || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{l.licenseKey || "-"}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{l.status || "-"}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.issuedAt ? new Date(l.issuedAt).toISOString().slice(0,10) : "-"}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.expiresAt ? new Date(l.expiresAt).toISOString().slice(0,10) : "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.issuedAt ? new Date(l.issuedAt).toISOString().slice(0, 10) : "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.expiresAt ? new Date(l.expiresAt).toISOString().slice(0, 10) : "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -768,13 +768,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {payments.map((p:any)=> (
+                {payments.map((p: any) => (
                   <TableRow key={String(p._id)}>
                     <TableCell className="whitespace-nowrap">{p.invoiceId || '-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.date?new Date(p.date).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.method||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.note||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{p.amount?`Rs.${p.amount}`:'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.date ? new Date(p.date).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.method || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{p.note || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{p.amount ? `Rs.${p.amount}` : 'Rs.0'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -795,12 +795,12 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {estimateRequests.map((r:any)=> (
+                {estimateRequests.map((r: any) => (
                   <TableRow key={String(r._id)}>
                     <TableCell className="whitespace-nowrap">{r.title}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.amount?`Rs.${r.amount}`:'Rs.0'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{r.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{r.requestDate?new Date(r.requestDate).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{r.amount ? `Rs.${r.amount}` : 'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{r.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{r.requestDate ? new Date(r.requestDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -820,11 +820,11 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((o:any)=> (
+                {orders.map((o: any) => (
                   <TableRow key={String(o._id)}>
-                    <TableCell className="whitespace-nowrap">{o.amount?`Rs.${o.amount}`:'Rs.0'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{o.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{o.orderDate?new Date(o.orderDate).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{o.amount ? `Rs.${o.amount}` : 'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{o.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{o.orderDate ? new Date(o.orderDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -846,13 +846,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {contracts.map((c:any)=> (
+                {contracts.map((c: any) => (
                   <TableRow key={String(c._id)}>
                     <TableCell className="whitespace-nowrap">{c.title}</TableCell>
-                    <TableCell className="whitespace-nowrap">{c.amount?`Rs.${c.amount}`:'Rs.0'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.contractDate?new Date(c.contractDate).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.validUntil?new Date(c.validUntil).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{c.amount ? `Rs.${c.amount}` : 'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.contractDate ? new Date(c.contractDate).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{c.validUntil ? new Date(c.validUntil).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -873,12 +873,12 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {proposals.map((pr:any)=> (
+                {proposals.map((pr: any) => (
                   <TableRow key={String(pr._id)}>
                     <TableCell className="whitespace-nowrap">{pr.title}</TableCell>
-                    <TableCell className="whitespace-nowrap">{pr.amount?`Rs.${pr.amount}`:'Rs.0'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{pr.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{pr.proposalDate?new Date(pr.proposalDate).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{pr.amount ? `Rs.${pr.amount}` : 'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{pr.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{pr.proposalDate ? new Date(pr.proposalDate).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -901,14 +901,14 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tickets.map((t:any)=> (
+                {tickets.map((t: any) => (
                   <TableRow key={String(t._id)}>
                     <TableCell className="whitespace-nowrap">{t.title}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.type||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{Array.isArray(t.labels)?t.labels.join(', '):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.assignedTo||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.lastActivity?new Date(t.lastActivity).toISOString().slice(0,10):'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.type || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{Array.isArray(t.labels) ? t.labels.join(', ') : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.assignedTo || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{t.lastActivity ? new Date(t.lastActivity).toISOString().slice(0, 10) : '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -930,13 +930,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {events.map((ev:any)=> (
+                {events.map((ev: any) => (
                   <TableRow key={String(ev._id)}>
                     <TableCell className="whitespace-nowrap">{ev.title}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.start?new Date(ev.start).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.end?new Date(ev.end).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.type||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.location||'-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.start ? new Date(ev.start).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.end ? new Date(ev.end).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.type || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{ev.location || '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -958,13 +958,13 @@ export default function ClientDetails() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {subscriptions.map((s:any)=> (
+                {subscriptions.map((s: any) => (
                   <TableRow key={String(s._id)}>
                     <TableCell className="whitespace-nowrap">{s.title}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.nextBillingDate?new Date(s.nextBillingDate).toISOString().slice(0,10):'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.repeatEvery||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.status||'-'}</TableCell>
-                    <TableCell className="whitespace-nowrap">{s.amount?`Rs.${s.amount}`:'Rs.0'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.nextBillingDate ? new Date(s.nextBillingDate).toISOString().slice(0, 10) : '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.repeatEvery || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{s.status || '-'}</TableCell>
+                    <TableCell className="whitespace-nowrap">{s.amount ? `Rs.${s.amount}` : 'Rs.0'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

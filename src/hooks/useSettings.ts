@@ -236,7 +236,7 @@ export function useSettings() {
     }
   });
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   // Load from backend on first mount and merge with defaults
   useEffect(() => {

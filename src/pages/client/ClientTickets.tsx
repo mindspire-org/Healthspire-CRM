@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Plus, Search, RefreshCw, Eye } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ProjectDoc = {
   _id: string;

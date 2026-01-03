@@ -12,7 +12,7 @@ import { Calendar, CheckCircle2, Edit, MoreHorizontal, RefreshCw, Search, Plus, 
 import { toast } from "sonner";
 
 export default function Subscriptions() {
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   type ClientDoc = { _id: string; company?: string; person?: string };
   type SubscriptionLabelDoc = { _id: string; name: string; color?: string };

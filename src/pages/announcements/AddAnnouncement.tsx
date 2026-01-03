@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");

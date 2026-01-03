@@ -13,7 +13,7 @@ import { Search, Tags, Plus, RefreshCw, MoreHorizontal, Clock, Trash2 } from "lu
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type NoteDoc = {
   _id: string;

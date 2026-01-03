@@ -46,6 +46,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type ListInvoice = {
   id: string;
@@ -61,7 +62,7 @@ type ListInvoice = {
   advancedAmount?: string;
 };
 
-const API_BASE = "http://localhost:5000";
+// API_BASE is centralized in lib/api/base
 
 export default function InvoiceList() {
   const [tab, setTab] = useState("list");
@@ -98,7 +99,7 @@ export default function InvoiceList() {
       if (!f) return;
       const fd = new FormData();
       fd.append("file", f);
-      const r = await fetch(`${API_BASE}/api/invoices/upload`, { method: "POST", body: fd });
+      const r = await fetch(`${API_BASE}/api/invoices/upload`, { method: "POST", headers: { ...getAuthHeaders() }, body: fd });
       if (r.ok) {
         const res = await r.json();
         setAttachments((prev) => [...prev, { name: res.name, path: res.path }]);
@@ -135,13 +136,13 @@ export default function InvoiceList() {
       setPaymentEditingId("");
       setPayAmount(""); setPayMethod("Bank Transfer"); setPayNote(""); setPayDate(new Date().toISOString().slice(0,10));
       if (!num) { setOpenPay(true); return; }
-      const invRes = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`);
+      const invRes = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { headers: { ...getAuthHeaders() } });
       if (!invRes.ok) { setOpenPay(true); return; }
       const inv = await invRes.json();
       setProjectInvoice(inv);
       const invId = inv._id || "";
       setPayInvoiceId(invId);
-      const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invId)}`);
+      const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invId)}`, { headers: { ...getAuthHeaders() } });
       if (pRes.ok) {
         const list = await pRes.json();
         setPayments(Array.isArray(list) ? list : []);
@@ -211,7 +212,7 @@ export default function InvoiceList() {
     try {
       const num = invoiceIdText.split('#')[1]?.trim() || "";
       if (!num) return;
-      const r = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`);
+      const r = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { headers: { ...getAuthHeaders() } });
       if (!r.ok) return;
       const inv = await r.json();
       setEditingInvoiceId(inv._id || "");
@@ -240,7 +241,7 @@ export default function InvoiceList() {
   const loadInvoices = async () => {
     try {
       const url = `${API_BASE}/api/invoices${query ? `?q=${encodeURIComponent(query)}` : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { ...getAuthHeaders() } });
       if (!res.ok) return;
       const data = await res.json();
       const mapped: ListInvoice[] = (Array.isArray(data) ? data : []).map((d: any) => {
@@ -597,7 +598,7 @@ export default function InvoiceList() {
                       try {
                         const method = isEditing ? 'PUT' : 'POST';
                         const url = isEditing ? `${API_BASE}/api/invoices/${encodeURIComponent(editingInvoiceId)}` : `${API_BASE}/api/invoices`;
-                        const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                        const r = await fetch(url, { method, headers:{'Content-Type':'application/json', ...getAuthHeaders()}, body: JSON.stringify(payload)});
                         if (r.ok) {
                           setOpenAdd(false);
                           // reset form
@@ -652,13 +653,13 @@ export default function InvoiceList() {
                     };
                     const method = paymentEditingId ? 'PUT' : 'POST';
                     const url = paymentEditingId ? `${API_BASE}/api/payments/${encodeURIComponent(paymentEditingId)}` : `${API_BASE}/api/payments`;
-                    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }, body: JSON.stringify(payload) });
                     if (r.ok) {
                       setPayAmount(""); setPayMethod("Bank Transfer"); setPayNote(""); setPayDate(new Date().toISOString().slice(0,10));
                       setPaymentEditingId("");
                       // reload payments list
                       if (payInvoiceId) {
-                        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`);
+                        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`, { headers: { ...getAuthHeaders() } });
                         if (pRes.ok) {
                           const list = await pRes.json();
                           setPayments(Array.isArray(list) ? list : []);
@@ -692,9 +693,9 @@ export default function InvoiceList() {
                             }}>Edit</Button>
                             <Button size="sm" variant="destructive" onClick={async () => {
                               if (!confirm("Delete this payment?")) return;
-                              await fetch(`${API_BASE}/api/payments/${encodeURIComponent(p._id)}`, { method: 'DELETE' });
+                              await fetch(`${API_BASE}/api/payments/${encodeURIComponent(p._id)}`, { method: 'DELETE', headers: { ...getAuthHeaders() } });
                               if (payInvoiceId) {
-                                const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`);
+                                const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`, { headers: { ...getAuthHeaders() } });
                                 if (pRes.ok) {
                                   const list = await pRes.json();
                                   setPayments(Array.isArray(list) ? list : []);

@@ -5,7 +5,7 @@ import { ThemeProvider } from "next-themes";
 
 // Runtime rewrite helper: only proxy to Render when NOT on localhost
 const RENDER_BASE = "https://healthspire-crm.onrender.com";
-const LOCAL_BASE = "http://localhost:5000";
+const LOCAL_BASE = "http://localhost:5050";
 const IS_LOCALHOST = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
 if (typeof window !== "undefined" && typeof window.fetch === "function" && !IS_LOCALHOST) {
   const originalFetch = window.fetch.bind(window);

@@ -262,7 +262,7 @@ export default function Employees() {
   };
 
   // API base (local dev)
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   const refreshDepartments = async () => {
     try {

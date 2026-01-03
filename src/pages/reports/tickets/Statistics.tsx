@@ -15,7 +15,7 @@ export default function TicketsStatistics() {
   const [loading, setLoading] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

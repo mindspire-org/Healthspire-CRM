@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, ChevronDown, RefreshCw, Settings, MoreHorizontal } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 import { API_BASE } from "@/lib/api/base";
 import { getAuthHeaders } from "@/lib/api/auth";
@@ -70,8 +72,12 @@ export default function ManageUsers() {
   const load = async () => {
     try {
       setLoading(true);
+<<<<<<< HEAD
+      const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers: getAuthHeaders() });
+=======
       const headers = getAuthHeaders({ "Content-Type": "application/json" });
       const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers });
+>>>>>>> origin/main
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load users");
       setItems(Array.isArray(json) ? json : []);
@@ -114,10 +120,13 @@ export default function ManageUsers() {
 
   const saveEdit = async () => {
     if (!editing?._id) return;
+<<<<<<< HEAD
+=======
     const headers = getAuthHeaders({ "Content-Type": "application/json" });
+>>>>>>> origin/main
     const res = await fetch(`${API_BASE}/api/users/admin/${editing._id}`, {
       method: "PUT",
-      headers,
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ role: editRole, status: editStatus, permissions: Array.from(editPerms) }),
     });
     const json = await res.json().catch(() => null);
@@ -164,7 +173,7 @@ export default function ManageUsers() {
         <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">Export <ChevronDown className="w-4 h-4 ml-2"/></Button>
+              <Button variant="outline" size="sm">Export <ChevronDown className="w-4 h-4 ml-2" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem>CSV</DropdownMenuItem>
@@ -172,29 +181,29 @@ export default function ManageUsers() {
               <DropdownMenuItem>PDF</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" size="icon" onClick={load} disabled={loading}><RefreshCw className="w-4 h-4"/></Button>
-          <Button variant="outline" size="icon"><Settings className="w-4 h-4"/></Button>
+          <Button variant="outline" size="icon" onClick={load} disabled={loading}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon"><Settings className="w-4 h-4" /></Button>
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-            <DialogTrigger asChild><Button className="bg-red-500 hover:bg-red-500/90" size="sm"><Plus className="w-4 h-4 mr-2"/>Add User</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="bg-red-500 hover:bg-red-500/90" size="sm"><Plus className="w-4 h-4 mr-2" />Add User</Button></DialogTrigger>
             <DialogContent className="bg-card">
               <DialogHeader><DialogTitle>Add user</DialogTitle></DialogHeader>
               <div className="grid gap-3">
-                <Input placeholder="Full name" value={addName} onChange={(e)=>setAddName(e.target.value)} />
-                <Input placeholder="Email" value={addEmail} onChange={(e)=>setAddEmail(e.target.value)} />
-                <Input placeholder="Username (optional)" value={addUsername} onChange={(e)=>setAddUsername(e.target.value)} />
-                <Input placeholder="Password (optional)" type="password" value={addPassword} onChange={(e)=>setAddPassword(e.target.value)} />
-                <Input placeholder="PIN (4-8 digits, optional)" type="password" value={addPin} onChange={(e)=>setAddPin(e.target.value)} />
+                <Input placeholder="Full name" value={addName} onChange={(e) => setAddName(e.target.value)} />
+                <Input placeholder="Email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} />
+                <Input placeholder="Username (optional)" value={addUsername} onChange={(e) => setAddUsername(e.target.value)} />
+                <Input placeholder="Password (optional)" type="password" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} />
+                <Input placeholder="PIN (4-8 digits, optional)" type="password" value={addPin} onChange={(e) => setAddPin(e.target.value)} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Select value={addRole} onValueChange={(v)=>setAddRole(v as any)}>
-                    <SelectTrigger><SelectValue placeholder="Role"/></SelectTrigger>
+                  <Select value={addRole} onValueChange={(v) => setAddRole(v as any)}>
+                    <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
                       <SelectItem value="staff">Staff</SelectItem>
                       <SelectItem value="client">Client</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={addStatus} onValueChange={(v)=>setAddStatus(v as any)}>
-                    <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
+                  <Select value={addStatus} onValueChange={(v) => setAddStatus(v as any)}>
+                    <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
@@ -203,8 +212,8 @@ export default function ManageUsers() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={()=>setOpenAdd(false)}>Close</Button>
-                <Button onClick={async ()=>{ try { await saveAdd(); } catch (e:any) { alert(e?.message || 'Failed'); } }}>Save</Button>
+                <Button variant="outline" onClick={() => setOpenAdd(false)}>Close</Button>
+                <Button onClick={async () => { try { await saveAdd(); } catch (e: any) { alert(e?.message || 'Failed'); } }}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -216,7 +225,7 @@ export default function ManageUsers() {
           <div className="flex items-center justify-between mb-3">
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search" value={query} onChange={(e)=>setQuery(e.target.value)} className="pl-9" />
+              <Input placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" />
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline">Filter</Button>
@@ -230,7 +239,7 @@ export default function ManageUsers() {
             </div>
             <div className="flex items-center gap-2">
               <Select value={role} onValueChange={setRole}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="Sort By"/></SelectTrigger>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Sort By" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="-">All roles</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -239,7 +248,7 @@ export default function ManageUsers() {
                 </SelectContent>
               </Select>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="Status"/></SelectTrigger>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="-">All</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
@@ -265,12 +274,12 @@ export default function ManageUsers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((r)=> (
+              {filtered.map((r) => (
                 <TableRow key={r._id}>
                   <TableCell><Checkbox /></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8"><AvatarFallback>{String(r.name || r.email || "U").split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</AvatarFallback></Avatar>
+                      <Avatar className="h-8 w-8"><AvatarFallback>{String(r.name || r.email || "U").split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
                       <div>
                         <div className="font-medium">{r.name || r.email}</div>
                         <div className="text-xs text-muted-foreground">{r.role}</div>
@@ -286,7 +295,7 @@ export default function ManageUsers() {
                     <Badge variant={r.status === 'active' ? 'success' : 'destructive'}>{r.status === 'active' ? 'Active' : 'Inactive'}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon-sm" onClick={() => openEditUser(r)}><MoreHorizontal className="w-4 h-4"/></Button>
+                    <Button variant="ghost" size="icon-sm" onClick={() => openEditUser(r)}><MoreHorizontal className="w-4 h-4" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -302,7 +311,7 @@ export default function ManageUsers() {
                   <div className="space-y-1">
                     <div className="text-xs text-muted-foreground">Role</div>
                     <Select value={editRole} onValueChange={(v) => setEditRole(v as any)}>
-                      <SelectTrigger><SelectValue placeholder="Role"/></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="staff">Staff</SelectItem>
@@ -313,7 +322,7 @@ export default function ManageUsers() {
                   <div className="space-y-1">
                     <div className="text-xs text-muted-foreground">Status</div>
                     <Select value={editStatus} onValueChange={(v) => setEditStatus(v as any)}>
-                      <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="inactive">Inactive</SelectItem>

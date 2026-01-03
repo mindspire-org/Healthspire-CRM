@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/components/ui/sonner";
 import { RefreshCw, Search, Plus, Paperclip, Mic, Trash2, FileText, Edit3, MoreVertical } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ProjectDoc = { _id: string; title?: string };
 

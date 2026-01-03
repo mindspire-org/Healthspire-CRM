@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 interface DashboardStats {
   totalLeads: number;

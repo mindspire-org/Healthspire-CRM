@@ -11,7 +11,7 @@ import { Search, Plus, RefreshCw, ChevronLeft, ChevronRight, Trash2, MoreVertica
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type Row = {
   id: string;
