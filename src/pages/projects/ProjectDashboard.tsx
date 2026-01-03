@@ -5,10 +5,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-<<<<<<< HEAD
-
-const API_BASE = "http://localhost:5050";
-=======
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { getAuthHeaders } from "@/lib/api/auth";
@@ -70,7 +66,6 @@ import {
   filterProjectData,
   type User
 } from "@/utils/roleAccess";
->>>>>>> origin/main
 
 interface Project {
   id: string;
