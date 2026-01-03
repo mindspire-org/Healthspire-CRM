@@ -6,12 +6,16 @@ export type TeamLoginResponse = { token: string; user: { id: string; email: stri
 
 export type ClientLoginResponse = { token: string; user: { id: string; email: string; role: string; name?: string }; client?: any };
 
-export async function adminLogin(identifier: string, password: string): Promise<AdminLoginResponse> {
+export async function adminLogin(
+  identifier: string,
+  secret: string,
+  mode: "password" | "pin" = "password",
+): Promise<AdminLoginResponse> {
   const post = (path: string) =>
     fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password }),
+      body: JSON.stringify(mode === "pin" ? { identifier, pin: secret } : { identifier, password: secret }),
     });
 
   let res = await post(`/api/auth/admin/login`);
@@ -26,11 +30,15 @@ export async function adminLogin(identifier: string, password: string): Promise<
   return (await res.json()) as AdminLoginResponse;
 }
 
-export async function teamLogin(identifier: string, password: string): Promise<TeamLoginResponse> {
+export async function teamLogin(
+  identifier: string,
+  secret: string,
+  mode: "password" | "pin" = "password",
+): Promise<TeamLoginResponse> {
   const res = await fetch(`${API_BASE}/api/auth/team/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier, password }),
+    body: JSON.stringify(mode === "pin" ? { identifier, pin: secret } : { identifier, password: secret }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({ error: "Login failed" }));

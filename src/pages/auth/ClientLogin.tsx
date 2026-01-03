@@ -45,13 +45,25 @@ export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
   const rateLimited = attempts >= 3;
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-5">
       <div className="space-y-1">
-        <Label>Email</Label>
-        <Input placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+        <div className="text-sm font-medium text-white/90">Client portal</div>
+        <div className="text-xs text-white/60">Invoices, updates, and support</div>
       </div>
-      <div className="space-y-1">
-        <Label>Password</Label>
+
+      <div className="space-y-2">
+        <Label className="text-white/80">Email</Label>
+        <Input
+          placeholder="you@company.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
+          className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-sky-500/40"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-white/80">Password</Label>
         <div className="relative">
           <Input
             type={showPwd ? "text" : "password"}
@@ -59,10 +71,11 @@ export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-sky-500/40 pr-10"
           />
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
             onClick={() => setShowPwd((s) => !s)}
             aria-label="Toggle password visibility"
           >
@@ -74,9 +87,11 @@ export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Checkbox checked={remember} onCheckedChange={(v) => setRemember(Boolean(v))} id="remember_client" />
-          <Label htmlFor="remember_client">Remember me</Label>
+          <Label htmlFor="remember_client" className="text-white/80">
+            Remember me
+          </Label>
         </div>
-        <Button variant="link" type="button" onClick={onSignUp}>
+        <Button variant="link" type="button" onClick={onSignUp} className="px-0 text-white/70 hover:text-white">
           Sign up
         </Button>
       </div>

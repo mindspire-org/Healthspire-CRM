@@ -41,6 +41,7 @@ import itemsRouter from "./routes/items.js";
 import estimateRequestsRouter from "./routes/estimateRequests.js";
 import subscriptionsRouter from "./routes/subscriptions.js";
 import subscriptionLabelsRouter from "./routes/subscriptionLabels.js";
+import licensesRouter from "./routes/licenses.js";
 import messagesRouter from "./routes/messages.js";
 import usersRouter from "./routes/users.js";
 import announcementsRouter from "./routes/announcements.js";
@@ -221,6 +222,7 @@ app.use("/api/events", eventsApiRouter);
 app.use("/api/estimate-requests", estimateRequestsRouter);
 app.use("/api/subscriptions", subscriptionsRouter);
 app.use("/api/subscription-labels", subscriptionLabelsRouter);
+app.use("/api/licenses", licensesRouter);
 // Backward/alternative path alias to avoid 404s from different frontends
 app.use("/api/subscriptionlabels", subscriptionLabelsRouter);
 app.use("/api/users", usersRouter);
@@ -246,22 +248,39 @@ app.use("/api/statements", statementsRouter);
 
 async function seedAdmin() {
   try {
-    const email = "info@mindspire.com";
+    const email = String(process.env.ADMIN_EMAIL || "info@mindspire.com").toLowerCase().trim();
+    const username = String(process.env.ADMIN_USERNAME || "admin").trim() || "admin";
+    const password = String(process.env.ADMIN_PASSWORD || "admin123");
+    const isProd = String(process.env.NODE_ENV || "development") === "production";
+    const forceResetEnv = String(process.env.SEED_ADMIN_FORCE_RESET || "").trim();
+    const forceReset = forceResetEnv === "1" || (!isProd && forceResetEnv !== "0");
+
     const existing = await User.findOne({ email });
     if (!existing) {
-      const passwordHash = await bcrypt.hash("admin123", 10);
+      const passwordHash = await bcrypt.hash(password, 10);
       await User.create({
         email,
-        username: "admin",
+        username,
         passwordHash,
         role: "admin",
         status: "active",
         createdBy: "seed",
       });
-      console.log("Seeded default admin: info@mindspire.com / admin123");
-    } else {
-      console.log("Admin user already exists: info@mindspire.com");
+      console.log(`Seeded default admin: ${email} / ${password}`);
+      return;
     }
+
+    if (forceReset) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      await User.updateOne(
+        { _id: existing._id },
+        { $set: { passwordHash, role: "admin", status: "active", username } }
+      );
+      console.log(`Reset admin password: ${email} / ${password}`);
+      return;
+    }
+
+    console.log(`Admin user already exists: ${email}`);
   } catch (err) {
     console.error("Admin seed error:", err.message);
   }

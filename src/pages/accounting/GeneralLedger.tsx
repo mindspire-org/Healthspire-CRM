@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { API_BASE } from "@/lib/api/base";
 
@@ -46,13 +47,29 @@ export default function GeneralLedger() {
   );
 
   return (
-    <div className="p-4">
+    <div className="p-4 space-y-4">
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-indigo-600/10 via-sky-500/5 to-emerald-500/10">
+        <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.25),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(14,165,233,0.20),transparent_35%),radial-gradient(circle_at_60%_90%,rgba(34,197,94,0.16),transparent_45%)]" />
+        <div className="relative p-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground">Accounting</div>
+            <div className="text-2xl font-semibold tracking-tight">General Ledger</div>
+            <div className="text-sm text-muted-foreground">Search entries for an account and view running balance.</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={busy ? "secondary" : "default"}>{busy ? "Loading…" : `${rows.length} rows`}</Badge>
+            <Badge variant="secondary">Debit {totals.debit.toFixed(2)}</Badge>
+            <Badge variant="secondary">Credit {totals.credit.toFixed(2)}</Badge>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
-          <CardTitle>General Ledger</CardTitle>
+          <CardTitle className="text-base">Filters</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
             <div>
               <Label>Account Code</Label>
               <Input value={accountCode} onChange={(e) => setAccountCode(e.target.value)} placeholder="e.g. 1000" />
@@ -66,43 +83,59 @@ export default function GeneralLedger() {
               <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
             <div className="flex items-end">
-              <Button onClick={load} disabled={!accountCode || busy}>Load</Button>
+              <Button onClick={load} disabled={!accountCode || busy} className="w-full">
+                Load ledger
+              </Button>
             </div>
           </div>
 
           {account && (
             <div className="text-sm text-muted-foreground">{account.code} · {account.name}</div>
           )}
+        </CardContent>
+      </Card>
 
-          <div className="overflow-auto">
-            <table className="min-w-[720px] w-full text-sm">
-              <thead>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Entries</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-auto rounded-lg border">
+            <table className="min-w-[860px] w-full text-sm">
+              <thead className="bg-muted/30">
                 <tr className="text-left border-b">
-                  <th className="py-2 pr-2">Date</th>
-                  <th className="py-2 pr-2">Ref</th>
-                  <th className="py-2 pr-2">Memo</th>
-                  <th className="py-2 pr-2 text-right">Debit</th>
-                  <th className="py-2 pr-2 text-right">Credit</th>
-                  <th className="py-2 pr-2 text-right">Balance</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Ref</th>
+                  <th className="py-3 px-3">Memo</th>
+                  <th className="py-3 px-3 text-right">Debit</th>
+                  <th className="py-3 px-3 text-right">Credit</th>
+                  <th className="py-3 px-3 text-right">Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} className="border-b border-border/50">
-                    <td className="py-1 pr-2">{String(r.date).slice(0,10)}</td>
-                    <td className="py-1 pr-2">{r.refNo || ""}</td>
-                    <td className="py-1 pr-2">{r.memo || ""}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.debit||0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.credit||0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.balance||0).toFixed(2)}</td>
+                  <tr key={i} className="border-b border-border/50 hover:bg-muted/20">
+                    <td className="py-2 px-3 whitespace-nowrap">{String(r.date).slice(0,10)}</td>
+                    <td className="py-2 px-3 whitespace-nowrap">{r.refNo || ""}</td>
+                    <td className="py-2 px-3">{r.memo || ""}</td>
+                    <td className="py-2 px-3 text-right">{Number(r.debit||0).toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right">{Number(r.credit||0).toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right">{Number(r.balance||0).toFixed(2)}</td>
                   </tr>
                 ))}
+                {!busy && accountCode && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      No entries found for this account and date range.
+                    </td>
+                  </tr>
+                )}
               </tbody>
               <tfoot>
-                <tr>
-                  <td colSpan={3}></td>
-                  <td className="py-2 pr-2 text-right font-medium">{totals.debit.toFixed(2)}</td>
-                  <td className="py-2 pr-2 text-right font-medium">{totals.credit.toFixed(2)}</td>
+                <tr className="bg-muted/20">
+                  <td colSpan={3} className="py-3 px-3 text-right font-medium">Totals</td>
+                  <td className="py-3 px-3 text-right font-medium">{totals.debit.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right font-medium">{totals.credit.toFixed(2)}</td>
                   <td></td>
                 </tr>
               </tfoot>

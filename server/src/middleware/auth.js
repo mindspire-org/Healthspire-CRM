@@ -19,7 +19,7 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const user = await User.findById(userId).select('-passwordHash');
+    const user = await User.findById(userId).select('-passwordHash -pinHash');
     
     if (!user) {
       return res.status(401).json({ error: 'User not found' });

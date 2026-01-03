@@ -46,6 +46,9 @@ const navigation: NavItem[] = [
   // 2. Clients
   { title: "Clients", href: "/clients", icon: Building2 },
 
+  // 3. Portfolio
+  { title: "Portfolio", href: "/portfolio", icon: Briefcase },
+
   // 3. CRM
   {
     title: "CRM",
@@ -127,6 +130,7 @@ const navigation: NavItem[] = [
     href: "/accounting",
     icon: BarChart3,
     children: [
+      { title: "Dashboard", href: "/accounting" },
       { title: "Journal", href: "/accounting/journal" },
       { title: "General Ledger", href: "/accounting/ledger" },
       { title: "Trial Balance", href: "/accounting/trial-balance" },
@@ -160,7 +164,7 @@ const navigation: NavItem[] = [
   },
   {
     title: "Access Permission",
-    href: "/user-management",
+    href: "/user-management/users",
     icon: Shield,
     children: [
       { title: "Roles & Permissions", href: "/user-management/roles" },
@@ -182,7 +186,7 @@ const navigation: NavItem[] = [
   // User Management just above Settings
   {
     title: "User Management",
-    href: "/user-management",
+    href: "/user-management/users",
     icon: Users,
     children: [
       { title: "Manage Users", href: "/user-management/users" },
@@ -199,7 +203,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?: string } | null => {
+const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?: string; permissions?: string[] } | null => {
   const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
   if (!raw) return null;
   try {
@@ -241,6 +245,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
 
   const me = getStoredAuthUser();
   const role = me?.role || "admin";
+  const perms = new Set((Array.isArray((me as any)?.permissions) ? (me as any).permissions : []).map((x: any) => String(x || "").trim()).filter(Boolean));
   const meName = String((me as any)?.name || "").trim();
   const meEmail = String(me?.email || "").trim();
   const meAvatar = String((me as any)?.avatar || "").trim();
@@ -304,6 +309,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onClose }: SidebarPro
       "Files",
     ]);
     if (staffTop.has(item.title)) return true;
+    if (item.title === "Accounting" && perms.has("accounting")) return true;
     // Hide admin configuration areas and CRM for staff
     const blockedPrefixes = ["/settings", "/user-management", "/crm", "/sales", "/prospects"];
     if (blockedPrefixes.some((p) => item.href?.startsWith(p))) return false;
