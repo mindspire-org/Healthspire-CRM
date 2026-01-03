@@ -12,12 +12,13 @@ import { toast } from "@/components/ui/sonner";
 import Notes from "../notes/Notes";
 import Files from "../files/Files";
 
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 export default function ClientDetails() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<any | null>(null);
+  const [tab, setTab] = useState("contacts");
   const [estimates, setEstimates] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
@@ -31,6 +32,7 @@ export default function ClientDetails() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [licenses, setLicenses] = useState<any[]>([]);
 
   // add dialogs/forms
   const [openAddProject, setOpenAddProject] = useState(false);
@@ -41,6 +43,9 @@ export default function ClientDetails() {
 
   const [openAddEvent, setOpenAddEvent] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", description: "", date: "", startTime: "", endDate: "", endTime: "", location: "", type: "" });
+
+  const [openAddLicense, setOpenAddLicense] = useState(false);
+  const [licenseForm, setLicenseForm] = useState({ product: "", licenseKey: "", status: "active", issuedAt: "", expiresAt: "", note: "" });
 
   // editable fields
   const [form, setForm] = useState<any>({});
@@ -85,6 +90,7 @@ export default function ClientDetails() {
           try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); const arr = await r.json().catch(()=>[]); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
           try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`); setEvents(await r.json().catch(()=>[])); } catch {}
           try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`); setSubscriptions(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(id))}`); setLicenses(await r.json().catch(()=>[])); } catch {}
         }
       } catch (e: any) {
         toast.error(String(e?.message || "Failed to load client"));
@@ -121,6 +127,17 @@ export default function ClientDetails() {
     return { totalInvoiced, payments: paid, due };
   }, [invoices, payments]);
 
+  const dashboard = useMemo(() => {
+    const projectCount = (projects || []).length;
+    const taskCount = (tasks || []).length;
+    const invoiceCount = (invoices || []).length;
+    const openTickets = (tickets || []).filter((t: any) => {
+      const s = String(t?.status || "").toLowerCase();
+      return s && !["closed", "resolved", "done", "completed"].includes(s);
+    }).length;
+    return { projectCount, taskCount, invoiceCount, openTickets };
+  }, [projects, tasks, invoices, tickets]);
+
   // creators
   const reloadProjects = async (name: string) => {
     try {
@@ -129,6 +146,42 @@ export default function ClientDetails() {
       const arr = Array.isArray(pj) ? pj : (Array.isArray((pj as any)?.data) ? (pj as any).data : (Array.isArray((pj as any)?.items) ? (pj as any).items : []));
       setProjects(arr);
     } catch { setProjects([]); }
+  };
+
+  const createLicense = async () => {
+    const product = (licenseForm.product || "").trim();
+    const licenseKey = (licenseForm.licenseKey || "").trim();
+    if (!client?._id || !product || !licenseKey) return;
+    try {
+      const payload: any = {
+        clientId: String(client._id),
+        client: client.company || client.person || "-",
+        product,
+        licenseKey,
+        status: (licenseForm.status || "active").trim(),
+        issuedAt: licenseForm.issuedAt ? new Date(licenseForm.issuedAt) : undefined,
+        expiresAt: licenseForm.expiresAt ? new Date(licenseForm.expiresAt) : undefined,
+        note: licenseForm.note || "",
+      };
+      const r = await fetch(`${API_BASE}/api/licenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => null);
+        toast.error(e?.error || "Failed to add license");
+        return;
+      }
+      setOpenAddLicense(false);
+      setLicenseForm({ product: "", licenseKey: "", status: "active", issuedAt: "", expiresAt: "", note: "" });
+      try {
+        const rr = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(client._id))}`);
+        setLicenses(await rr.json().catch(() => []));
+      } catch {}
+    } catch {
+      toast.error("Failed to add license");
+    }
   };
 
   const createProject = async () => {
@@ -239,13 +292,83 @@ export default function ClientDetails() {
         <NavLink to="/clients" className="text-primary text-sm">Back to Clients</NavLink>
       </div>
 
-      <Tabs defaultValue="contacts">
+      <div className="rounded-2xl border bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Client dashboard</div>
+            <div className="mt-1 text-2xl sm:text-3xl font-semibold truncate">{displayName}</div>
+            <div className="mt-1 text-sm text-muted-foreground truncate">{client?.owner || client?.email || client?.phone || ""}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <NavLink to={`/invoices?clientId=${encodeURIComponent(String(id || ""))}`}>Open invoices</NavLink>
+            </Button>
+            <Button asChild>
+              <NavLink to={`/projects/overview/${encodeURIComponent(String(id || ""))}`}>Open projects</NavLink>
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <Stat title="Projects" value={dashboard.projectCount} color="bg-gradient-to-br from-indigo-500 to-purple-600" icon="P" />
+          <Stat title="Tasks" value={dashboard.taskCount} color="bg-gradient-to-br from-sky-500 to-blue-600" icon="T" />
+          <Stat title="Invoices" value={dashboard.invoiceCount} color="bg-gradient-to-br from-emerald-500 to-teal-600" icon="I" />
+          <Stat title="Invoiced" value={`Rs.${Math.max(0, Math.round(totals.totalInvoiced))}`} color="bg-gradient-to-br from-slate-600 to-slate-800" icon="₹" />
+          <Stat title="Paid" value={`Rs.${Math.max(0, Math.round(totals.payments))}`} color="bg-gradient-to-br from-green-600 to-emerald-700" icon="✓" />
+          <Stat title="Due" value={`Rs.${Math.max(0, Math.round(totals.due))}`} color="bg-gradient-to-br from-rose-500 to-red-600" icon="!" />
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <Stat title="Open tickets" value={dashboard.openTickets} color="bg-gradient-to-br from-amber-500 to-orange-600" icon="#" />
+        </div>
+      </div>
+
+      <Tabs value={tab} onValueChange={setTab}>
         <div className="flex items-center justify-between gap-2 mt-4 mb-4">
-          <TabsList className="bg-muted/40">
-            <TabsTrigger value="contacts">Contacts</TabsTrigger>
-            <TabsTrigger value="info">Client info</TabsTrigger>
-          </TabsList>
-          <div />
+          <div className="w-full overflow-x-auto">
+            <TabsList className="bg-muted/40 w-max">
+              <TabsTrigger value="contacts">Contacts</TabsTrigger>
+              <TabsTrigger value="projects">Projects</TabsTrigger>
+              <TabsTrigger value="tasks">Tasks</TabsTrigger>
+              <TabsTrigger value="invoices">Invoices</TabsTrigger>
+              <TabsTrigger value="estimates">Estimates</TabsTrigger>
+              <TabsTrigger value="proposals">Proposals</TabsTrigger>
+              <TabsTrigger value="tickets">Tickets</TabsTrigger>
+              <TabsTrigger value="contracts">Contracts</TabsTrigger>
+              <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+              <TabsTrigger value="licenses">Licenses</TabsTrigger>
+              <TabsTrigger value="info">Client info</TabsTrigger>
+            </TabsList>
+          </div>
+          <div className="flex items-center gap-2">
+            {tab === "projects" ? (
+              <Button onClick={() => setOpenAddProject(true)}>Add Project</Button>
+            ) : tab === "estimates" ? (
+              <Button onClick={() => setOpenAddEstimate(true)}>Add Estimate</Button>
+            ) : tab === "licenses" ? (
+              <Button onClick={() => setOpenAddLicense(true)}>Add License</Button>
+            ) : tab === "invoices" ? (
+              <Button asChild>
+                <NavLink to={`/invoices?clientId=${encodeURIComponent(String(id || ""))}`}>Add Invoice</NavLink>
+              </Button>
+            ) : tab === "contracts" ? (
+              <Button asChild>
+                <NavLink to={`/sales/contracts`}>Add Contract</NavLink>
+              </Button>
+            ) : tab === "subscriptions" ? (
+              <Button asChild>
+                <NavLink to={`/subscriptions`}>Add Subscription</NavLink>
+              </Button>
+            ) : tab === "proposals" ? (
+              <Button asChild>
+                <NavLink to={`/prospects/proposals`}>Add Proposal</NavLink>
+              </Button>
+            ) : tab === "tickets" ? (
+              <Button asChild>
+                <NavLink to={`/tickets`}>Add Ticket</NavLink>
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {/* Add Project */}
@@ -282,6 +405,43 @@ export default function ClientDetails() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpenAddProject(false)}>Close</Button>
               <Button onClick={createProject}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openAddLicense} onOpenChange={setOpenAddLicense}>
+          <DialogContent className="bg-card max-w-2xl" aria-describedby={undefined}>
+            <DialogHeader><DialogTitle>Add license</DialogTitle></DialogHeader>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Product</Label>
+                <Input value={licenseForm.product} onChange={(e)=>setLicenseForm((p)=>({...p, product: e.target.value}))} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>License key</Label>
+                <Input value={licenseForm.licenseKey} onChange={(e)=>setLicenseForm((p)=>({...p, licenseKey: e.target.value}))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Input value={licenseForm.status} onChange={(e)=>setLicenseForm((p)=>({...p, status: e.target.value}))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Issued at</Label>
+                <Input type="date" value={licenseForm.issuedAt} onChange={(e)=>setLicenseForm((p)=>({...p, issuedAt: e.target.value}))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Expires at</Label>
+                <Input type="date" value={licenseForm.expiresAt} onChange={(e)=>setLicenseForm((p)=>({...p, expiresAt: e.target.value}))} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Note</Label>
+                <Textarea value={licenseForm.note} onChange={(e)=>setLicenseForm((p)=>({...p, note: e.target.value}))} />
+              </div>
+              <div className="sm:col-span-2 text-xs text-muted-foreground">Client: {client?.company || client?.person || "-"}</div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenAddLicense(false)}>Close</Button>
+              <Button onClick={createLicense}>Save</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -553,11 +713,40 @@ export default function ClientDetails() {
               <TableBody>
                 {invoices.map((inv:any)=> (
                   <TableRow key={String(inv._id)}>
-                    <TableCell className="whitespace-nowrap">{inv.number}</TableCell>
+                    <TableCell className="whitespace-nowrap text-primary underline">
+                      <NavLink to={`/invoices/${encodeURIComponent(String(inv._id || ""))}`}>{inv.number}</NavLink>
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">{inv.amount?`Rs.${inv.amount}`:'Rs.0'}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{inv.status||'-'}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{inv.issueDate?new Date(inv.issueDate).toISOString().slice(0,10):'-'}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{inv.dueDate?new Date(inv.dueDate).toISOString().slice(0,10):'-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="licenses">
+          <Card className="p-0 overflow-hidden rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Product</TableHead>
+                  <TableHead>License key</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issued</TableHead>
+                  <TableHead>Expires</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {licenses.map((l:any)=> (
+                  <TableRow key={String(l._id)}>
+                    <TableCell className="whitespace-nowrap">{l.product || "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.licenseKey || "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.status || "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.issuedAt ? new Date(l.issuedAt).toISOString().slice(0,10) : "-"}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{l.expiresAt ? new Date(l.expiresAt).toISOString().slice(0,10) : "-"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

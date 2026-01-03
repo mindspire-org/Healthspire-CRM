@@ -17,6 +17,8 @@ import Events from "./pages/events/Events";
 import Clients from "./pages/clients/Clients";
 import ClientDetails from "./pages/clients/ClientDetails";
 import PrimaryContact from "./pages/clients/PrimaryContact";
+import Portfolio from "./pages/Portfolio";
+import CrmDashboard from "./pages/crm/CrmDashboard";
 import Leads from "./pages/crm/Leads";
 import LeadDetails from "./pages/crm/LeadDetails";
 import Contacts from "./pages/crm/Contacts";
@@ -75,7 +77,6 @@ import KnowledgeBaseCategories from "./pages/help-support/knowledge-base/Categor
 import CalendarPage from "./pages/calendar/Calendar";
 import Overview from "./pages/projects/Overview";
 import Timeline from "./pages/projects/Timeline";
-import ProjectDashboard from "./pages/projects/ProjectDashboard";
 import ProjectOverviewPage from "./pages/projects/ProjectOverview";
 import Chat from "./pages/messages/Chat";
 import InvoiceList from "./pages/invoices/InvoiceList";
@@ -89,6 +90,7 @@ import NotFound from "./pages/NotFound";
 import SettingsPage from "./pages/settings/Settings";
 import ProfileSettings from "./pages/profile/ProfileSettings";
 import AuthLayout from "./pages/auth/AuthLayout";
+import AccountingDashboard from "./pages/accounting/AccountingDashboard";
 import Journal from "./pages/accounting/Journal";
 import Accounts from "./pages/accounting/Accounts";
 import GeneralLedger from "./pages/accounting/GeneralLedger";
@@ -141,6 +143,7 @@ const getModuleFromPath = (pathname: string): string => {
   if (pathname.startsWith("/prospects")) return "prospects";
   if (pathname.startsWith("/sales") || pathname.startsWith("/invoices")) return "sales";
   if (pathname.startsWith("/reports")) return "reports";
+  if (pathname.startsWith("/accounting")) return "accounting";
   if (pathname.startsWith("/tickets")) return "tickets";
   if (pathname.startsWith("/events")) return "events";
   if (pathname.startsWith("/clients")) return "clients";
@@ -279,6 +282,7 @@ const App = () => (
               element={getStoredAuthUser()?.role === "admin" ? <TeamActivity /> : <Navigate to="/" replace />}
             />
             {/* CRM Routes */}
+            <Route path="/crm" element={<CrmDashboard />} />
             <Route path="/crm/leads" element={<Leads />} />
             <Route path="/crm/leads/:id" element={<LeadDetails />} />
             <Route path="/crm/pipeline" element={<Pipeline />} />
@@ -298,8 +302,10 @@ const App = () => (
             {/* Project Routes */}
             <Route path="/projects" element={<Overview />} />
             <Route path="/projects/overview/:id" element={<ProjectOverviewPage />} />
-            <Route path="/projects/:id" element={<ProjectDashboard />} />
+            <Route path="/projects/:id" element={<ProjectOverviewPage />} />
             <Route path="/projects/timeline" element={<Timeline />} />
+            {/* Portfolio */}
+            <Route path="/portfolio" element={<Portfolio />} />
             {/* Communication */}
             <Route path="/messages" element={<Messaging />} />
             <Route path="/email" element={<Chat />} />
@@ -333,6 +339,7 @@ const App = () => (
             <Route path="/prospects/proposals" element={<Proposals />} />
             <Route path="/prospects/proposals/:id" element={<ProposalDetail />} />
             {/* User Management */}
+            <Route path="/user-management" element={<Navigate to="/user-management/users" replace />} />
             <Route path="/user-management/users" element={<ManageUsers />} />
             <Route path="/user-management/roles" element={<RolesPermissions />} />
             <Route path="/user-management/delete-request" element={<DeleteRequest />} />
@@ -364,6 +371,7 @@ const App = () => (
             <Route path="/reports/leads/team-members" element={<LeadsTeamMembers />} />
             <Route path="/reports/tickets/statistics" element={<TicketsStatistics />} />
             {/* Accounting */}
+            <Route path="/accounting" element={<AccountingDashboard />} />
             <Route path="/accounting/accounts" element={<Accounts />} />
             <Route path="/accounting/journal" element={<Journal />} />
             <Route path="/accounting/ledger" element={<GeneralLedger />} />

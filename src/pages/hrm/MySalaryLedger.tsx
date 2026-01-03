@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ export default function MySalaryLedger() {
   const [rows, setRows] = useState<any[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [q, setQ] = useState("");
   const meRole = (() => {
     try {
       const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
@@ -25,6 +26,23 @@ export default function MySalaryLedger() {
       return "";
     }
   })();
+
+  const loadMyEmployeeId = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/attendance/members`, { headers: { ...getAuthHeaders() } });
+      const json = await res.json().catch(() => []);
+      if (!res.ok) throw new Error((json as any)?.error || "Failed to resolve employee");
+      const first = Array.isArray(json) ? json[0] : null;
+      const eid = first?.employeeId ? String(first.employeeId) : "";
+      if (eid) {
+        setEmployeeId(eid);
+        return;
+      }
+      toast.error("No employee profile linked to this user");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to load profile");
+    }
+  };
 
   const loadEmployee = async () => {
     try {
@@ -68,6 +86,36 @@ export default function MySalaryLedger() {
 
   useEffect(() => { void loadEmployee(); }, []);
 
+  useEffect(() => {
+    if (meRole !== "staff") return;
+    void loadMyEmployeeId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!employeeId) return;
+    if (meRole !== "staff") return;
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId]);
+
+  const stats = useMemo(() => {
+    const debit = (rows || []).reduce((a: number, r: any) => a + Number(r.debit || 0), 0);
+    const credit = (rows || []).reduce((a: number, r: any) => a + Number(r.credit || 0), 0);
+    const opening = rows?.length ? Number(rows?.[0]?.openingBalance ?? rows?.[0]?.balance ?? 0) : 0;
+    const closing = rows?.length ? Number(rows?.[rows.length - 1]?.balance ?? 0) : 0;
+    return { debit, credit, opening, closing, count: (rows || []).length };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    const needle = (q || "").trim().toLowerCase();
+    if (!needle) return rows;
+    return (rows || []).filter((r: any) => {
+      const s = `${r.accountCode || ""} ${r.memo || ""}`.toLowerCase();
+      return s.includes(needle);
+    });
+  }, [q, rows]);
+
   const exportCsv = () => {
     const header = ["Date","Account","Memo","Debit","Credit","Balance"]; 
     const lines = rows.map((r:any)=> [
@@ -105,17 +153,27 @@ export default function MySalaryLedger() {
   };
 
   return (
-    <div className="p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>My Salary Ledger</CardTitle>
-        </CardHeader>
+    <div className="p-4 space-y-4">
+      <Card className="overflow-hidden">
+        <div className="relative border-b bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950">
+          <CardHeader className="relative">
+            <CardTitle className="text-xl">My Salary Ledger</CardTitle>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Track your salary transactions, export statements, and filter by date.
+            </div>
+          </CardHeader>
+        </div>
+
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+          <div className="grid gap-3 lg:grid-cols-12">
             {meRole === "admin" && (
-              <div className="sm:col-span-2">
+              <div className="lg:col-span-4">
                 <Label>Employee</Label>
-                <select className="border rounded h-10 px-2 w-full bg-background" value={employeeId} onChange={(e)=>setEmployeeId(e.target.value)}>
+                <select
+                  className="border rounded-md h-10 px-3 w-full bg-background"
+                  value={employeeId}
+                  onChange={(e)=>setEmployeeId(e.target.value)}
+                >
                   <option value="">Select employee...</option>
                   {employees.map((e:any)=> (
                     <option key={e._id} value={e._id}>{e.name || e.email || e._id}</option>
@@ -123,48 +181,89 @@ export default function MySalaryLedger() {
                 </select>
               </div>
             )}
-            <div>
+
+            <div className="lg:col-span-2">
               <Label>From</Label>
               <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
             </div>
-            <div>
+            <div className="lg:col-span-2">
               <Label>To</Label>
               <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
             </div>
-            <div className="flex items-end gap-2">
-              <Button onClick={load} disabled={!employeeId || busy}>Load</Button>
-              <Button variant="secondary" onClick={exportCsv} disabled={!rows.length}>Export CSV</Button>
-              <Button variant="secondary" onClick={downloadStatementPdf} disabled={!rows.length}>Statement PDF</Button>
-              <Button variant="secondary" onClick={printPdf} disabled={!rows.length}>Print</Button>
+
+            <div className="lg:col-span-4">
+              <Label>Search</Label>
+              <Input placeholder="Search memo or account..." value={q} onChange={(e)=>setQ(e.target.value)} />
+            </div>
+
+            <div className="lg:col-span-12 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={load} disabled={!employeeId || busy}>
+                  {busy ? "Loading..." : "Load"}
+                </Button>
+                <Button variant="secondary" onClick={exportCsv} disabled={!rows.length}>Export CSV</Button>
+                <Button variant="secondary" onClick={downloadStatementPdf} disabled={!rows.length}>Statement PDF</Button>
+                <Button variant="secondary" onClick={printPdf} disabled={!rows.length}>Print</Button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Showing {filteredRows.length} of {rows.length} rows
+              </div>
             </div>
           </div>
 
-          <div className="overflow-auto">
-            <table className="min-w-[720px] w-full text-sm">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="p-4">
+              <div className="text-xs text-muted-foreground">Opening</div>
+              <div className="mt-1 text-2xl font-semibold">{Number(stats.opening || 0).toFixed(2)}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-muted-foreground">Total debit</div>
+              <div className="mt-1 text-2xl font-semibold">{Number(stats.debit || 0).toFixed(2)}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-muted-foreground">Total credit</div>
+              <div className="mt-1 text-2xl font-semibold">{Number(stats.credit || 0).toFixed(2)}</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-muted-foreground">Closing</div>
+              <div className="mt-1 text-2xl font-semibold">{Number(stats.closing || 0).toFixed(2)}</div>
+            </Card>
+          </div>
+
+          <div className="overflow-auto rounded-xl border">
+            <table className="min-w-[820px] w-full text-sm">
               <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 pr-2">Date</th>
-                  <th className="py-2 pr-2">Account</th>
-                  <th className="py-2 pr-2">Memo</th>
-                  <th className="py-2 pr-2 text-right">Debit</th>
-                  <th className="py-2 pr-2 text-right">Credit</th>
-                  <th className="py-2 pr-2 text-right">Balance</th>
+                <tr className="text-left border-b bg-muted/40">
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Account</th>
+                  <th className="py-3 px-3">Memo</th>
+                  <th className="py-3 px-3 text-right">Debit</th>
+                  <th className="py-3 px-3 text-right">Credit</th>
+                  <th className="py-3 px-3 text-right">Balance</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r:any, i:number)=> (
-                  <tr key={i} className="border-b border-border/50">
-                    <td className="py-1 pr-2">{String(r.date).slice(0,10)}</td>
-                    <td className="py-1 pr-2">{r.accountCode}</td>
-                    <td className="py-1 pr-2">{r.memo || ""}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.debit||0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.credit||0).toFixed(2)}</td>
-                    <td className="py-1 pr-2 text-right">{Number(r.balance||0).toFixed(2)}</td>
+                {filteredRows.map((r:any, i:number)=> (
+                  <tr key={i} className="border-b border-border/50 hover:bg-muted/30">
+                    <td className="py-2 px-3 whitespace-nowrap">{String(r.date).slice(0,10)}</td>
+                    <td className="py-2 px-3 whitespace-nowrap">{r.accountCode}</td>
+                    <td className="py-2 px-3">{r.memo || ""}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{Number(r.debit||0).toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{Number(r.credit||0).toFixed(2)}</td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap">{Number(r.balance||0).toFixed(2)}</td>
                   </tr>
                 ))}
+                {!busy && !filteredRows.length && (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                      {rows.length ? "No results match your search." : "No ledger rows yet. Select a date range and click Load."}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+
           {msg && <div className="text-sm text-destructive">{msg}</div>}
         </CardContent>
       </Card>

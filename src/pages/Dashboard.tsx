@@ -126,6 +126,85 @@ const announcements = [
   "4 Tender Websites",
 ];
 
+function GlassCard({ className = "", children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <Card
+      className={
+        "border border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_12px_30px_rgba(2,6,23,0.08)] dark:border-white/10 dark:bg-slate-900/55 " +
+        className
+      }
+    >
+      {children}
+    </Card>
+  );
+}
+
+function DashboardOrb({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="220"
+      height="220"
+      viewBox="0 0 220 220"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="orbA" x1="24" y1="28" x2="196" y2="196" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#A855F7" />
+          <stop offset="0.45" stopColor="#3B82F6" />
+          <stop offset="1" stopColor="#22C55E" />
+        </linearGradient>
+        <radialGradient id="orbGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(86 70) rotate(58) scale(160)">
+          <stop stopColor="#FFFFFF" stopOpacity="0.75" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+        <filter id="softShadow" x="-40" y="-40" width="300" height="300" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#0F172A" floodOpacity="0.22" />
+        </filter>
+      </defs>
+      <g filter="url(#softShadow)">
+        <circle cx="110" cy="110" r="78" fill="url(#orbA)" />
+        <circle cx="110" cy="110" r="78" fill="url(#orbGlow)" />
+        <path
+          d="M52 128c18 22 42 34 72 34 30 0 56-14 78-42"
+          stroke="#fff"
+          strokeOpacity="0.5"
+          strokeWidth="10"
+          strokeLinecap="round"
+        />
+        <path
+          d="M72 78c16-18 36-26 60-26 26 0 48 10 68 32"
+          stroke="#fff"
+          strokeOpacity="0.35"
+          strokeWidth="8"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  );
+}
+
+const FancyTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-white/40 bg-white/80 backdrop-blur-xl px-3 py-2 shadow-lg dark:border-white/10 dark:bg-slate-900/70">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 space-y-1">
+        {payload.map((p: any) => (
+          <div key={p.dataKey} className="flex items-center justify-between gap-6 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+              <span className="text-muted-foreground">{p.name}</span>
+            </div>
+            <span className="font-semibold text-foreground">{Number(p.value || 0).toLocaleString()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [openTasksCount, setOpenTasksCount] = useState(0);
@@ -191,7 +270,7 @@ export default function Dashboard() {
           setTotalRevenue(sum);
           const right = list
             .slice(0,5)
-            .map((p:any)=> ({ id: String(p._id||""), name: p.title || "-", estimate: p.deadline ? new Date(p.deadline).toISOString().slice(0,10).replaceAll('-','/') : "-" }));
+            .map((p:any)=> ({ id: String(p._id||""), name: p.title || "-", estimate: p.deadline ? new Date(p.deadline).toISOString().slice(0,10).replace(/-/g,'/') : "-" }));
           setProjectsList(right);
         }
       } catch {}
@@ -262,18 +341,30 @@ export default function Dashboard() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">Welcome back, {meName}!</h1>
-            <p className="text-blue-100">{meEmail || "Here's what's happening across your organization today."}</p>
+      <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, rgba(255,255,255,0) 45%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.25) 0, rgba(255,255,255,0) 40%), radial-gradient(circle at 40% 85%, rgba(255,255,255,0.18) 0, rgba(255,255,255,0) 45%)",
+          }}
+        />
+        <DashboardOrb className="absolute -right-6 -top-10 opacity-80 hidden md:block" />
+
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs uppercase tracking-wide text-white/80">Dashboard</div>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {meName}!</h1>
+            <p className="mt-2 text-white/80 max-w-xl">
+              {meEmail || "Here's what's happening across your organization today."}
+            </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-blue-200">Total Revenue</p>
-              <p className="text-3xl font-bold">${totalRevenue.toLocaleString()}</p>
+            <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <p className="text-xs text-white/70">Total Revenue</p>
+              <p className="text-3xl font-extrabold">${totalRevenue.toLocaleString()}</p>
             </div>
-            <Avatar className="h-16 w-16 border-2 border-white bg-white">
+            <Avatar className="h-14 w-14 border-2 border-white/70 bg-white shadow-lg">
               <AvatarImage
                 src={adminAvatarSrc}
                 alt="Admin"
@@ -281,7 +372,7 @@ export default function Dashboard() {
                   (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64";
                 }}
               />
-              <AvatarFallback className="bg-white text-blue-600 text-xl">{meInitials}</AvatarFallback>
+              <AvatarFallback className="bg-white text-indigo-600 text-lg font-bold">{meInitials}</AvatarFallback>
             </Avatar>
           </div>
         </div>
@@ -289,7 +380,7 @@ export default function Dashboard() {
 
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+        <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/70 dark:from-emerald-950/40 dark:to-emerald-900/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -297,14 +388,14 @@ export default function Dashboard() {
                 <p className="text-3xl font-bold text-green-900 mt-1">{projectCounts.open}</p>
                 <p className="text-xs text-green-600 mt-1">+{projectCounts.completed} completed</p>
               </div>
-              <div className="bg-green-200 p-3 rounded-full">
-                <Briefcase className="w-6 h-6 text-green-700" />
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Briefcase className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
           </CardContent>
-        </Card>
+        </GlassCard>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+        <GlassCard className="bg-gradient-to-br from-sky-50/90 to-indigo-100/70 dark:from-sky-950/40 dark:to-indigo-900/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -312,14 +403,14 @@ export default function Dashboard() {
                 <p className="text-3xl font-bold text-blue-900 mt-1">{openTasksCount}</p>
                 <p className="text-xs text-blue-600 mt-1">{eventsToday} due today</p>
               </div>
-              <div className="bg-blue-200 p-3 rounded-full">
-                <CheckCircle className="w-6 h-6 text-blue-700" />
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <CheckCircle className="w-6 h-6 text-sky-700 dark:text-sky-300" />
               </div>
             </div>
           </CardContent>
-        </Card>
+        </GlassCard>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+        <GlassCard className="bg-gradient-to-br from-amber-50/90 to-orange-100/70 dark:from-amber-950/40 dark:to-orange-900/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -327,14 +418,14 @@ export default function Dashboard() {
                 <p className="text-3xl font-bold text-orange-900 mt-1">{teamMembers}</p>
                 <p className="text-xs text-orange-600 mt-1">{onLeaveToday} on leave</p>
               </div>
-              <div className="bg-orange-200 p-3 rounded-full">
-                <Users className="w-6 h-6 text-orange-700" />
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Users className="w-6 h-6 text-amber-700 dark:text-amber-300" />
               </div>
             </div>
           </CardContent>
-        </Card>
+        </GlassCard>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+        <GlassCard className="bg-gradient-to-br from-fuchsia-50/90 to-violet-100/70 dark:from-fuchsia-950/40 dark:to-violet-900/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -342,12 +433,12 @@ export default function Dashboard() {
                 <p className="text-3xl font-bold text-purple-900 mt-1">{pendingLeaves}</p>
                 <p className="text-xs text-purple-600 mt-1">Need approval</p>
               </div>
-              <div className="bg-purple-200 p-3 rounded-full">
-                <Calendar className="w-6 h-6 text-purple-700" />
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Calendar className="w-6 h-6 text-violet-700 dark:text-violet-300" />
               </div>
             </div>
           </CardContent>
-        </Card>
+        </GlassCard>
       </div>
 
       {/* Main Content Grid */}
@@ -355,33 +446,43 @@ export default function Dashboard() {
         {/* Left Column - Charts & Analytics */}
         <div className="lg:col-span-2 space-y-6">
           {/* Revenue & Profit Trend */}
-          <Card>
+          <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Revenue & Profit Trend</CardTitle>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={revenueData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                  <Area type="monotone" dataKey="profit" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                <AreaChart data={revenueData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.55} />
+                      <stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#34D399" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="#34D399" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.35)" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                  <Tooltip content={<FancyTooltip />} />
+                  <Area type="monotone" name="Revenue" dataKey="revenue" stroke="#3B82F6" strokeWidth={2.5} fill="url(#revFill)" />
+                  <Area type="monotone" name="Profit" dataKey="profit" stroke="#10B981" strokeWidth={2.5} fill="url(#profitFill)" />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Project Status Overview */}
-          <Card>
+          <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Project Status Overview</CardTitle>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
                 <Eye className="w-4 h-4 mr-2" />
                 View All
               </Button>
@@ -389,6 +490,11 @@ export default function Dashboard() {
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
+                  <defs>
+                    <filter id="pieShadow" x="-50%" y="-50%" width="200%" height="200%">
+                      <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.18" />
+                    </filter>
+                  </defs>
                   <Pie
                     data={projectStatusData}
                     cx="50%"
@@ -396,12 +502,15 @@ export default function Dashboard() {
                     innerRadius={60}
                     outerRadius={80}
                     dataKey="value"
+                    stroke="rgba(255,255,255,0.8)"
+                    strokeWidth={2}
+                    filter="url(#pieShadow)"
                   >
                     {projectStatusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<FancyTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-4">
@@ -413,10 +522,10 @@ export default function Dashboard() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Team Performance */}
-          <Card>
+          <GlassCard>
             <CardHeader>
               <CardTitle className="text-lg">Team Performance</CardTitle>
             </CardHeader>
@@ -430,7 +539,7 @@ export default function Dashboard() {
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        className="h-2 rounded-full transition-all duration-300 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500"
                         style={{
                           width: `${(team.completed / team.total) * 100}%`,
                         }}
@@ -440,64 +549,64 @@ export default function Dashboard() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Income vs Expenses */}
-          <Card>
+          <GlassCard>
             <CardHeader>
               <CardTitle className="text-lg">Income vs Expenses</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={incomeData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} />
-                  <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} />
+                <LineChart data={incomeData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.35)" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+                  <Tooltip content={<FancyTooltip />} />
+                  <Line type="monotone" name="Income" dataKey="income" stroke="#10B981" strokeWidth={2.8} dot={false} />
+                  <Line type="monotone" name="Expense" dataKey="expense" stroke="#EF4444" strokeWidth={2.8} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
-          </Card>
+          </GlassCard>
         </div>
 
         {/* Right Column */}
         <div className="space-y-6">
           {/* Quick Actions */}
-          <Card>
+          <GlassCard>
             <CardHeader>
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate("/projects") }>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/projects") }>
                 <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate("/hrm/employees") }>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/hrm/employees") }>
                 <Users className="w-4 h-4 mr-2" />
                 Add Team Member
               </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate("/invoices") }>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/invoices") }>
                 <FileText className="w-4 h-4 mr-2" />
                 Create Invoice
               </Button>
-              <Button className="w-full justify-start" variant="outline" onClick={() => navigate("/settings") }>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/settings") }>
                 <Settings className="w-4 h-4 mr-2" />
                 System Settings
               </Button>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Recent Activities */}
-          <Card>
+          <GlassCard>
             <CardHeader>
               <CardTitle className="text-lg">Recent Activities</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3 p-2 rounded-lg">
+                  <div key={index} className="flex items-start gap-3 rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                     <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
                       activity.type === "success" ? "bg-green-500" :
                       activity.type === "warning" ? "bg-yellow-500" :
@@ -514,10 +623,10 @@ export default function Dashboard() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Top Performers */}
-          <Card>
+          <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Top Performers</CardTitle>
               <Badge variant="secondary">This Month</Badge>
@@ -525,7 +634,7 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-3">
                 {topPerformers.map((performer) => (
-                  <div key={performer.name} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50">
+                  <div key={performer.name} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-xs">{performer.avatar}</AvatarFallback>
@@ -546,10 +655,10 @@ export default function Dashboard() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Invoice Overview */}
-          <Card>
+          <GlassCard>
             <CardHeader>
               <CardTitle className="text-lg">Invoice Overview</CardTitle>
             </CardHeader>
@@ -561,7 +670,7 @@ export default function Dashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<FancyTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-1 gap-2 mt-4">
@@ -576,13 +685,13 @@ export default function Dashboard() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
 
           {/* Open Projects */}
-          <Card>
+          <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Open Projects</CardTitle>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
                 <Eye className="w-4 h-4 mr-2" />
                 View All
               </Button>
@@ -590,31 +699,31 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-2">
                 {projectsList.slice(0, 5).map((project) => (
-                  <div key={project.id} className="text-xs p-2 rounded-lg border">
+                  <div key={project.id} className="text-xs rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                     <a href="#" className="text-primary font-medium hover:underline">{project.name}</a>
                     <p className="text-muted-foreground">Estimate: {project.estimate}</p>
                   </div>
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </GlassCard>
         </div>
       </div>
 
       {/* Tasks Table */}
-      <Card>
+      <GlassCard>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Recent Tasks</CardTitle>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
             <Eye className="w-4 h-4 mr-2" />
             View All Tasks
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border">
+          <div className="overflow-x-auto rounded-xl border border-white/30 bg-white/40 backdrop-blur dark:border-white/10 dark:bg-white/5">
             <table className="w-full text-sm min-w-[600px]">
               <thead>
-                <tr className="border-b">
+                <tr className="border-b border-white/30 dark:border-white/10">
                   <th className="text-left py-3 px-4">ID</th>
                   <th className="text-left py-3 px-4">Title</th>
                   <th className="text-left py-3 px-4">Start Date</th>
@@ -625,7 +734,7 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {tasksTable.slice(0, 5).map((task) => (
-                  <tr key={task.id} className="border-b hover:bg-muted/50">
+                  <tr key={task.id} className="border-b border-white/30 hover:bg-white/60 dark:border-white/10 dark:hover:bg-white/10">
                     <td className="py-3 px-4">{task.id}</td>
                     <td className="py-3 px-4 text-primary font-medium">{task.title}</td>
                     <td className="py-3 px-4">{task.startDate}</td>
@@ -654,7 +763,7 @@ export default function Dashboard() {
             </table>
           </div>
         </CardContent>
-      </Card>
+      </GlassCard>
     </div>
   );
 }

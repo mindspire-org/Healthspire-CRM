@@ -11,14 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, ChevronDown, RefreshCw, Settings, MoreHorizontal } from "lucide-react";
 
-const API_BASE = "http://localhost:5000";
-
-const getAuthHeaders = () => {
-  const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return { headers, token };
-};
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 type UserRow = {
   _id: string;
@@ -65,10 +59,18 @@ export default function ManageUsers() {
   const [editStatus, setEditStatus] = useState<UserRow["status"]>("active");
   const [editPerms, setEditPerms] = useState<Set<string>>(new Set());
 
+  const [addName, setAddName] = useState("");
+  const [addEmail, setAddEmail] = useState("");
+  const [addUsername, setAddUsername] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addPin, setAddPin] = useState("");
+  const [addRole, setAddRole] = useState<UserRow["role"]>("staff");
+  const [addStatus, setAddStatus] = useState<UserRow["status"]>("active");
+
   const load = async () => {
     try {
       setLoading(true);
-      const { headers } = getAuthHeaders();
+      const headers = getAuthHeaders({ "Content-Type": "application/json" });
       const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load users");
@@ -112,7 +114,7 @@ export default function ManageUsers() {
 
   const saveEdit = async () => {
     if (!editing?._id) return;
-    const { headers } = getAuthHeaders();
+    const headers = getAuthHeaders({ "Content-Type": "application/json" });
     const res = await fetch(`${API_BASE}/api/users/admin/${editing._id}`, {
       method: "PUT",
       headers,
@@ -122,6 +124,36 @@ export default function ManageUsers() {
     if (!res.ok) throw new Error(json?.error || "Failed to update user");
     setOpenEdit(false);
     setEditing(null);
+    await load();
+  };
+
+  const saveAdd = async () => {
+    const email = addEmail.trim();
+    if (!email) return;
+    const headers = getAuthHeaders({ "Content-Type": "application/json" });
+    const res = await fetch(`${API_BASE}/api/users/admin/create`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: addName.trim(),
+        email,
+        username: addUsername.trim(),
+        role: addRole,
+        status: addStatus,
+        password: addPassword || undefined,
+        pin: addPin || undefined,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((json as any)?.error || "Failed to create user");
+    setOpenAdd(false);
+    setAddName("");
+    setAddEmail("");
+    setAddUsername("");
+    setAddPassword("");
+    setAddPin("");
+    setAddRole("staff");
+    setAddStatus("active");
     await load();
   };
 
@@ -147,13 +179,32 @@ export default function ManageUsers() {
             <DialogContent className="bg-card">
               <DialogHeader><DialogTitle>Add user</DialogTitle></DialogHeader>
               <div className="grid gap-3">
-                <Input placeholder="Full name" />
-                <Input placeholder="Email" />
-                <Input placeholder="Password" type="password" />
+                <Input placeholder="Full name" value={addName} onChange={(e)=>setAddName(e.target.value)} />
+                <Input placeholder="Email" value={addEmail} onChange={(e)=>setAddEmail(e.target.value)} />
+                <Input placeholder="Username (optional)" value={addUsername} onChange={(e)=>setAddUsername(e.target.value)} />
+                <Input placeholder="Password (optional)" type="password" value={addPassword} onChange={(e)=>setAddPassword(e.target.value)} />
+                <Input placeholder="PIN (4-8 digits, optional)" type="password" value={addPin} onChange={(e)=>setAddPin(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Select value={addRole} onValueChange={(v)=>setAddRole(v as any)}>
+                    <SelectTrigger><SelectValue placeholder="Role"/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="staff">Staff</SelectItem>
+                      <SelectItem value="client">Client</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={addStatus} onValueChange={(v)=>setAddStatus(v as any)}>
+                    <SelectTrigger><SelectValue placeholder="Status"/></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={()=>setOpenAdd(false)}>Close</Button>
-                <Button onClick={()=>setOpenAdd(false)}>Save</Button>
+                <Button onClick={async ()=>{ try { await saveAdd(); } catch (e:any) { alert(e?.message || 'Failed'); } }}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

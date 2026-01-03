@@ -1346,10 +1346,14 @@ export default function ProjectOverviewPage() {
   }, [tasks]);
 
   const daysLeft = useMemo(() => {
-    if (!project?.deadline) return "-";
-    const diff = Math.ceil((new Date(project.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return `${Math.max(diff, 0)}d`;
-  }, [project?.deadline]);
+    if (!countdownTarget || !countdown) return "-";
+    const day = 24 * 60 * 60 * 1000;
+    const d = Math.ceil(Math.abs(countdownTarget.getTime() - countdownNow) / day);
+    if (Number.isNaN(d)) return "-";
+    return `${d}d ${countdown.diff >= 0 ? "left" : "overdue"}`;
+  }, [countdown, countdownNow, countdownTarget]);
+
+  const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 
   const milestoneStatusCounts = useMemo(() => {
     const res = { open: 0, done: 0, overdue: 0 };
@@ -1804,87 +1808,91 @@ export default function ProjectOverviewPage() {
   }, [countdown, countdownTarget, deadlineAlerted, project?.deadline]);
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold font-display">{project?.title || "Project"}</h1>
-          <div className="text-sm text-muted-foreground">
-            Client: {project?.clientId ? (
-              <Link to={`/clients/${project.clientId}`} className="text-primary underline">{project?.client}</Link>
-            ) : (project?.client || "-")}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setShowProjectCountdown(true)}>
-            <CalendarDays className="w-4 h-4 mr-2" />
-            Project countdown
-          </Button>
-          <Badge variant={project?.status === "Completed" ? "secondary" : "outline"}>{project?.status || "Open"}</Badge>
-        </div>
-      </div>
-
-      <Dialog open={showProjectCountdown} onOpenChange={setShowProjectCountdown}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Project countdown</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div>
-                <div className="text-muted-foreground">Start date</div>
-                <div>{project?.start ? project.start.slice(0, 10) : "-"}</div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-800 dark:via-indigo-800 dark:to-purple-800">
+        <div className="absolute inset-0 opacity-30" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, animation: 'pulse 3s ease-in-out infinite'}} />
+        <div className="relative px-6 py-12 sm:px-12 lg:px-16">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-white/80">
+                <Link to="/projects" className="hover:text-white transition-colors">
+                  Projects
+                </Link>
+                <span>/</span>
+                <span className="text-white font-medium">{project?.title || "Loading..."}</span>
               </div>
-              <div>
-                <div className="text-muted-foreground">Deadline</div>
-                <div>{project?.deadline ? project.deadline.slice(0, 10) : "-"}</div>
-              </div>
-            </div>
-
-            <div className="rounded-md border p-3">
-              <div className="text-sm font-medium text-sky-600">Set / update countdown</div>
-              <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
-                <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">Deadline date & time</div>
-                  <Input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-white/70">Start date</div>
+                    <div className="text-white">{project?.start ? project.start.slice(0, 10) : "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-white/70">Deadline</div>
+                    <div className="text-white">{project?.deadline ? project.deadline.slice(0, 10) : "-"}</div>
+                  </div>
                 </div>
-                <Button onClick={updateProjectDeadline}>Update</Button>
-              </div>
-            </div>
 
-            {!countdownTarget ? (
-              <div className="text-sm text-muted-foreground">No project deadline or start date found to count down.</div>
-            ) : (
-              <div className="rounded-md border p-4">
-                <div className="text-sm text-muted-foreground">Target</div>
-                <div className="font-medium">{countdownTarget.toLocaleString()}</div>
-
-                {countdown && (
-                  <div className="mt-3">
-                    <div className="text-sm text-muted-foreground">{countdown.diff >= 0 ? "Time remaining" : "Overdue by"}</div>
-                    <div className="text-2xl font-semibold">
-                      {countdown.days}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
+                <div className="rounded-md border bg-white/10 p-3 backdrop-blur-sm">
+                  <div className="text-sm font-medium text-white">Set / update countdown</div>
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+                    <div className="space-y-1">
+                      <div className="text-xs text-white/70">Deadline date & time</div>
+                      <Input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
                     </div>
+                    <Button onClick={updateProjectDeadline}>Update</Button>
+                  </div>
+                </div>
+
+                {!countdownTarget ? (
+                  <div className="text-sm text-white/70">No project deadline or start date found to count down.</div>
+                ) : (
+                  <div className="rounded-md border bg-white/10 p-4 backdrop-blur-sm">
+                    <div className="text-sm text-white/70">Target</div>
+                    <div className="font-medium text-white">{countdownTarget.toLocaleString()}</div>
+
+                    {countdown && (
+                      <div className="mt-3">
+                        <div className="text-sm text-white/70">{countdown.diff >= 0 ? "Time remaining" : "Overdue by"}</div>
+                        <div className="text-2xl font-semibold text-white">
+                          {countdown.days}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
+                <Link to="/projects">
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back to Projects
+                </Link>
+              </Button>
+              <Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm" onClick={() => window.location.reload()}>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Close</Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {project?.deadline && countdownTarget && countdown && countdown.diff <= 0 && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
-          <div className="font-medium">Deadline reached</div>
-          <div className="text-sm">This project is overdue. Deadline was {countdownTarget.toLocaleString()}.</div>
         </div>
-      )}
+      </div>
 
-      <Tabs defaultValue="overview">
+      <div className="px-6 py-8 sm:px-12 lg:px-16 space-y-8">
+        {project?.deadline && countdownTarget && countdown && countdown.diff <= 0 && (
+          <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700">
+            <div className="font-medium">Deadline reached</div>
+            <div className="text-sm">This project is overdue. Deadline was {countdownTarget.toLocaleString()}.</div>
+          </div>
+        )}
+
+        <Tabs defaultValue="overview">
         <TabsList className="flex flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tasks-list">Tasks List</TabsTrigger>
@@ -1903,50 +1911,105 @@ export default function ProjectOverviewPage() {
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="p-4 space-y-3 lg:col-span-2">
-              <div className="text-sm font-medium text-sky-600">Progress</div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 bg-muted/50 rounded flex-1">
-                  <div className="h-2 bg-sky-500 rounded" style={{ width: `${progress}%` }} />
+            <Card className="p-4 space-y-4 lg:col-span-2 border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Progress</div>
+                  <div className="text-lg font-semibold">{project?.title || "Project"}</div>
                 </div>
-                <div className="text-xs text-muted-foreground w-10 text-right">{progress}%</div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div><div className="text-muted-foreground">Start date</div><div>{project?.start ? project.start.slice(0,10) : "-"}</div></div>
-                <div><div className="text-muted-foreground">Deadline</div><div>{project?.deadline ? project.deadline.slice(0,10) : "-"}</div></div>
-                <div><div className="text-muted-foreground">Client</div><div>{project?.client || "-"}</div></div>
-                <div><div className="text-muted-foreground">Price</div><div>{project?.price ?? "-"}</div></div>
+                <Badge className="bg-sky-600 text-white border-0">{progress}%</Badge>
               </div>
 
-              <div className="rounded-md border bg-sky-50/30 border-sky-100 p-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-2 bg-muted/40 rounded-full flex-1 overflow-hidden">
+                    <div className="h-2 rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500" style={{ width: `${progress}%` }} />
+                  </div>
+                  <div className="text-xs text-muted-foreground w-14 text-right">{progress}%</div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">Start date</div>
+                    <div className="text-sm font-medium">{project?.start ? project.start.slice(0,10) : "-"}</div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">Deadline</div>
+                    <div className="text-sm font-medium">{project?.deadline ? project.deadline.slice(0,10) : "-"}</div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">Client</div>
+                    <div className="text-sm font-medium truncate">{project?.client || "-"}</div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">Price</div>
+                    <div className="text-sm font-medium">{project?.price ?? "-"}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={
+                "rounded-xl border p-4 " +
+                (countdown?.diff != null && countdown.diff < 0 ? "border-rose-200 bg-rose-50/60" : "border-sky-200 bg-sky-50/40")
+              }>
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <div className="text-sm font-medium text-sky-700">Live countdown</div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Live countdown</div>
+                    <div className={"text-sm font-semibold " + (countdown?.diff != null && countdown.diff < 0 ? "text-rose-700" : "text-sky-700")}>
+                      {project?.deadline ? "To deadline" : "To start"}
+                    </div>
+                  </div>
                   <div className="text-xs text-muted-foreground">Now: {new Date(countdownNow).toLocaleString()}</div>
                 </div>
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Target</div>
-                    <div>{countdownTarget ? countdownTarget.toLocaleString() : "-"}</div>
+
+                {!countdownTarget || !countdown ? (
+                  <div className="mt-3 text-sm text-muted-foreground">
+                    No deadline/start date found. Use the "Set / update countdown" section above to set a deadline.
                   </div>
-                  <div className="md:col-span-2">
-                    <div className="text-muted-foreground">{project?.deadline ? "Time remaining to deadline" : "Time remaining"}</div>
-                    {countdownTarget && countdown ? (
-                      <div className={`text-lg font-semibold ${countdown.diff >= 0 ? "text-sky-700" : "text-rose-700"}`}>
-                        {countdown.days}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">({countdown.diff >= 0 ? "remaining" : "overdue"})</span>
+                ) : (
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="md:col-span-1 rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3">
+                      <div className="text-[11px] text-muted-foreground">Target</div>
+                      <div className="text-sm font-medium">{countdownTarget.toLocaleString()}</div>
+                      <div className={"mt-1 text-xs " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {countdown.diff >= 0 ? "Remaining" : "Overdue"}
                       </div>
-                    ) : (
-                      <div className="text-muted-foreground">-</div>
-                    )}
+                    </div>
+                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
+                      <div className="text-[11px] text-muted-foreground">Days</div>
+                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {countdown.days}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
+                      <div className="text-[11px] text-muted-foreground">Hours</div>
+                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {pad2(countdown.hours)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
+                      <div className="text-[11px] text-muted-foreground">Minutes</div>
+                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {pad2(countdown.minutes)}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
+                      <div className="text-[11px] text-muted-foreground">Seconds</div>
+                      <div className={"text-xl font-semibold tabular-nums " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {pad2(countdown.seconds)}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </Card>
 
-            <Card className="p-4 space-y-4">
+            <Card className="p-4 space-y-4 border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-sky-600">Tasks status</div>
-                <div className="text-xs text-muted-foreground">Days left: {daysLeft}</div>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">Tasks</div>
+                  <div className="text-sm font-semibold">Status</div>
+                </div>
+                <Badge variant="secondary">{daysLeft}</Badge>
               </div>
               <div className="flex items-center gap-4">
                 <DonutChart
@@ -1965,7 +2028,7 @@ export default function ProjectOverviewPage() {
               </div>
             </Card>
 
-            <Card className="p-4 space-y-3 lg:col-span-2">
+            <Card className="p-4 space-y-3 lg:col-span-2 border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-sky-600">Project members</div>
                 <Button size="sm" variant="outline" onClick={() => setMembersOpen(true)}>Manage</Button>
@@ -1977,25 +2040,32 @@ export default function ProjectOverviewPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground">No members</div>
+                <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">No members yet. Add people to keep delivery transparent.</div>
               )}
             </Card>
 
-            <Card className="p-4 space-y-2 lg:col-span-2">
+            <Card className="p-4 space-y-2 lg:col-span-2 border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-sky-600">Description</div>
                 <Button size="sm" variant="outline" onClick={() => setEditDescOpen(true)}>Edit</Button>
               </div>
-              <div className="text-sm whitespace-pre-wrap">{project?.description || "No description"}</div>
+              <div className="text-sm whitespace-pre-wrap text-foreground/90">
+                {project?.description ? project.description : (
+                  <div className="rounded-lg border bg-muted/20 p-4 text-muted-foreground">No description. Add a short brief so your team stays aligned.</div>
+                )}
+              </div>
             </Card>
 
-            <Card className="p-4 space-y-3 lg:col-span-1">
-              <div className="text-sm font-medium text-sky-600">Priorities</div>
+            <Card className="p-4 space-y-3 lg:col-span-1 border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground">Tasks</div>
+                <div className="text-sm font-semibold">Priorities</div>
+              </div>
               <div className="space-y-3 text-sm">
                 {(["high","medium","low"] as const).map((k) => (
                   <div key={k} className="space-y-1">
                     <div className="flex items-center justify-between"><span className="capitalize">{k}</span><span className="text-muted-foreground">{priorityCounts[k]}</span></div>
-                    <div className="h-2 bg-muted/40 rounded">
+                    <div className="h-2 bg-muted/40 rounded-full overflow-hidden">
                       <div className={`h-2 rounded ${k === 'high' ? 'bg-rose-400' : k === 'medium' ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${tasks.length ? Math.round((priorityCounts[k] / tasks.length) * 100) : 0}%` }} />
                     </div>
                   </div>
@@ -4284,6 +4354,7 @@ export default function ProjectOverviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

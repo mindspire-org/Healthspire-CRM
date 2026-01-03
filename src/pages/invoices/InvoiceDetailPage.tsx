@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -13,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { MoreHorizontal, Plus, FileText, DollarSign, CheckSquare, Mail, Printer, Download, Copy, MessageCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { toast } from "@/components/ui/sonner";
 
 const API_BASE = "http://localhost:5000";
 
@@ -81,6 +83,12 @@ export default function InvoiceDetailPage() {
   const [itemQuery, setItemQuery] = useState("");
   const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
   const invoiceDbId = useMemo(() => String(inv?._id || ""), [inv?._id]);
+
+  const [openProjectPrompt, setOpenProjectPrompt] = useState(false);
+  const [projectDraftTitle, setProjectDraftTitle] = useState("");
+  const [projectDraftPrice, setProjectDraftPrice] = useState<string>("");
+  const [projectDraftStart, setProjectDraftStart] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [projectDraftDeadline, setProjectDraftDeadline] = useState<string>("");
 
   const itemCatalog = useMemo(() => ([
     { title:"POS", desc:"", unit:"", rate:0 },
@@ -152,6 +160,52 @@ export default function InvoiceDetailPage() {
   const subtotal = useMemo(() => (items || []).reduce((s: number, it: any) => s + (Number(it.quantity||0) * Number(it.rate||0)), 0), [items]);
   const paymentsTotal = useMemo(() => (payments || []).reduce((s: number, p: any) => s + (Number(p.amount||0)), 0), [payments]);
   const balanceDue = useMemo(() => Math.max(0, subtotal - paymentsTotal), [subtotal, paymentsTotal]);
+
+  const openCreateProjectPrompt = (suggestedAmount?: number) => {
+    const num = String(inv?.number || id || "").trim();
+    const clientName = formatClient(inv?.client);
+    setProjectDraftTitle(`Project - Invoice ${num}${clientName && clientName !== "-" ? ` (${clientName})` : ""}`);
+    const amt = Number.isFinite(Number(suggestedAmount)) ? Number(suggestedAmount) : Number(inv?.amount || subtotal || 0);
+    setProjectDraftPrice(String(Math.max(0, Math.round(amt || 0))));
+    setProjectDraftStart(new Date().toISOString().slice(0, 10));
+    setProjectDraftDeadline(inv?.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : "");
+    setOpenProjectPrompt(true);
+  };
+
+  const createProjectFromInvoice = async () => {
+    try {
+      const title = String(projectDraftTitle || "").trim();
+      if (!title) return;
+      const payload: any = {
+        title,
+        client: formatClient(inv?.client),
+        clientId: inv?.clientId ? String(inv.clientId) : undefined,
+        price: projectDraftPrice ? Number(projectDraftPrice) : 0,
+        start: projectDraftStart ? new Date(projectDraftStart) : undefined,
+        deadline: projectDraftDeadline ? new Date(projectDraftDeadline) : undefined,
+        status: "Open",
+        description: `Created from Invoice ${String(inv?.number || id || "")}\nInvoice ID: ${String(inv?._id || id || "")}`,
+        labels: `invoice:${String(inv?._id || id || "")}`,
+      };
+
+      const r = await fetch(`${API_BASE}/api/projects`, {
+        method: "POST",
+        headers: { ...getAuthHeaders({ "Content-Type": "application/json" }) },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) {
+        toast.error(String(data?.error || "Failed to create project"));
+        return;
+      }
+      setOpenProjectPrompt(false);
+      const pid = String(data?._id || data?.id || "");
+      if (pid) navigate(`/projects/overview/${encodeURIComponent(pid)}`);
+      toast.success("Project created");
+    } catch (e: any) {
+      toast.error(String(e?.message || "Failed to create project"));
+    }
+  };
 
   const saveItems = async (nextItems: any[]) => {
     if (!inv?._id) return;
@@ -266,6 +320,9 @@ export default function InvoiceDetailPage() {
         // reload payments
         const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invoiceDbId || id || "")}`);
         if (pRes.ok) setPayments(await pRes.json());
+
+        // Offer: Create a new project from this invoice
+        openCreateProjectPrompt(Number(payload.amount || 0) || subtotal);
       }
     } catch {}
   };
@@ -730,6 +787,41 @@ export default function InvoiceDetailPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenPay(false)}>Close</Button>
             <Button onClick={savePayment}>{paymentEditingId ? "Update" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openProjectPrompt} onOpenChange={setOpenProjectPrompt}>
+        <DialogContent className="bg-card max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Start a project for this invoice?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="text-muted-foreground">Create a project linked to this invoice so you can track tasks, milestones and deadline.</div>
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <Label>Project title</Label>
+                <Input value={projectDraftTitle} onChange={(e)=>setProjectDraftTitle(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Price</Label>
+                  <Input type="number" value={projectDraftPrice} onChange={(e)=>setProjectDraftPrice(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Start</Label>
+                  <Input type="date" value={projectDraftStart} onChange={(e)=>setProjectDraftStart(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Deadline</Label>
+                <Input type="date" value={projectDraftDeadline} onChange={(e)=>setProjectDraftDeadline(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenProjectPrompt(false)}>Not now</Button>
+            <Button onClick={createProjectFromInvoice}>Create project</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

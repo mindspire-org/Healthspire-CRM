@@ -14,8 +14,8 @@ const TOKEN_TTL = process.env.JWT_TTL || "7d";
 // Admin login
 router.post("/admin/login", async (req, res) => {
   try {
-    const { identifier, password } = req.body || {};
-    if (!identifier || !password) return res.status(400).json({ error: "Missing credentials" });
+    const { identifier, password, pin } = req.body || {};
+    if (!identifier || (!password && !pin)) return res.status(400).json({ error: "Missing credentials" });
 
     const query = { $or: [{ email: identifier.toLowerCase() }, { username: identifier }] };
     const user = await User.findOne(query).lean();
@@ -25,7 +25,9 @@ router.post("/admin/login", async (req, res) => {
       return res.status(403).json({ error: "Inactive user" });
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = pin
+      ? Boolean(user.pinHash) && (await bcrypt.compare(String(pin), user.pinHash))
+      : Boolean(user.passwordHash) && (await bcrypt.compare(String(password), user.passwordHash));
     if (!ok) {
       await User.updateOne({ _id: user._id }, { $inc: { failedLogins: 1 } }).catch(()=>{});
       return res.status(401).json({ error: "Invalid credentials" });
@@ -42,8 +44,8 @@ router.post("/admin/login", async (req, res) => {
 // Temporary alias to handle older frontend builds pointing to /admin/login1
 router.post("/admin/login1", async (req, res) => {
   try {
-    const { identifier, password } = req.body || {};
-    if (!identifier || !password) return res.status(400).json({ error: "Missing credentials" });
+    const { identifier, password, pin } = req.body || {};
+    if (!identifier || (!password && !pin)) return res.status(400).json({ error: "Missing credentials" });
 
     const query = { $or: [{ email: identifier.toLowerCase() }, { username: identifier }] };
     const user = await User.findOne(query).lean(false);
@@ -53,7 +55,9 @@ router.post("/admin/login1", async (req, res) => {
       return res.status(403).json({ error: "Inactive user" });
     }
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    const ok = pin
+      ? Boolean(user.pinHash) && (await bcrypt.compare(String(pin), user.pinHash))
+      : Boolean(user.passwordHash) && (await bcrypt.compare(String(password), user.passwordHash));
     if (!ok) {
       user.failedLogins = (user.failedLogins || 0) + 1;
       await user.save().catch(()=>{});
@@ -71,21 +75,29 @@ router.post("/admin/login1", async (req, res) => {
 // Team login (admin + staff + marketer)
 router.post("/team/login", async (req, res) => {
   try {
-    const { identifier, password } = req.body || {};
-    if (!identifier || !password) return res.status(400).json({ error: "Missing credentials" });
+    const { identifier, password, pin } = req.body || {};
+    if (!identifier || (!password && !pin)) return res.status(400).json({ error: "Missing credentials" });
 
     const identifierLc = String(identifier).toLowerCase().trim();
-    const query = { $or: [{ email: identifierLc }, { username: identifier }] };
+    const query = { $or: [{ email: identifierLc }, { username: identifier }, { username: identifierLc }] };
     let user = await User.findOne(query).lean();
 
     // If user doesn't exist yet, allow employee login by email and auto-create staff/marketer User.
     if (!user) {
       const emp = identifierLc ? await Employee.findOne({ email: identifierLc }).lean() : null;
       if (!emp || emp.disableLogin || emp.markAsInactive) {
+        if ((process.env.NODE_ENV || "development") !== "production") {
+          console.warn("[auth/team/login] rejected: no user and no active employee", { identifier: identifierLc });
+        }
         return res.status(401).json({ error: "Invalid credentials" });
       }
       const ok = String(emp.password || "") === String(password);
-      if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+      if (!ok) {
+        if ((process.env.NODE_ENV || "development") !== "production") {
+          console.warn("[auth/team/login] rejected: employee password mismatch", { identifier: identifierLc });
+        }
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
 
       const inferredRole = String(emp?.department || "").trim().toLowerCase() === "marketing" ? "marketer" : "staff";
       user = await User.findOneAndUpdate(
@@ -126,10 +138,12 @@ router.post("/team/login", async (req, res) => {
     if (user.role !== "admin" && user.role !== "staff" && user.role !== "marketer") return res.status(403).json({ error: "Unauthorized role" });
     if (user.status !== "active") return res.status(403).json({ error: "Inactive user" });
 
-    // Admin uses hashed password; staff/marketer use Employee.password
+    // Admin can use hashed password OR PIN; staff/marketer use Employee.password (PIN not supported there)
     let ok = false;
     if (user.role === "admin") {
-      ok = await bcrypt.compare(password, user.passwordHash);
+      ok = pin
+        ? Boolean(user.pinHash) && (await bcrypt.compare(String(pin), user.pinHash))
+        : Boolean(user.passwordHash) && (await bcrypt.compare(String(password), user.passwordHash));
     } else {
       const email = String(user.email || "").toLowerCase().trim();
       const emp = email ? await Employee.findOne({ email }).lean() : null;
@@ -138,6 +152,9 @@ router.post("/team/login", async (req, res) => {
 
     if (!ok) {
       await User.updateOne({ _id: user._id }, { $inc: { failedLogins: 1 } }).catch(() => {});
+      if ((process.env.NODE_ENV || "development") !== "production") {
+        console.warn("[auth/team/login] rejected: password mismatch", { identifier: identifierLc, role: user?.role, email: user?.email });
+      }
       return res.status(401).json({ error: "Invalid credentials" });
     }
 

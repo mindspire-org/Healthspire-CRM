@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, RefreshCw, Plus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight, RefreshCw, Plus, Calendar, BarChart3, Clock, Users, Target, LayoutGrid, TrendingUp, Activity, Sparkles } from "lucide-react";
 
 interface TaskBar {
   id: string;
@@ -177,20 +179,76 @@ export default function Timeline() {
   }, [groupBy, project, assignee, milestone, bars, tasks, projects, startDate, period.end]);
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-display text-2xl text-foreground">Gantt</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-md border bg-background p-0.5">
-            <Button variant={viewMode==='days'?'secondary':'ghost'} size="sm" onClick={()=>setViewMode('days')}>Days</Button>
-            <Button variant={viewMode==='weeks'?'secondary':'ghost'} size="sm" onClick={()=>setViewMode('weeks')}>Weeks</Button>
-            <Button variant={viewMode==='months'?'secondary':'ghost'} size="sm" onClick={()=>setViewMode('months')}>Months</Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-800 dark:via-indigo-800 dark:to-purple-800">
+        <div className="absolute inset-0 opacity-30" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, animation: 'pulse 3s ease-in-out infinite'}} />
+        <div className="relative px-6 py-12 sm:px-12 lg:px-16">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-white/80">
+                <Link to="/projects" className="hover:text-white transition-colors">
+                  Projects
+                </Link>
+                <span>/</span>
+                <span className="text-white font-medium">Timeline View</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
+                  <LayoutGrid className="h-8 w-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                    Project Timeline
+                  </h1>
+                  <p className="mt-2 text-lg text-white/80">
+                    Visualize project schedules and track progress over time
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                  <BarChart3 className="w-3 h-3 mr-1" />
+                  Gantt Chart
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                  <Clock className="w-3 h-3 mr-1" />
+                  {rows.length} Projects
+                </Badge>
+                <Badge className="bg-white/20 text-white border-white/30 hover:bg-white/30">
+                  <Activity className="w-3 h-3 mr-1" />
+                  {viewMode.charAt(0).toUpperCase() + viewMode.slice(1)} View
+                </Badge>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
+                <Link to="/projects">
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Back to Projects
+                </Link>
+              </Button>
+              <div className="inline-flex rounded-md border bg-white/10 p-0.5 backdrop-blur-sm">
+                <Button variant={viewMode==='days'?'secondary':'ghost'} size="lg" onClick={()=>setViewMode('days')} className="text-white hover:bg-white/20">
+                  Days
+                </Button>
+                <Button variant={viewMode==='weeks'?'secondary':'ghost'} size="lg" onClick={()=>setViewMode('weeks')} className="text-white hover:bg-white/20">
+                  Weeks
+                </Button>
+                <Button variant={viewMode==='months'?'secondary':'ghost'} size="lg" onClick={()=>setViewMode('months')} className="text-white hover:bg-white/20">
+                  Months
+                </Button>
+              </div>
+              <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90">
+                <Plus className="w-4 h-4 mr-2"/>
+                Add Task
+              </Button>
+            </div>
           </div>
-          <Button variant="gradient"><Plus className="w-4 h-4 mr-2"/>Add task</Button>
         </div>
       </div>
+
+      <div className="px-6 py-8 sm:px-12 lg:px-16 space-y-8">
 
       <Card className="p-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -231,68 +289,118 @@ export default function Timeline() {
       </Card>
 
       {/* Timeline grid */}
-      <Card className="p-0 overflow-hidden">
-        <div className="w-full overflow-x-auto">
-          <div className="relative" style={{ minWidth: `${labelColWidth + period.columns.length * colWidth}px` }}>
-            {/* Header */}
-            <div className="sticky top-0 z-10 shadow-sm">
-              <div className="grid" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
-                <div className="bg-muted/50 p-2 text-sm text-muted-foreground">{viewMode==='days' ? startDate.toLocaleString(undefined,{ month: 'long', year:'numeric' }) : 'Timeline'}</div>
-                {period.columns.map((d, idx) => (
-                  <div key={idx} className="bg-muted/50 p-2 text-xs text-muted-foreground text-center border-l">
-                    {viewMode==='days' && String(d.getDate()).padStart(2,'0')}
-                    {viewMode==='weeks' && `W${getWeekNumber(d)}`}
-                    {viewMode==='months' && d.toLocaleString(undefined,{ month: 'short' })}
-                  </div>
-                ))}
-              </div>
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Timeline Controls
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="icon" onClick={movePrev}><ChevronLeft className="w-4 h-4"/></Button>
+              <Button variant="outline" size="icon" onClick={moveNext}><ChevronRight className="w-4 h-4"/></Button>
+              <Button variant="outline" size="sm" onClick={jumpToday}>Today</Button>
+              <Button variant="outline" size="icon" onClick={()=>{ /* re-fetch */ fetch(`${API_BASE}/api/projects`).then(r=>r.json()).then((data)=>{
+                const arr:any[] = Array.isArray(data)?data:[]; const mapped: TaskBar[] = arr.filter((d:any)=>d.start&&d.deadline).map((d:any)=>({ id:String(d._id||''), title:d.title||'-', start:new Date(d.start).toISOString().slice(0,10), end:new Date(d.deadline).toISOString().slice(0,10) })); setBars(mapped); setProjects(arr.map((p:any)=>({ _id:String(p._id), title:p.title||'-' })));
+              }).catch(()=>{}) }}><RefreshCw className="w-4 h-4"/></Button>
+              <Select value={groupBy} onValueChange={setGroupBy}>
+                <SelectTrigger className="w-40"><SelectValue placeholder="Group by"/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="assignee">Assignee</SelectItem>
+                  <SelectItem value="milestone">Milestone</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={project} onValueChange={setProject}><SelectTrigger className="w-48"><SelectValue placeholder="- Project -"/></SelectTrigger><SelectContent>
+                <SelectItem value="-">- Project -</SelectItem>
+                {projects.map(p=> (<SelectItem key={p._id} value={p._id}>{p.title}</SelectItem>))}
+              </SelectContent></Select>
+              <Select value={assignee} onValueChange={setAssignee}>
+                <SelectTrigger className="w-48"><SelectValue placeholder="Assigned to"/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-">- Assigned to -</SelectItem>
+                  {assignees.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <Select value={milestone} onValueChange={setMilestone}>
+                <SelectTrigger className="w-48"><SelectValue placeholder="Milestone"/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-">- Milestone -</SelectItem>
+                  {milestones.map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+              <div className="ml-auto text-sm text-muted-foreground">{startDate.toLocaleString(undefined,{ month: 'long', year: 'numeric' })}</div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Timeline Grid */}
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
+          <CardContent className="p-0">
+            <div className="w-full overflow-x-auto">
+              <div className="relative" style={{ minWidth: `${labelColWidth + period.columns.length * colWidth}px` }}>
+                {/* Header */}
+                <div className="sticky top-0 z-10 shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700">
+                  <div className="grid" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 text-sm text-white font-medium">{viewMode==='days' ? startDate.toLocaleString(undefined,{ month: 'long', year:'numeric' }) : 'Timeline'}</div>
+                    {period.columns.map((d, idx) => (
+                      <div key={idx} className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-600 p-2 text-xs text-muted-foreground text-center border-l border-blue-200 dark:border-slate-600">
+                        {viewMode==='days' && String(d.getDate()).padStart(2,'0')}
+                        {viewMode==='weeks' && `W${getWeekNumber(d)}`}
+                        {viewMode==='months' && d.toLocaleString(undefined,{ month: 'short' })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
             {/* Today marker */}
-            {(() => {
-              const today = new Date();
-              const idx = getIndexForDate(today, startDate, viewMode, period.columns);
-              if (idx < 0 || idx >= period.columns.length) return null;
-              const left = labelColWidth + idx * colWidth + (viewMode==='days'?Math.floor(colWidth/2):Math.floor(colWidth/2));
-              return <div style={{ left }} className="absolute top-0 bottom-0 w-px bg-destructive/60" />;
-            })()}
+                {(() => {
+                  const today = new Date();
+                  const idx = getIndexForDate(today, startDate, viewMode, period.columns);
+                  if (idx < 0 || idx >= period.columns.length) return null;
+                  const left = labelColWidth + idx * colWidth + (viewMode==='days'?Math.floor(colWidth/2):Math.floor(colWidth/2));
+                  return <div style={{ left }} className="absolute top-0 bottom-0 w-px bg-destructive/60" />;
+                })()}
 
-            {/* Bars */}
-            {rows
-              .map((b, row) => {
-                const sDate = new Date(b.start);
-                const eDate = new Date(b.end);
-                const { startIdx, span } = getSpan(sDate, eDate, startDate, period.end, viewMode, period.columns);
-                if (span <= 0) return (
-                  <div key={b.id} className="grid border-t" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
-                    <div className="p-2 text-sm text-muted-foreground flex items-center cursor-pointer hover:underline" onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}>{b.title}</div>
-                  </div>
-                );
-                const color = `hsl(${(row*47)%360} 85% 62%)`;
-                return (
-                  <div key={b.id} className="grid border-t" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
-                    <div className="p-2 text-sm text-muted-foreground flex items-center cursor-pointer hover:underline" onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}>{b.title}</div>
-                    {/* empty cells before bar */}
-                    {Array.from({ length: startIdx }).map((_, i) => (
-                      <div key={`e-${row}-${i}`} className="h-9 border-l/50" />
-                    ))}
-                    <div
-                      className="h-9 my-2 rounded-md text-white flex items-center justify-center text-xs font-medium shadow-sm transition-[transform,filter] duration-150 hover:brightness-95 cursor-pointer"
-                      style={{ gridColumn: `span ${span}`, background: `linear-gradient(90deg, ${color}, ${color})` }}
-                      title={`${b.title} • ${b.start} → ${b.end}`}
-                      onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}
-                    >
-                      {b.title}
-                    </div>
-                    {Array.from({ length: period.columns.length - startIdx - span }).map((_, i) => (
-                      <div key={`t-${row}-${i}`} className="h-9 border-l/50" />
-                    ))}
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      </Card>
+                {/* Bars */}
+                {rows
+                  .map((b, row) => {
+                    const sDate = new Date(b.start);
+                    const eDate = new Date(b.end);
+                    const { startIdx, span } = getSpan(sDate, eDate, startDate, period.end, viewMode, period.columns);
+                    if (span <= 0) return (
+                      <div key={b.id} className="grid border-t border-blue-100 dark:border-slate-600" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
+                        <div className="p-3 text-sm text-muted-foreground flex items-center cursor-pointer hover:underline hover:text-blue-600 transition-colors" onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}>{b.title}</div>
+                      </div>
+                    );
+                    const color = `hsl(${(row*47)%360} 85% 62%)`;
+                    return (
+                      <div key={b.id} className="grid border-t border-blue-100 dark:border-slate-600" style={{ gridTemplateColumns: `${labelColWidth}px repeat(${period.columns.length}, ${colWidth}px)` }}>
+                        <div className="p-3 text-sm text-muted-foreground flex items-center cursor-pointer hover:underline hover:text-blue-600 transition-colors" onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}>{b.title}</div>
+                        {/* empty cells before bar */}
+                        {Array.from({ length: startIdx }).map((_, i) => (
+                          <div key={`e-${row}-${i}`} className="h-12 border-l/50 border-blue-100 dark:border-slate-600" />
+                        ))}
+                        <div
+                          className="h-12 my-2 rounded-lg text-white flex items-center justify-center text-xs font-medium shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl cursor-pointer border border-white/20"
+                          style={{ gridColumn: `span ${span}`, background: `linear-gradient(135deg, ${color}, ${color}dd)` }}
+                          title={`${b.title} • ${b.start} → ${b.end}`}
+                          onClick={()=>{ if (b.projectId) navigate(`/projects/overview/${b.projectId}`); }}
+                        >
+                          {b.title}
+                        </div>
+                        {Array.from({ length: period.columns.length - startIdx - span }).map((_, i) => (
+                          <div key={`t-${row}-${i}`} className="h-12 border-l/50 border-blue-100 dark:border-slate-600" />
+                        ))}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -43,6 +43,12 @@ export default function EstimateDetail() {
   const [quantity, setQuantity] = useState<string>("1");
   const [unitType, setUnitType] = useState("");
   const [rate, setRate] = useState<string>("0");
+
+  const [openProjectPrompt, setOpenProjectPrompt] = useState(false);
+  const [projectDraftTitle, setProjectDraftTitle] = useState("");
+  const [projectDraftPrice, setProjectDraftPrice] = useState<string>("");
+  const [projectDraftStart, setProjectDraftStart] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [projectDraftDeadline, setProjectDraftDeadline] = useState<string>("");
   // signature source with fallbacks
   const signatureCandidates = [
     "/signature.png",
@@ -171,6 +177,50 @@ export default function EstimateDetail() {
   const tax2Amount = useMemo(() => Math.round((Number(row?.tax2||0)/100) * subTotal), [subTotal, row]);
   const grandTotal = subTotal + taxAmount + tax2Amount;
 
+  const formatClient = (c: any) => {
+    if (!c) return "-";
+    if (typeof c === "string") return c;
+    return c.name || c.company || c.person || "-";
+  };
+
+  const openCreateProjectPrompt = () => {
+    const num = String(row?.number || id || "").trim();
+    const clientName = formatClient(row?.client);
+    setProjectDraftTitle(`Project - Estimate ${num}${clientName && clientName !== "-" ? ` (${clientName})` : ""}`);
+    setProjectDraftPrice(String(Math.max(0, Math.round(Number(row?.amount || grandTotal || 0)))));
+    setProjectDraftStart(new Date().toISOString().slice(0, 10));
+    setProjectDraftDeadline(row?.validUntil ? new Date(row.validUntil).toISOString().slice(0, 10) : "");
+    setOpenProjectPrompt(true);
+  };
+
+  const createProjectFromEstimate = async () => {
+    try {
+      const title = String(projectDraftTitle || "").trim();
+      if (!title) return;
+      const payload: any = {
+        title,
+        client: formatClient(row?.client),
+        clientId: row?.clientId ? String(row.clientId) : undefined,
+        price: projectDraftPrice ? Number(projectDraftPrice) : 0,
+        start: projectDraftStart ? new Date(projectDraftStart) : undefined,
+        deadline: projectDraftDeadline ? new Date(projectDraftDeadline) : undefined,
+        status: "Open",
+        description: `Created from Estimate ${String(row?.number || id || "")}\nEstimate ID: ${String(row?._id || id || "")}`,
+        labels: `estimate:${String(row?._id || id || "")}`,
+      };
+      const r = await fetch(`${API_BASE}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) return;
+      setOpenProjectPrompt(false);
+      const pid = String(data?._id || data?.id || "");
+      if (pid) navigate(`/projects/overview/${encodeURIComponent(pid)}`);
+    } catch {}
+  };
+
   const saveItems = async (nextItems: any[]) => {
     try {
       const amount = (nextItems || []).reduce((a: number, it: any) => a + Number(it.total || (Number(it.quantity||0) * Number(it.rate||0))), 0);
@@ -240,6 +290,10 @@ export default function EstimateDetail() {
       const d = await res.json();
       setRow(d);
       toast.success(`Marked as ${status}`);
+
+      if (String(status).toLowerCase() === "accepted") {
+        setTimeout(() => openCreateProjectPrompt(), 50);
+      }
     } catch {}
   };
 
@@ -626,6 +680,41 @@ export default function EstimateDetail() {
           <Card className="p-6 text-sm text-muted-foreground">No tasks linked.</Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={openProjectPrompt} onOpenChange={setOpenProjectPrompt}>
+        <DialogContent className="bg-card max-w-lg" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Start a project for this estimate?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="text-muted-foreground">Create a project linked to this estimate so you can track tasks, milestones and deadline.</div>
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Project title</div>
+                <Input value={projectDraftTitle} onChange={(e)=>setProjectDraftTitle(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Price</div>
+                  <Input type="number" value={projectDraftPrice} onChange={(e)=>setProjectDraftPrice(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground">Start</div>
+                  <Input type="date" value={projectDraftStart} onChange={(e)=>setProjectDraftStart(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Deadline</div>
+                <Input type="date" value={projectDraftDeadline} onChange={(e)=>setProjectDraftDeadline(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenProjectPrompt(false)}>Not now</Button>
+            <Button onClick={createProjectFromEstimate}>Create project</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="bg-card max-w-2xl">

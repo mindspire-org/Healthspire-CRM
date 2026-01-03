@@ -178,6 +178,44 @@ router.put("/me", authenticate, async (req, res) => {
   }
 });
 
+router.put("/me/pin", authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPin } = req.body || {};
+    const pin = String(newPin || "").trim();
+    if (!pin) return res.status(400).json({ error: "New PIN is required" });
+    if (!/^\d{4,8}$/.test(pin)) return res.status(400).json({ error: "PIN must be 4-8 digits" });
+
+    const user = await User.findById(req.user._id).lean(false);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const role = String(user.role || "").toLowerCase();
+    const cp = String(currentPassword || "");
+    if (!cp) return res.status(400).json({ error: "Current password is required" });
+
+    const email = String(user.email || "").toLowerCase().trim();
+    if (role === "staff") {
+      const emp = email ? await Employee.findOne({ email }).lean(false) : null;
+      if (!emp || emp.disableLogin || emp.markAsInactive) {
+        return res.status(403).json({ error: "Employee login is disabled" });
+      }
+      if (String(emp.password || "") !== cp) {
+        return res.status(401).json({ error: "Current password is incorrect" });
+      }
+    } else {
+      if (!user.passwordHash) return res.status(400).json({ error: "Password not set" });
+      const ok = await bcrypt.compare(cp, user.passwordHash);
+      if (!ok) return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    user.pinHash = await bcrypt.hash(pin, 10);
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 router.post("/me/avatar", authenticate, uploadAvatar.single("avatar"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No avatar uploaded" });
@@ -210,6 +248,50 @@ router.get("/admin/list", authenticate, isAdmin, async (_req, res) => {
     res.json(users);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+router.post("/admin/create", authenticate, isAdmin, async (req, res) => {
+  try {
+    const { name, email, username, role, status, password, pin, permissions } = req.body || {};
+    const emailLc = String(email || "").toLowerCase().trim();
+    if (!emailLc) return res.status(400).json({ error: "Email is required" });
+
+    const exists = await User.findOne({ email: emailLc }).lean();
+    if (exists) return res.status(409).json({ error: "Email already in use" });
+
+    const nextUsername = String(username || "").trim() || emailLc;
+    const nextRole = String(role || "staff");
+    const nextStatus = String(status || "active");
+
+    const doc = {
+      name: String(name || "").trim(),
+      email: emailLc,
+      username: nextUsername,
+      role: nextRole,
+      status: nextStatus,
+      permissions: Array.isArray(permissions) ? permissions.map((x) => String(x)) : [],
+      createdBy: "admin",
+    };
+
+    if (password) {
+      const np = String(password);
+      const strong = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
+      if (!strong.test(np)) return res.status(400).json({ error: "Weak password" });
+      doc.passwordHash = await bcrypt.hash(np, 10);
+    }
+
+    if (pin) {
+      const p = String(pin).trim();
+      if (!/^\d{4,8}$/.test(p)) return res.status(400).json({ error: "PIN must be 4-8 digits" });
+      doc.pinHash = await bcrypt.hash(p, 10);
+    }
+
+    const created = await User.create(doc);
+    const out = await User.findById(created._id).select("name email username role status permissions clientId createdAt updatedAt").lean();
+    res.status(201).json(out);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

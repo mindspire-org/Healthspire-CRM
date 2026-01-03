@@ -10,6 +10,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 export default function AdminLogin() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"password" | "pin">("password");
   const [remember, setRemember] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export default function AdminLogin() {
     }
     try {
       setLoading(true);
-      const resp = await adminLogin(identifier.trim(), password);
+      const resp = await adminLogin(identifier.trim(), password, mode);
       // store token in localStorage/sessionStorage depending on remember
       const storage: Storage = remember ? localStorage : sessionStorage;
       storage.setItem("auth_token", resp.token);
@@ -50,10 +51,14 @@ export default function AdminLogin() {
         <Label>Email or Username</Label>
         <Input placeholder="you@company.com" value={identifier} onChange={(e)=>setIdentifier(e.target.value)} autoComplete="username" />
       </div>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant={mode === "password" ? "default" : "outline"} onClick={()=>setMode("password")}>Password</Button>
+        <Button type="button" variant={mode === "pin" ? "default" : "outline"} onClick={()=>setMode("pin")}>PIN</Button>
+      </div>
       <div className="space-y-1">
-        <Label>Password</Label>
+        <Label>{mode === "pin" ? "PIN" : "Password"}</Label>
         <div className="relative">
-          <Input type={showPwd?"text":"password"} placeholder="••••••••" value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete="current-password" />
+          <Input type={showPwd?"text":"password"} placeholder={mode === "pin" ? "••••" : "••••••••"} value={password} onChange={(e)=>setPassword(e.target.value)} autoComplete={mode === "pin" ? "one-time-code" : "current-password"} />
           <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={()=>setShowPwd((s)=>!s)} aria-label="Toggle password visibility">
             {showPwd ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
           </button>

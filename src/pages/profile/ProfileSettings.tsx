@@ -83,6 +83,9 @@ export default function ProfileSettings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
+  const [pinCurrentPassword, setPinCurrentPassword] = useState("");
+  const [newPin, setNewPin] = useState("");
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const initials = useMemo(() => {
@@ -158,6 +161,24 @@ export default function ProfileSettings() {
       toast.error(e?.message || "Failed to update profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const savePin = async () => {
+    try {
+      const headers = getAuthHeaders({ "Content-Type": "application/json" });
+      const res = await fetch(`${API_BASE}/api/users/me/pin`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ currentPassword: pinCurrentPassword, newPin }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((json as any)?.error || "Failed to update PIN");
+      toast.success("PIN updated");
+      setPinCurrentPassword("");
+      setNewPin("");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update PIN");
     }
   };
 
@@ -255,6 +276,25 @@ export default function ProfileSettings() {
             <div className="space-y-2">
               <Label>Email</Label>
               <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-4">
+            <div className="text-sm font-medium">Reset PIN</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Current Password</Label>
+                <Input type="password" value={pinCurrentPassword} onChange={(e) => setPinCurrentPassword(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>New PIN (4-8 digits)</Label>
+                <Input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={savePin} disabled={!pinCurrentPassword.trim() || !newPin.trim()}>
+                Update PIN
+              </Button>
             </div>
           </div>
 
