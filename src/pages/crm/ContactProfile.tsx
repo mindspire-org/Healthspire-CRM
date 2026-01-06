@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { Globe, Mail, Phone } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
 
 const API_BASE = "http://localhost:5000";
 
@@ -123,15 +124,15 @@ export default function ContactProfile() {
   return (
     <div className="space-y-4 animate-fade-in p-1 sm:p-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          <NavLink to="/crm/leads" className="text-primary">
-            Leads
-          </NavLink>{" "}
-          / Contact
+        <div className="flex items-center gap-3">
+          <BackButton to="/crm/leads" />
+          <div className="text-sm text-muted-foreground">
+            <NavLink to="/crm/leads" className="text-primary">
+              Leads
+            </NavLink>{" "}
+            / Contact
+          </div>
         </div>
-        <NavLink to="/crm/leads" className="text-primary text-sm">
-          Back to Leads
-        </NavLink>
       </div>
 
       <Card className="p-0 overflow-hidden rounded-xl border">

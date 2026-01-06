@@ -10,10 +10,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from "@/components/ui/badge";
 import { Calendar, CheckCircle2, Edit, MoreHorizontal, RefreshCw, Search, Plus, Tags, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 export default function Subscriptions() {
-  const API_BASE = "http://localhost:5000";
-
   type ClientDoc = { _id: string; company?: string; person?: string };
   type SubscriptionLabelDoc = { _id: string; name: string; color?: string };
   type SubscriptionDoc = {
@@ -122,7 +122,7 @@ export default function Subscriptions() {
 
   const loadClients = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/clients`);
+      const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load clients");
       setClients(Array.isArray(json) ? json : []);
@@ -133,7 +133,7 @@ export default function Subscriptions() {
 
   const loadLabels = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/subscription-labels`);
+      const res = await fetch(`${API_BASE}/api/subscription-labels`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load labels");
       setSubscriptionLabels(Array.isArray(json) ? json : []);
@@ -151,7 +151,7 @@ export default function Subscriptions() {
       if (repeat !== "-") params.set("repeatEveryUnit", repeat);
       if (status !== "-") params.set("status", status);
 
-      const res = await fetch(`${API_BASE}/api/subscriptions?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/subscriptions?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load subscriptions");
       const arr = Array.isArray(json) ? json : [];
@@ -210,7 +210,7 @@ export default function Subscriptions() {
       if (isEdit) payload.status = editingSubscription?.status || "active";
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);
@@ -226,7 +226,7 @@ export default function Subscriptions() {
 
   const deleteSubscription = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/subscriptions/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/subscriptions/${id}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to delete subscription");
       toast.success("Subscription deleted");
@@ -242,7 +242,7 @@ export default function Subscriptions() {
       const endpoint = isCancelled ? "reactivate" : "cancel";
       const res = await fetch(`${API_BASE}/api/subscriptions/${s._id}/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(isCancelled ? {} : { cancelledBy: "" }),
       });
       const json = await res.json().catch(() => null);
@@ -263,7 +263,7 @@ export default function Subscriptions() {
     try {
       const res = await fetch(`${API_BASE}/api/subscription-labels`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ name, color: newLabelColor }),
       });
       const json = await res.json().catch(() => null);
@@ -280,7 +280,7 @@ export default function Subscriptions() {
     try {
       const res = await fetch(`${API_BASE}/api/subscription-labels/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ name, color }),
       });
       const json = await res.json().catch(() => null);
@@ -294,7 +294,7 @@ export default function Subscriptions() {
 
   const deleteLabel = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/subscription-labels/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/subscription-labels/${id}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to delete label");
       toast.success("Label deleted");

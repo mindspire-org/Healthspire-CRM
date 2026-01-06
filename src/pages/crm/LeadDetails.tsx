@@ -29,6 +29,7 @@ import {
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 import Events from "../events/Events";
 import Files from "../files/Files";
 import Notes from "../notes/Notes";
@@ -42,8 +43,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-
-const API_BASE = "http://localhost:5000";
+import { BackButton } from "@/components/ui/back-button";
 
 type Employee = { _id: string; name?: string; firstName?: string; lastName?: string };
 
@@ -55,6 +55,8 @@ type LeadDoc = {
   company?: string;
   email?: string;
   phone?: string;
+  expectedPrice?: string;
+  systemNeeded?: string;
   type?: "Organization" | "Person";
   ownerId?: string;
   status?: string;
@@ -196,6 +198,15 @@ function toStr(v: any) {
   return v === undefined || v === null ? "" : String(v);
 }
 
+function formatLeadValue(lead?: LeadDoc | null) {
+  const raw = String((lead as any)?.expectedPrice ?? "").trim();
+  if (!raw) return "-";
+  const cur = String((lead as any)?.currencySymbol || (lead as any)?.currency || "").trim();
+  const n = Number(raw.replace(/,/g, ""));
+  const formatted = Number.isFinite(n) ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n) : raw;
+  return cur ? `${cur} ${formatted}` : formatted;
+}
+
 function parseTimeToHoursMinutes(raw: string) {
   const t = (raw || "").trim();
   if (!t) return { hh: 0, mm: 0 };
@@ -260,6 +271,8 @@ export default function LeadDetails() {
     name: "",
     email: "",
     phone: "",
+    expectedPrice: "",
+    systemNeeded: "",
     ownerId: "-",
     status: "New",
     source: "",
@@ -931,6 +944,8 @@ export default function LeadDetails() {
         name: json?.name || "",
         email: json?.email || "",
         phone: json?.phone || "",
+        expectedPrice: json?.expectedPrice || "",
+        systemNeeded: json?.systemNeeded || "",
         ownerId: json?.ownerId || "-",
         status: json?.status || "New",
         source: json?.source || "",
@@ -1050,6 +1065,8 @@ export default function LeadDetails() {
         name: leadForm.name.trim(),
         email: leadForm.email,
         phone: leadForm.phone,
+        expectedPrice: leadForm.expectedPrice,
+        systemNeeded: leadForm.systemNeeded,
         status: leadForm.status,
         source: leadForm.source,
         website: leadForm.website,
@@ -1699,10 +1716,16 @@ export default function LeadDetails() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm text-muted-foreground">Lead details - {title}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Primary contact: <span className="text-foreground">{primaryContact?.name || "-"}</span>
+        <div className="flex items-center gap-3">
+          <BackButton to="/leads" />
+          <div>
+            <div className="text-sm text-muted-foreground">Lead details - {title}</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Primary contact: <span className="text-foreground">{primaryContact?.name || "-"}</span>
+            </div>
+            <div className="text-xs text-muted-foreground mt-1">
+              Lead value: <span className="text-foreground font-medium">{formatLeadValue(lead)}</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -2103,6 +2126,11 @@ export default function LeadDetails() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1"><Label>Email</Label><Input type="email" value={leadForm.email} onChange={(e)=>setLeadForm((p)=>({ ...p, email: e.target.value }))} /></div>
                 <div className="space-y-1"><Label>Phone</Label><Input value={leadForm.phone} onChange={(e)=>setLeadForm((p)=>({ ...p, phone: e.target.value }))} /></div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1"><Label>Expected Price</Label><Input placeholder="Expected Price" value={leadForm.expectedPrice} onChange={(e)=>setLeadForm((p)=>({ ...p, expectedPrice: e.target.value }))} /></div>
+                <div className="space-y-1"><Label>System Needed</Label><Input placeholder="System Needed" value={leadForm.systemNeeded} onChange={(e)=>setLeadForm((p)=>({ ...p, systemNeeded: e.target.value }))} /></div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

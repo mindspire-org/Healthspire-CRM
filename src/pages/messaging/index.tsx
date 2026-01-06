@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Search, MessageSquare, Users, Send, Paperclip, Smile, MoreVertical, Plus, Phone, Video, Info, Mic, Edit3, Trash2, Settings } from 'lucide-react';
+import { Search, MessageSquare, Users, Send, Paperclip, Smile, MoreVertical, Plus, Phone, Video, Info, Mic, Edit3, Trash2, Settings, Palette, Link as LinkIcon, StopCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useMessaging } from '@/contexts/MessagingContext';
 import { NewConversation } from './components/NewConversation';
@@ -32,8 +32,22 @@ export default function Messaging() {
   const [newMessage, setNewMessage] = useState('');
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  // Theme is controlled globally from TopNav
+  const [chatTheme, setChatTheme] = useState<'whatsapp' | 'midnight' | 'purple'>(() => {
+    try {
+      const v = localStorage.getItem('chat_theme');
+      return (v === 'whatsapp' || v === 'midnight' || v === 'purple') ? (v as any) : 'whatsapp';
+    } catch {
+      return 'whatsapp';
+    }
+  });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingMs, setRecordingMs] = useState(0);
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string>('');
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunksRef = useRef<BlobPart[]>([]);
+  const recordStartRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -45,6 +59,24 @@ export default function Messaging() {
   const role = user?.role || 'admin';
   const navigate = useNavigate();
   const location = useLocation();
+
+  const stopVoicePreview = useCallback(() => {
+    if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+    setVoicePreviewUrl('');
+    setVoiceBlob(null);
+  }, [voicePreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        if (voicePreviewUrl) URL.revokeObjectURL(voicePreviewUrl);
+      } catch {}
+    };
+  }, [voicePreviewUrl]);
+
+  useEffect(() => {
+    try { localStorage.setItem('chat_theme', chatTheme); } catch {}
+  }, [chatTheme]);
   
   const {
     conversations,
@@ -74,7 +106,7 @@ export default function Messaging() {
   // Handle sending a new message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() && !selectedFile) return;
+    if (!newMessage.trim() && !selectedFile && !voiceBlob) return;
 
     try {
       const attachments: any[] = [];
@@ -88,9 +120,21 @@ export default function Messaging() {
         });
       }
 
+      if (voiceBlob) {
+        const voiceFile = new File([voiceBlob], `voice-${Date.now()}.webm`, { type: voiceBlob.type || 'audio/webm' });
+        const uploaded = await uploadAttachment(voiceFile);
+        attachments.push({
+          url: uploaded.url,
+          name: uploaded.name || voiceFile.name,
+          type: uploaded.type || voiceFile.type,
+          size: uploaded.size || voiceFile.size,
+        });
+      }
+
       await sendMessage(newMessage, attachments);
       setNewMessage('');
       setSelectedFile(null);
+      stopVoicePreview();
       setShowEmojiPicker(false);
       scrollToBottom();
     } catch (error) {
@@ -131,6 +175,109 @@ export default function Messaging() {
       });
     }
   };
+
+  const startRecording = useCallback(async () => {
+    if (!selectedConversation) {
+      toast({ title: 'Select a conversation first', variant: 'destructive' });
+      return;
+    }
+    if (isRecording) return;
+    try {
+      stopVoicePreview();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const mimeCandidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+      const mimeType = mimeCandidates.find((m) => (window as any).MediaRecorder?.isTypeSupported?.(m)) || '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorderRef.current = recorder;
+      recorderChunksRef.current = [];
+      recordStartRef.current = Date.now();
+      setRecordingMs(0);
+
+      recorder.ondataavailable = (ev: BlobEvent) => {
+        if (ev.data && ev.data.size > 0) recorderChunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        try {
+          stream.getTracks().forEach((t) => t.stop());
+        } catch {}
+        const blob = new Blob(recorderChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        if (blob.size > 0) {
+          setVoiceBlob(blob);
+          const url = URL.createObjectURL(blob);
+          setVoicePreviewUrl(url);
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (e: any) {
+      toast({ title: 'Microphone permission denied', description: e?.message || 'Unable to access microphone', variant: 'destructive' });
+    }
+  }, [isRecording, selectedConversation, stopVoicePreview, toast]);
+
+  const stopRecording = useCallback(() => {
+    if (!isRecording) return;
+    setIsRecording(false);
+    try {
+      recorderRef.current?.stop();
+    } catch {}
+  }, [isRecording]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+    const t = window.setInterval(() => {
+      setRecordingMs(Date.now() - (recordStartRef.current || Date.now()));
+    }, 200);
+    return () => window.clearInterval(t);
+  }, [isRecording]);
+
+  const meetingRoomId = useMemo(() => {
+    if (!selectedConversation?._id) return '';
+    return `healthspire-${selectedConversation._id}`;
+  }, [selectedConversation?._id]);
+
+  const createMeetingLink = useCallback(
+    (type: 'audio' | 'video') => {
+      if (!meetingRoomId) return '';
+      const base = `https://meet.jit.si/${encodeURIComponent(meetingRoomId)}`;
+      const params = new URLSearchParams();
+      if (type === 'audio') params.set('config.startWithVideoMuted', 'true');
+      return params.toString() ? `${base}#${params.toString()}` : base;
+    },
+    [meetingRoomId]
+  );
+
+  const openMeeting = useCallback(
+    (type: 'audio' | 'video') => {
+      if (!selectedConversation) {
+        toast({ title: 'Select a conversation first', variant: 'destructive' });
+        return;
+      }
+      const url = createMeetingLink(type);
+      if (!url) return;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
+    [createMeetingLink, selectedConversation, toast]
+  );
+
+  const shareMeeting = useCallback(async () => {
+    if (!selectedConversation) {
+      toast({ title: 'Select a conversation first', variant: 'destructive' });
+      return;
+    }
+    const url = createMeetingLink('video');
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Meeting link copied' });
+    } catch {
+      toast({ title: 'Meeting link', description: url });
+    }
+    try {
+      await sendMessage(`Meeting link: ${url}`, []);
+    } catch (e: any) {
+      toast({ title: 'Error', description: e?.message || 'Failed to send meeting link', variant: 'destructive' });
+    }
+  }, [createMeetingLink, selectedConversation, sendMessage, toast]);
 
   // Handle emoji selection
   const handleEmojiSelect = (emoji: any) => {
@@ -211,6 +358,56 @@ export default function Messaging() {
     return otherParticipants[0]?.name || 'Unknown User';
   }, [getOtherParticipants]);
 
+  const themeTokens = useMemo(() => {
+    if (chatTheme === 'midnight') {
+      return {
+        accent: 'bg-slate-900',
+        accentSoft: 'bg-slate-900/80',
+        ring: 'ring-slate-400/20',
+        bubbleMine: 'bg-slate-900 text-white',
+        bubbleTheirs: 'bg-white/90 dark:bg-white/10',
+        bubbleMineText: 'text-white',
+        header: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+        sidebar: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+      };
+    }
+    if (chatTheme === 'purple') {
+      return {
+        accent: 'bg-violet-600',
+        accentSoft: 'bg-violet-600/90',
+        ring: 'ring-violet-500/25',
+        bubbleMine: 'bg-violet-600 text-white',
+        bubbleTheirs: 'bg-white/90 dark:bg-white/10',
+        bubbleMineText: 'text-white',
+        header: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+        sidebar: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+      };
+    }
+    return {
+      accent: 'bg-emerald-600',
+      accentSoft: 'bg-emerald-600/90',
+      ring: 'ring-emerald-500/25',
+      bubbleMine: 'bg-emerald-600 text-white',
+      bubbleTheirs: 'bg-white/90 dark:bg-white/10',
+      bubbleMineText: 'text-white',
+      header: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+      sidebar: 'bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60',
+    };
+  }, [chatTheme]);
+
+  const chatBgStyle = useMemo(() => {
+    const lightSvg =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000' fill-opacity='.04'%3E%3Cpath d='M19 18h8v8h-8zM69 54h10v10H69zM112 26h7v7h-7zM36 92h9v9h-9zM94 96h8v8h-8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E";
+    const darkSvg =
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fff' fill-opacity='.06'%3E%3Cpath d='M19 18h8v8h-8zM69 54h10v10H69zM112 26h7v7h-7zM36 92h9v9h-9zM94 96h8v8h-8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E";
+    return {
+      backgroundImage: `url("${lightSvg}")`,
+      backgroundSize: '180px 180px',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'repeat',
+    } as React.CSSProperties;
+  }, []);
+
   // Get conversation avatar URL
   const getAvatarUrl = useCallback((conversation: any) => {
     if (conversation.isGroup) {
@@ -274,7 +471,7 @@ export default function Messaging() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-[calc(100vh-0px)] bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/10">
       {/* New Conversation Dialog */}
       {role !== 'client' ? (
         <NewConversation 
@@ -284,11 +481,23 @@ export default function Messaging() {
       ) : null}
       
       {/* Sidebar */}
-      <div className="w-80 border-r bg-background flex flex-col">
-        <div className="p-4 border-b">
+      <div className={`w-80 border-r bg-background flex flex-col ${themeTokens.sidebar}`}>
+        <div className={`p-4 border-b ${themeTokens.header}`}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Messages</h2>
             <div className="flex items-center gap-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="icon" variant="ghost" className="h-8 w-8">
+                    <Palette className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setChatTheme('whatsapp')}>WhatsApp Green</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setChatTheme('midnight')}>Midnight</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setChatTheme('purple')}>Purple</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {role !== 'client' && (
                 <Button 
                   size="icon" 
@@ -306,7 +515,7 @@ export default function Messaging() {
             <Input
               type="search"
               placeholder="Search conversations..."
-              className="w-full pl-10 h-10 bg-muted/50 border-0 focus-visible:ring-2 focus-visible:ring-primary/20"
+              className={`w-full pl-10 h-10 bg-muted/50 border-0 focus-visible:ring-2 ${themeTokens.ring}`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -390,14 +599,14 @@ export default function Messaging() {
         {selectedConversation ? (
           <>
             {/* Chat Header */}
-            <div className="border-b bg-background px-4 py-3 flex items-center justify-between">
+            <div className={`border-b px-4 py-3 flex items-center justify-between ${themeTokens.header}`}>
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={getAvatarUrl(selectedConversation)} />
                     <AvatarFallback className="text-sm font-medium">{getAvatarFallback(selectedConversation)}</AvatarFallback>
                   </Avatar>
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background"></div>
+                  <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background ${themeTokens.accent}`}></div>
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm">{getConversationTitle(selectedConversation)}</h3>
@@ -409,10 +618,10 @@ export default function Messaging() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openMeeting('audio')}>
                   <Phone className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openMeeting('video')}>
                   <Video className="h-4 w-4" />
                 </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -428,6 +637,9 @@ export default function Messaging() {
                     <DropdownMenuItem onClick={() => setIsNewConversationOpen(true)}>
                       <Users className="mr-2 h-4 w-4" /> New group
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={shareMeeting}>
+                      <LinkIcon className="mr-2 h-4 w-4" /> Align meeting
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => toast({ title: 'Conversation settings', description: 'Coming soon' })}>
                       <Settings className="mr-2 h-4 w-4" /> Conversation settings
                     </DropdownMenuItem>
@@ -437,11 +649,18 @@ export default function Messaging() {
             </div>
 
             {/* Messages */}
-            <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
+            <div className="flex-1" style={chatBgStyle}>
+              <ScrollArea className="h-full p-4">
+                <div className="space-y-3">
                 {messages.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-muted-foreground">
-                    <p>No messages yet. Send a message to start the conversation!</p>
+                    <div className="text-center space-y-2">
+                      <div className={`mx-auto h-12 w-12 rounded-2xl ${themeTokens.accentSoft} flex items-center justify-center text-white shadow-lg`}>
+                        <MessageSquare className="h-6 w-6" />
+                      </div>
+                      <p className="text-sm">No messages yet</p>
+                      <p className="text-xs text-muted-foreground">Send a message to start the conversation.</p>
+                    </div>
                   </div>
                 ) : (
                   messages.map((message) => {
@@ -460,16 +679,19 @@ export default function Messaging() {
                             </Avatar>
                           </div>
                         )}
-                        <div className="max-w-[70%]">
+                        <div className="max-w-[72%]">
                           {(!isOwn && selectedConversation.isGroup) && (
                             <span className="text-xs text-muted-foreground block mb-1">
                               {message.sender.name}
                             </span>
                           )}
                           <div
-                            className={`rounded-lg px-4 py-2 ${
-                              isOwn ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                            }`}
+                            className={
+                              "px-4 py-2 shadow-sm border border-white/30 dark:border-white/10 " +
+                              (isOwn
+                                ? `${themeTokens.bubbleMine} rounded-2xl rounded-br-md`
+                                : `${themeTokens.bubbleTheirs} rounded-2xl rounded-bl-md`)
+                            }
                           >
                             {message.isDeleted ? (
                               <p className={`italic text-xs ${isOwn ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>Message deleted</p>
@@ -556,11 +778,33 @@ export default function Messaging() {
                   })
                 )}
                 <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
+                </div>
+              </ScrollArea>
+            </div>
 
             {/* Message Input */}
-            <div className="border-t bg-background p-4">
+            <div className={`border-t p-4 ${themeTokens.header}`}>
+              {isRecording ? (
+                <div className="mb-3 p-2 bg-muted/50 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Recording… {Math.ceil(recordingMs / 1000)}s</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={stopRecording}>
+                    <StopCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : null}
+
+              {voicePreviewUrl ? (
+                <div className="mb-3 p-2 bg-muted/50 rounded-lg flex items-center justify-between gap-3">
+                  <audio controls src={voicePreviewUrl} className="w-full" />
+                  <Button type="button" variant="ghost" size="sm" onClick={stopVoicePreview}>
+                    ×
+                  </Button>
+                </div>
+              ) : null}
+
               {selectedFile && (
                 <div className="mb-3 p-2 bg-muted/50 rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -589,6 +833,23 @@ export default function Messaging() {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
+                  onClick={() => {
+                    if (isRecording) {
+                      stopRecording();
+                      return;
+                    }
+                    void startRecording();
+                  }}
+                  disabled={!selectedConversation}
+                  title="Voice message"
+                >
+                  {isRecording ? <StopCircle className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="h-4 w-4" />
@@ -606,11 +867,11 @@ export default function Messaging() {
                 <Input
                   type="text"
                   placeholder="Type a message..."
-                  className="flex-1"
+                  className={`flex-1 rounded-full bg-muted/40 border-0 focus-visible:ring-2 ${themeTokens.ring}`}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                 />
-                <Button type="submit" size="icon" disabled={!newMessage.trim() && !selectedFile}>
+                <Button type="submit" size="icon" disabled={!newMessage.trim() && !selectedFile && !voiceBlob} className={`rounded-full ${themeTokens.accentSoft} hover:opacity-95 text-white`}>
                   <Send className="h-4 w-4" />
                 </Button>
               </form>

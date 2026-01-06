@@ -46,6 +46,7 @@ import Contracts from "./pages/sales/Contracts";
 import ContractDetail from "./pages/sales/ContractDetail";
 import ContractPreview from "./pages/sales/ContractPreview";
 import Expenses from "./pages/sales/Expenses";
+import RecurringRevenue from "./pages/sales/RecurringRevenue";
 import EstimateList from "./pages/prospects/EstimateList";
 import EstimateDetail from "./pages/prospects/EstimateDetail";
 import EstimateRequests from "./pages/prospects/EstimateRequests";
@@ -65,6 +66,7 @@ import ProjectsClients from "./pages/reports/projects/Clients";
 import LeadsConversions from "./pages/reports/leads/Conversions";
 import LeadsTeamMembers from "./pages/reports/leads/TeamMembers";
 import TicketsStatistics from "./pages/reports/tickets/Statistics";
+import ReportsDashboard from "./pages/reports/ReportsDashboard";
 import Tickets from "./pages/tickets/Tickets";
 import TicketDetails from "./pages/tickets/TicketDetails";
 import Files from "./pages/files/Files";
@@ -301,6 +303,7 @@ const App = () => (
             />
             {/* Project Routes */}
             <Route path="/projects" element={<Overview />} />
+            <Route path="/projects/overview" element={<Overview />} />
             <Route path="/projects/overview/:id" element={<ProjectOverviewPage />} />
             <Route path="/projects/:id" element={<ProjectOverviewPage />} />
             <Route path="/projects/timeline" element={<Timeline />} />
@@ -324,6 +327,8 @@ const App = () => (
             {/* Alias route so Sidebar link /sales/orders resolves to the same Orders list */}
             <Route path="/sales/orders" element={<Orders />} />
             <Route path="/sales/orders/:id" element={<OrderDetailPage />} />
+            <Route path="/sales/subscriptions" element={<Subscriptions />} />
+            <Route path="/sales/recurring" element={<RecurringRevenue />} />
             <Route path="/sales/store" element={<Store />} />
             <Route path="/sales/checkout" element={<Checkout />} />
             <Route path="/sales/payments" element={<Payments />} />
@@ -359,7 +364,7 @@ const App = () => (
             <Route path="/invoices" element={<InvoiceList />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             {/* Reports */}
-            <Route path="/reports" element={<InvoicesSummary />} />
+            <Route path="/reports" element={<ReportsDashboard />} />
             <Route path="/reports/sales/invoices-summary" element={<InvoicesSummary />} />
             <Route path="/reports/finance/income-vs-expenses" element={<IncomeVsExpenses />} />
             <Route path="/reports/finance/expenses-summary" element={<ExpensesSummary />} />

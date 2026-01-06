@@ -28,6 +28,8 @@ export type Settings = {
   localization: {
     language: string;
     currency: string;
+    baseCurrency?: string;
+    currencies?: Array<{ code: string; symbol?: string; rate: number }>;
     numberFormat: string;
     timezone: string;
     firstDayOfWeek?: number; // 0-6
@@ -125,7 +127,13 @@ const DEFAULTS: Settings = {
   },
   localization: {
     language: "en",
-    currency: "USD",
+    currency: "PKR",
+    baseCurrency: "PKR",
+    currencies: [
+      { code: "PKR", symbol: "PKR", rate: 1 },
+      { code: "USD", symbol: "USD", rate: 280 },
+      { code: "AED", symbol: "AED", rate: 76 },
+    ],
     numberFormat: "1,234.56",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     firstDayOfWeek: 1,
@@ -224,13 +232,33 @@ const DEFAULTS: Settings = {
 
 const KEY = "app_settings_v1";
 
+function mergeSettings(partial: any): Settings {
+  const p = partial || {};
+  return {
+    ...DEFAULTS,
+    ...p,
+    general: { ...DEFAULTS.general, ...(p.general || {}) },
+    localization: { ...DEFAULTS.localization, ...(p.localization || {}) },
+    email: { ...DEFAULTS.email, ...(p.email || {}) },
+    notifications: { ...DEFAULTS.notifications, ...(p.notifications || {}) },
+    integration: { ...DEFAULTS.integration, ...(p.integration || {}) },
+    cron: { ...DEFAULTS.cron, ...(p.cron || {}) },
+    system: { ...DEFAULTS.system, ...(p.system || {}) },
+    modules: { ...DEFAULTS.modules, ...(p.modules || {}) },
+    leftMenu: { ...DEFAULTS.leftMenu, ...(p.leftMenu || {}) },
+    leftMenuOptions: { ...DEFAULTS.leftMenuOptions, ...(p.leftMenuOptions || {}) },
+    emailTemplates: { ...DEFAULTS.emailTemplates, ...(p.emailTemplates || {}) },
+    meta: { ...DEFAULTS.meta, ...(p.meta || {}), updatedAt: (p.meta?.updatedAt || DEFAULTS.meta.updatedAt) },
+  } as Settings;
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>(() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (!raw) return DEFAULTS;
       const parsed = JSON.parse(raw);
-      return { ...DEFAULTS, ...parsed } as Settings;
+      return mergeSettings(parsed);
     } catch {
       return DEFAULTS;
     }
@@ -247,7 +275,7 @@ export function useSettings() {
         if (!res.ok) return;
         const remote = (await res.json()) as Partial<Settings>;
         if (cancelled) return;
-        const merged = { ...DEFAULTS, ...remote } as Settings;
+        const merged = mergeSettings(remote);
         setSettings(merged);
         localStorage.setItem(KEY, JSON.stringify(merged));
       } catch {

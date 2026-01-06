@@ -5,19 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function ProjectsClients() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
-
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/projects`);
+        const res = await fetch(`${API_BASE}/api/projects`, { headers: getAuthHeaders() });
         const data = res.ok ? await res.json() : [];
         setProjects(Array.isArray(data) ? data : []);
       } catch {

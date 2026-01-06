@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
 const sections = [
   { key: "general", label: "General" },
@@ -30,6 +30,22 @@ export default function SettingsPage() {
   const active = (section as SectionKey) || "general";
   const { settings, saveSection, exportJSON, importJSON, resetAll, resetSection } = useSettings();
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [newCurCode, setNewCurCode] = useState("");
+  const [newCurSymbol, setNewCurSymbol] = useState("");
+  const [newCurRate, setNewCurRate] = useState<string>("");
+
+  const currencies = useMemo(() => {
+    const list = Array.isArray((settings as any)?.localization?.currencies)
+      ? ((settings as any).localization.currencies as any[])
+      : [];
+    return list
+      .map((c) => ({
+        code: String(c.code || "").toUpperCase().trim(),
+        symbol: String(c.symbol || c.code || "").toUpperCase().trim(),
+        rate: Number(c.rate) || 0,
+      }))
+      .filter((c) => c.code);
+  }, [settings]);
 
   return (
     <div className="space-y-6">
@@ -267,8 +283,23 @@ export default function SettingsPage() {
                 <Input value={settings.localization.language} onChange={(e)=>saveSection('localization', { ...settings.localization, language: e.target.value })} />
               </div>
               <div>
-                <Label>Currency</Label>
-                <Input value={settings.localization.currency} onChange={(e)=>saveSection('localization', { ...settings.localization, currency: e.target.value })} />
+                <Label>Display currency</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={settings.localization.currency}
+                  onChange={(e)=>saveSection('localization', { ...settings.localization, currency: e.target.value })}
+                >
+                  {(currencies.length ? currencies : [{ code: "PKR", symbol: "PKR", rate: 1 }]).map((c) => (
+                    <option key={c.code} value={c.code}>{c.code}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Base currency</Label>
+                <Input
+                  value={(settings.localization as any).baseCurrency || "PKR"}
+                  onChange={(e)=>saveSection('localization', { ...(settings.localization as any), baseCurrency: e.target.value } as any)}
+                />
               </div>
               <div>
                 <Label>Number format</Label>
@@ -306,6 +337,112 @@ export default function SettingsPage() {
               </div>
               <div className="col-span-full text-xs text-muted-foreground">Example: 12{settings.localization.thousandSeparator || ','}345{settings.localization.decimalSeparator || '.'}67</div>
             </div>
+
+            <div className="rounded-md border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">Multi-currency</div>
+                  <div className="text-xs text-muted-foreground">Maintain currencies and exchange rates relative to base currency.</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <Label>Code</Label>
+                  <Input value={newCurCode} onChange={(e)=>setNewCurCode(e.target.value.toUpperCase())} placeholder="USD" />
+                </div>
+                <div>
+                  <Label>Symbol</Label>
+                  <Input value={newCurSymbol} onChange={(e)=>setNewCurSymbol(e.target.value.toUpperCase())} placeholder="USD" />
+                </div>
+                <div>
+                  <Label>Rate</Label>
+                  <Input value={newCurRate} onChange={(e)=>setNewCurRate(e.target.value)} placeholder="280" />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      const code = String(newCurCode || "").toUpperCase().trim();
+                      if (!code) return;
+                      const rate = Number(newCurRate) || 0;
+                      const symbol = String(newCurSymbol || code).toUpperCase().trim();
+                      const base = (settings.localization as any).baseCurrency || "PKR";
+                      const next = (currencies || []).filter((c) => c.code !== code);
+                      next.unshift({ code, symbol, rate: code === base ? 1 : rate || 0 });
+                      saveSection('localization', { ...(settings.localization as any), currencies: next } as any);
+                      setNewCurCode("");
+                      setNewCurSymbol("");
+                      setNewCurRate("");
+                      toast.success("Currency added");
+                    }}
+                  >
+                    Add currency
+                  </Button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3">Code</th>
+                      <th className="text-left py-2 px-3">Symbol</th>
+                      <th className="text-left py-2 px-3">Rate (vs base)</th>
+                      <th className="text-left py-2 px-3 w-28">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(currencies.length ? currencies : [{ code: "PKR", symbol: "PKR", rate: 1 }]).map((c) => (
+                      <tr key={c.code} className="border-b">
+                        <td className="py-2 px-3 font-medium">{c.code}</td>
+                        <td className="py-2 px-3">
+                          <Input
+                            value={c.symbol}
+                            onChange={(e) => {
+                              const next = currencies.map((x) => x.code === c.code ? { ...x, symbol: e.target.value.toUpperCase() } : x);
+                              saveSection('localization', { ...(settings.localization as any), currencies: next } as any);
+                            }}
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <Input
+                            type="number"
+                            value={String(c.rate)}
+                            onChange={(e) => {
+                              const v = Number(e.target.value) || 0;
+                              const base = (settings.localization as any).baseCurrency || "PKR";
+                              const next = currencies.map((x) => x.code === c.code ? { ...x, rate: x.code === base ? 1 : v } : x);
+                              saveSection('localization', { ...(settings.localization as any), currencies: next } as any);
+                            }}
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const base = (settings.localization as any).baseCurrency || "PKR";
+                              if (c.code === base) {
+                                toast.error("Base currency cannot be removed");
+                                return;
+                              }
+                              const next = currencies.filter((x) => x.code !== c.code);
+                              const display = String(settings.localization.currency || base);
+                              const nextDisplay = display === c.code ? base : display;
+                              saveSection('localization', { ...(settings.localization as any), currencies: next, currency: nextDisplay } as any);
+                              toast.success("Currency removed");
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-2">
               <Button onClick={()=>toast.success('Localization saved')}>Save changes</Button>
               <Button variant="outline" onClick={()=>{ resetSection('localization'); toast.success('Localization reset'); }}>Reset section</Button>

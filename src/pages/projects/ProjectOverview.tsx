@@ -7,14 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, RefreshCcw, Settings, Printer, FileDown, LayoutGrid, ChevronLeft, ChevronRight, Paperclip, Mic, CalendarDays, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Search, RefreshCcw, Settings, Printer, FileDown, LayoutGrid, ChevronLeft, ChevronRight, Paperclip, Mic, CalendarDays, Plus, MoreVertical, Pencil, Trash2, AlertCircle } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 interface Project {
   id: string;
@@ -156,6 +157,8 @@ export default function ProjectOverviewPage() {
       try { localStorage.setItem("current_project_id", String(id)); } catch {}
     }
   }, [id]);
+  const [projectLoading, setProjectLoading] = useState(true);
+  const [projectError, setProjectError] = useState<string>("");
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [activity, setActivity] = useState<Array<{ id: string; text: string; at: string }>>([]);
@@ -313,26 +316,42 @@ export default function ProjectOverviewPage() {
   const [newContractNotes, setNewContractNotes] = useState("");
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setProject(null);
+      setProjectLoading(false);
+      setProjectError("Missing project id in URL");
+      return;
+    }
     (async () => {
       try {
-        const r = await fetch(`${API_BASE}/api/projects/${id}`);
-        if (r.ok) {
-          const d = await r.json();
-          setProject({
-            id: String(d._id || id),
-            title: d.title || "-",
-            clientId: d.clientId ? String(d.clientId) : undefined,
-            client: d.client || "-",
-            price: d.price,
-            start: d.start ? new Date(d.start).toISOString() : undefined,
-            deadline: d.deadline ? new Date(d.deadline).toISOString() : undefined,
-            status: d.status || "Open",
-            description: d.description || "",
-            members: Array.isArray(d.members) ? d.members.map((x:any)=> String(x)).filter(Boolean) : [],
-          });
+        setProjectLoading(true);
+        setProjectError("");
+        const r = await fetch(`${API_BASE}/api/projects/${encodeURIComponent(String(id))}`, { headers: getAuthHeaders() });
+        const d = await r.json().catch(() => null);
+        if (!r.ok) {
+          const msg = String((d as any)?.error || (d as any)?.message || "Failed to load project");
+          setProject(null);
+          setProjectError(msg);
+          return;
         }
-      } catch {}
+        setProject({
+          id: String((d as any)?._id || id),
+          title: (d as any)?.title || "-",
+          clientId: (d as any)?.clientId ? String((d as any).clientId) : undefined,
+          client: (d as any)?.client || "-",
+          price: (d as any)?.price,
+          start: (d as any)?.start ? new Date((d as any).start).toISOString() : undefined,
+          deadline: (d as any)?.deadline ? new Date((d as any).deadline).toISOString() : undefined,
+          status: (d as any)?.status || "Open",
+          description: (d as any)?.description || "",
+          members: Array.isArray((d as any)?.members) ? (d as any).members.map((x: any) => String(x)).filter(Boolean) : [],
+        });
+      } catch (e: any) {
+        setProject(null);
+        setProjectError(String(e?.message || "Failed to load project"));
+      } finally {
+        setProjectLoading(false);
+      }
     })();
   }, [id]);
 
@@ -389,7 +408,7 @@ export default function ProjectOverviewPage() {
     if (!id) return;
     (async () => {
       try {
-        const r = await fetch(`${API_BASE}/api/contracts?projectId=${id}`);
+        const r = await fetch(`${API_BASE}/api/contracts?projectId=${id}`, { headers: getAuthHeaders() });
         if (r.ok) {
           const data = await r.json();
           setContracts((Array.isArray(data) ? data : []).map((c:any)=> ({
@@ -414,7 +433,13 @@ export default function ProjectOverviewPage() {
     (async () => {
       // best-effort fetches; fallbacks are empty arrays
       const safeFetch = async (path: string) => {
-        try { const r = await fetch(path); if (!r.ok) return []; return await r.json(); } catch { return []; }
+        try {
+          const r = await fetch(path, { headers: getAuthHeaders() });
+          if (!r.ok) return [];
+          return await r.json();
+        } catch {
+          return [];
+        }
       };
 
       const [notesRes, commentsRes, filesRes, invoicesRes, paymentsRes, expensesRes, timesheetsRes, milestonesRes, feedbackRes] = await Promise.all([
@@ -524,7 +549,7 @@ export default function ProjectOverviewPage() {
     if (!text || !id) return;
     try {
       const payload = { projectId: id, text, title: newNoteTitle || undefined, category: newNoteCategory || undefined, tags: newNoteTags || undefined, pinned: newNotePinned };
-      const r = await fetch(`${API_BASE}/api/notes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/notes`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setNotes((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10), title: newNoteTitle || undefined, category: newNoteCategory || undefined, tags: newNoteTags || undefined, pinned: newNotePinned }, ...prev]);
@@ -551,7 +576,7 @@ export default function ProjectOverviewPage() {
     if (!text || !id) return;
     try {
       const payload = { projectId: id, text, author: newCommentAuthor || undefined, kind: newCommentKind || undefined };
-      const r = await fetch(`${API_BASE}/api/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/comments`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setComments((prev) => [{ id: String(d._id || crypto.randomUUID()), text, at: new Date().toISOString().slice(0,10), author: newCommentAuthor || undefined, kind: newCommentKind || undefined }, ...prev]);
@@ -587,7 +612,7 @@ export default function ProjectOverviewPage() {
       deadline: newTaskDeadline || undefined,
     };
     try {
-      const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setTasks(prev => [{ id: String(d._id || crypto.randomUUID()), title, status: newTaskStatus, start: newTaskStart || "-", deadline: newTaskDeadline || "-", priority: newTaskPriority, labels: newTaskLabels || undefined }, ...prev]);
@@ -625,7 +650,7 @@ export default function ProjectOverviewPage() {
       const deadline = parts[4] || undefined;
       const payload:any = { projectId: id, title, status, priority, start, deadline };
       try {
-        const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const r = await fetch(`${API_BASE}/api/tasks`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
         if (r.ok) {
           const d = await r.json();
           setTasks(prev => [{ id: String(d._id || crypto.randomUUID()), title, status, start: start || "-", deadline: deadline || "-", priority }, ...prev]);
@@ -644,7 +669,7 @@ export default function ProjectOverviewPage() {
   const reloadTasks = async () => {
     if (!id) return;
     try {
-      const r = await fetch(`${API_BASE}/api/tasks?projectId=${id}`);
+      const r = await fetch(`${API_BASE}/api/tasks?projectId=${id}`, { headers: getAuthHeaders() });
       if (r.ok) {
         const data = await r.json();
         const t = (Array.isArray(data) ? data : []).map((t:any)=> ({
@@ -684,7 +709,7 @@ export default function ProjectOverviewPage() {
     try {
       const r = await fetch(`${API_BASE}/api/projects/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ description: descDraft || "" }),
       });
       if (r.ok) toast.success("Description updated");
@@ -699,7 +724,7 @@ export default function ProjectOverviewPage() {
     try {
       const r = await fetch(`${API_BASE}/api/projects/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ members: list }),
       });
       if (r.ok) toast.success("Members updated");
@@ -713,7 +738,7 @@ export default function ProjectOverviewPage() {
     if (!id || !title) return;
     const payload = { projectId: id, title, due: newMilestoneDue || undefined, status: newMilestoneStatus };
     try {
-      const r = await fetch(`${API_BASE}/api/milestones`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/milestones`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setMilestones(prev => [{ id: String(d._id || crypto.randomUUID()), title, due: newMilestoneDue || "-", status: newMilestoneStatus }, ...prev]);
@@ -746,7 +771,7 @@ export default function ProjectOverviewPage() {
         if (newFileUploadedBy) fd.append("uploadedBy", newFileUploadedBy);
         if (newFileDescription) fd.append("description", newFileDescription);
 
-        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", body: fd });
+        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", headers: getAuthHeaders(), body: fd });
         if (r.ok) {
           const d = await r.json();
           const fileUrl = d?.url || (d?.path ? `${API_BASE}${String(d.path)}` : (newFileUrl || undefined));
@@ -767,7 +792,7 @@ export default function ProjectOverviewPage() {
         }
       } else {
         const payload = { projectId: id, name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined };
-        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const r = await fetch(`${API_BASE}/api/files`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
         if (r.ok) {
           const d = await r.json();
           setFiles((prev) => [{ id: String(d._id || crypto.randomUUID()), name, size, type: newFileType || undefined, url: newFileUrl || undefined, uploadedBy: newFileUploadedBy || undefined, description: newFileDescription || undefined, at: new Date().toISOString().slice(0,10) }, ...prev]);
@@ -796,7 +821,7 @@ export default function ProjectOverviewPage() {
     const rating = Number(newFeedbackRating) || 0;
     const payload = { projectId: id, author, text, rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined };
     try {
-      const r = await fetch(`${API_BASE}/api/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/feedback`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setFeedback(prev => [{ id: String(d._id || crypto.randomUUID()), author, text, at: new Date().toISOString().slice(0,10), rating: rating || undefined, category: newFeedbackCategory || undefined, status: newFeedbackStatus || undefined, followUpRequired: newFeedbackFollowUp, sentiment: newFeedbackSentiment || undefined }, ...prev]);
@@ -823,7 +848,7 @@ export default function ProjectOverviewPage() {
     const rate = newTimesheetRate !== "" ? Number(newTimesheetRate) || 0 : undefined;
     const payload = { projectId: id, date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || undefined, hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined };
     try {
-      const r = await fetch(`${API_BASE}/api/timesheets`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/timesheets`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setTimesheets(prev => [{ id: String(d._id || crypto.randomUUID()), date: newTimesheetDate, user: newTimesheetUser, task: newTimesheetTask || "-", hours, billable: newTimesheetBillable, rate, notes: newTimesheetNotes || undefined }, ...prev]);
@@ -851,7 +876,7 @@ export default function ProjectOverviewPage() {
     const discount = newInvoiceDiscount !== "" ? Number(newInvoiceDiscount) || 0 : undefined;
     const payload = { projectId: id, number: newInvoiceNumber, date: newInvoiceDate || undefined, dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined };
     try {
-      const r = await fetch(`${API_BASE}/api/invoices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/invoices`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setInvoices(prev => [{ id: String(d._id || crypto.randomUUID()), number: newInvoiceNumber, date: newInvoiceDate || "-", dueDate: newInvoiceDueDate || undefined, status: newInvoiceStatus, total, currency: newInvoiceCurrency || undefined, tax, discount, notes: newInvoiceNotes || undefined }, ...prev]);
@@ -896,7 +921,7 @@ export default function ProjectOverviewPage() {
       notes: newPaymentNotes || undefined,
     };
     try {
-      const r = await fetch(`${API_BASE}/api/payments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/payments`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setPayments(prev => [{
@@ -977,7 +1002,7 @@ export default function ProjectOverviewPage() {
     const amount = Number(newExpenseAmount) || 0;
     const payload = { projectId: id, title: newExpenseTitle, date: newExpenseDate || undefined, category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined };
     try {
-      const r = await fetch(`${API_BASE}/api/expenses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/expenses`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         const d = await r.json();
         setExpenses(prev => [{ id: String(d._id || crypto.randomUUID()), title: newExpenseTitle, date: newExpenseDate || "-", category: newExpenseCategory, amount, vendor: newExpenseVendor || undefined, receiptUrl: newExpenseReceiptUrl || undefined, reimbursable: newExpenseReimbursable, notes: newExpenseNotes || undefined }, ...prev]);
@@ -1344,14 +1369,6 @@ export default function ProjectOverviewPage() {
     });
     return map;
   }, [tasks]);
-
-  const daysLeft = useMemo(() => {
-    if (!countdownTarget || !countdown) return "-";
-    const day = 24 * 60 * 60 * 1000;
-    const d = Math.ceil(Math.abs(countdownTarget.getTime() - countdownNow) / day);
-    if (Number.isNaN(d)) return "-";
-    return `${d}d ${countdown.diff >= 0 ? "left" : "overdue"}`;
-  }, [countdown, countdownNow, countdownTarget]);
 
   const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, "0");
 
@@ -1764,6 +1781,14 @@ export default function ProjectOverviewPage() {
     return { diff, days, hours, minutes, seconds };
   }, [countdownNow, countdownTarget]);
 
+  const daysLeft = useMemo(() => {
+    if (!countdownTarget || !countdown) return "-";
+    const day = 24 * 60 * 60 * 1000;
+    const d = Math.ceil(Math.abs(countdownTarget.getTime() - countdownNow) / day);
+    if (Number.isNaN(d)) return "-";
+    return `${d}d ${countdown.diff >= 0 ? "left" : "overdue"}`;
+  }, [countdown, countdownNow, countdownTarget]);
+
   const updateProjectDeadline = async () => {
     if (!id) return;
     if (!editDeadline) return;
@@ -1807,78 +1832,152 @@ export default function ProjectOverviewPage() {
     }
   }, [countdown, countdownTarget, deadlineAlerted, project?.deadline]);
 
+  if (projectLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center p-6">
+        <Card className="w-full max-w-md border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70 p-6">
+          <div className="text-sm text-muted-foreground">Loading project…</div>
+          <div className="mt-2 text-lg font-semibold">Please wait</div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (projectError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center p-6">
+        <Card className="w-full max-w-lg border-0 shadow-lg bg-white/90 backdrop-blur-sm dark:bg-slate-900/70 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm text-muted-foreground">Could not open project</div>
+              <div className="mt-1 text-lg font-semibold">{projectError}</div>
+              <div className="mt-2 text-xs text-muted-foreground font-mono break-all">{String(id || "")}</div>
+            </div>
+            <AlertCircle className="h-5 w-5 text-red-500" />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link to="/projects">Back to Projects</Link>
+            </Button>
+            <Button onClick={() => window.location.reload()}>Reload</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">
       {/* Hero Header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-800 dark:via-indigo-800 dark:to-purple-800">
-        <div className="absolute inset-0 opacity-30" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`, animation: 'pulse 3s ease-in-out infinite'}} />
-        <div className="relative px-6 py-12 sm:px-12 lg:px-16">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-white/80">
-                <Link to="/projects" className="hover:text-white transition-colors">
-                  Projects
-                </Link>
-                <span>/</span>
-                <span className="text-white font-medium">{project?.title || "Loading..."}</span>
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-700 dark:from-blue-900 dark:via-indigo-900 dark:to-purple-900">
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 12% 18%, rgba(255,255,255,0.18) 0, rgba(255,255,255,0) 45%), radial-gradient(circle at 85% 25%, rgba(255,255,255,0.14) 0, rgba(255,255,255,0) 40%), radial-gradient(circle at 45% 90%, rgba(255,255,255,0.12) 0, rgba(255,255,255,0) 45%)",
+          }}
+        />
+        <div className="absolute inset-0 opacity-25" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.12'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}} />
+
+        <div className="relative px-6 py-10 sm:px-12 lg:px-16">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-4 min-w-0">
+              <div className="flex items-center gap-3">
+                <BackButton to="/projects" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10" />
+                <div className="flex flex-wrap items-center gap-2 text-white/80">
+                  <Link to="/projects" className="hover:text-white transition-colors">
+                    Projects
+                  </Link>
+                  <span>/</span>
+                  <span className="text-white font-medium truncate">{project?.title || "Loading..."}</span>
+                </div>
               </div>
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div className="text-white/70">Start date</div>
-                    <div className="text-white">{project?.start ? project.start.slice(0, 10) : "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-white/70">Deadline</div>
-                    <div className="text-white">{project?.deadline ? project.deadline.slice(0, 10) : "-"}</div>
-                  </div>
-                </div>
 
-                <div className="rounded-md border bg-white/10 p-3 backdrop-blur-sm">
-                  <div className="text-sm font-medium text-white">Set / update countdown</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <div className="text-[11px] text-white/70">Status</div>
+                  <div className="text-sm font-semibold text-white">{project?.status || "-"}</div>
+                </div>
+                <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <div className="text-[11px] text-white/70">Start</div>
+                  <div className="text-sm font-semibold text-white">{project?.start ? project.start.slice(0, 10) : "-"}</div>
+                </div>
+                <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <div className="text-[11px] text-white/70">Deadline</div>
+                  <div className="text-sm font-semibold text-white">{project?.deadline ? project.deadline.slice(0, 10) : "-"}</div>
+                </div>
+                <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <div className="text-[11px] text-white/70">Days</div>
+                  <div className="text-sm font-semibold text-white">{daysLeft}</div>
+                </div>
+                <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 backdrop-blur-sm">
+                  <div className="text-[11px] text-white/70">Price</div>
+                  <div className="text-sm font-semibold text-white">{project?.price != null ? String(project.price) : "-"}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                  <div className="text-sm font-semibold text-white">Countdown</div>
+                  <div className="mt-2 text-xs text-white/70">Set / update deadline date & time</div>
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
-                    <div className="space-y-1">
-                      <div className="text-xs text-white/70">Deadline date & time</div>
-                      <Input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
-                    </div>
-                    <Button onClick={updateProjectDeadline}>Update</Button>
+                    <Input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
+                    <Button onClick={updateProjectDeadline} className="bg-white text-indigo-700 hover:bg-white/90">Update</Button>
                   </div>
                 </div>
 
-                {!countdownTarget ? (
-                  <div className="text-sm text-white/70">No project deadline or start date found to count down.</div>
-                ) : (
-                  <div className="rounded-md border bg-white/10 p-4 backdrop-blur-sm">
-                    <div className="text-sm text-white/70">Target</div>
-                    <div className="font-medium text-white">{countdownTarget.toLocaleString()}</div>
-
-                    {countdown && (
-                      <div className="mt-3">
-                        <div className="text-sm text-white/70">{countdown.diff >= 0 ? "Time remaining" : "Overdue by"}</div>
-                        <div className="text-2xl font-semibold text-white">
-                          {countdown.days}d {String(countdown.hours).padStart(2, "0")}h {String(countdown.minutes).padStart(2, "0")}m {String(countdown.seconds).padStart(2, "0")}s
-                        </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                  {!countdownTarget || !countdown ? (
+                    <div className="text-sm text-white/70">No deadline/start date found.</div>
+                  ) : (
+                    <>
+                      <div className="text-xs text-white/70">Target</div>
+                      <div className="mt-1 font-semibold text-white">{countdownTarget.toLocaleString()}</div>
+                      <div className="mt-2 text-xs text-white/70">{countdown.diff >= 0 ? "Time remaining" : "Overdue by"}</div>
+                      <div className="mt-1 text-2xl font-extrabold tracking-tight text-white">
+                        {countdown.days}d {pad2(countdown.hours)}h {pad2(countdown.minutes)}m {pad2(countdown.seconds)}s
                       </div>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+
+            <div className="flex flex-wrap gap-3 justify-start lg:justify-end">
               <Button asChild variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
                 <Link to="/projects">
                   <ChevronLeft className="w-4 h-4 mr-2" />
-                  Back to Projects
+                  Back
                 </Link>
               </Button>
-              <Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm" onClick={() => window.location.reload()}>
+
+              <Button
+                variant="secondary"
+                size="lg"
+                className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm"
+                onClick={() => window.location.reload()}
+              >
                 <RefreshCcw className="w-4 h-4 mr-2" />
                 Refresh
               </Button>
-              <Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="lg" className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm">
+                    <MoreVertical className="w-4 h-4 mr-2" />
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => setMembersOpen(true)}>Manage members</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setEditDescOpen(true)}>Edit description</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setOpenManageLabels(true)}>Manage task labels</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/projects/timeline">Open timeline</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

@@ -89,7 +89,7 @@ router.patch("/:id", async (req, res) => {
       if (becameAccepted) {
         // 1) Update lead status
         if (doc.leadId) {
-          await Lead.findByIdAndUpdate(doc.leadId, { $set: { status: "Sale" } }).catch(() => null);
+          await Lead.findByIdAndUpdate(doc.leadId, { $set: { status: "Won" } }).catch(() => null);
         }
 
         // 2) Create contract (prefer from latest proposal if exists)

@@ -6,6 +6,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function ProjectsTeamMembers() {
   const [query, setQuery] = useState("");
@@ -13,13 +15,11 @@ export default function ProjectsTeamMembers() {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
-
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/projects`);
+        const res = await fetch(`${API_BASE}/api/projects`, { headers: getAuthHeaders() });
         const data = res.ok ? await res.json() : [];
         setProjects(Array.isArray(data) ? data : []);
       } catch {

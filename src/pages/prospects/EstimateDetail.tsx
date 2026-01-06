@@ -12,8 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/components/ui/sonner";
 import { ChevronDown, Download, Printer, FileText, Copy, Mail, MessageCircle } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 export default function EstimateDetail() {
   const { id = "" } = useParams();
@@ -210,14 +209,101 @@ export default function EstimateDetail() {
       };
       const r = await fetch(`${API_BASE}/api/projects`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       const data = await r.json().catch(() => null);
-      if (!r.ok) return;
+      if (!r.ok) return toast.error(String(data?.error || data?.message || "Failed to create project"));
       setOpenProjectPrompt(false);
       const pid = String(data?._id || data?.id || "");
-      if (pid) navigate(`/projects/overview/${encodeURIComponent(pid)}`);
+      if (pid) {
+        toast.success("Project created");
+        navigate(`/projects/overview/${encodeURIComponent(pid)}`);
+      }
+    } catch {}
+  };
+
+  const createInvoiceFromEstimate = async () => {
+    try {
+      if (!row) return;
+      const number = String(row?.number || "").trim();
+      const clientName = formatClient(row?.client);
+      const estimateId = String(row?._id || id || "");
+
+      let resolvedClientId: string | undefined = row?.clientId ? String(row.clientId) : undefined;
+      if (!resolvedClientId && clientName && clientName !== "-") {
+        try {
+          const cr = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
+          const list = await cr.json().catch(() => []);
+          const arr = Array.isArray(list) ? list : [];
+          const norm = (s: any) => String(s || "").trim().toLowerCase();
+          const target = norm(clientName);
+          const found = arr.find((c: any) => {
+            const n = norm(c.company || c.person || c.name);
+            return n && target && n === target;
+          });
+          if (found?._id) resolvedClientId = String(found._id);
+        } catch {}
+      }
+
+      // If a project was created from this estimate, it uses labels: estimate:<estimateId>
+      let resolvedProjectId: string | undefined;
+      let resolvedProjectTitle: string | undefined;
+      if (estimateId) {
+        try {
+          const pr = await fetch(`${API_BASE}/api/projects?q=${encodeURIComponent(`estimate:${estimateId}`)}`, { headers: getAuthHeaders() });
+          const pj = await pr.json().catch(() => []);
+          const list = Array.isArray(pj)
+            ? pj
+            : (Array.isArray((pj as any)?.data) ? (pj as any).data : (Array.isArray((pj as any)?.items) ? (pj as any).items : []));
+          const first = Array.isArray(list) ? list[0] : null;
+          if (first?._id) {
+            resolvedProjectId = String(first._id);
+            resolvedProjectTitle = String(first.title || first.project || "");
+            // backfill clientId from project if available
+            if (!resolvedClientId && first.clientId) resolvedClientId = String(first.clientId);
+          }
+        } catch {}
+      }
+
+      const payload: any = {
+        number: number ? `EST-${number}` : undefined,
+        clientId: resolvedClientId,
+        client: clientName,
+        issueDate: row?.estimateDate ? new Date(row.estimateDate) : new Date(),
+        dueDate: row?.validUntil ? new Date(row.validUntil) : undefined,
+        status: "Unpaid",
+        items: (items || []).map((it: any) => ({
+          name: String(it.item || it.name || "Item"),
+          quantity: Number(it.quantity || 1) || 1,
+          rate: Number(it.rate || 0) || 0,
+          taxable: Boolean(it.taxable),
+          total: Number(it.total || (Number(it.quantity || 0) * Number(it.rate || 0))) || 0,
+        })),
+        amount: Number(grandTotal || 0) || 0,
+        advanceAmount: row?.advancedAmount != null ? Number(row.advancedAmount) : undefined,
+        tax1: Number(row?.tax || 0) || 0,
+        tax2: Number(row?.tax2 || 0) || 0,
+        note: String(row?.note || ""),
+        projectId: resolvedProjectId,
+        project: resolvedProjectTitle,
+        labels: `estimate:${estimateId}`,
+        branding: row?.branding || undefined,
+        paymentInfo: row?.paymentInfo || undefined,
+      };
+
+      const r = await fetch(`${API_BASE}/api/invoices`, {
+        method: "POST",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) return toast.error(String(data?.error || data?.message || "Failed to create invoice"));
+      const iid = String(data?._id || data?.id || "");
+      if (iid) {
+        toast.success("Invoice created");
+        navigate(`/invoices/${encodeURIComponent(iid)}`);
+      }
     } catch {}
   };
 
@@ -484,6 +570,8 @@ export default function EstimateDetail() {
             <DropdownMenuItem onClick={() => openShareEstimate("email")}><Mail className="w-4 h-4 mr-2"/>Email (auto PDF link)</DropdownMenuItem>
             <DropdownMenuItem onClick={() => openShareEstimate("whatsapp")}><MessageCircle className="w-4 h-4 mr-2"/>WhatsApp (auto PDF link)</DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/prospects/estimates/${id}/preview`).then(() => toast.success("URL copied"))}><Copy className="w-4 h-4 mr-2"/>Copy URL</DropdownMenuItem>
+            <DropdownMenuItem onClick={createInvoiceFromEstimate}>Create invoice</DropdownMenuItem>
+            <DropdownMenuItem onClick={openCreateProjectPrompt}>Create project</DropdownMenuItem>
             <DropdownMenuItem onClick={openEditInfo}>Edit estimate info</DropdownMenuItem>
             <DropdownMenuItem onClick={editDialogOpen}>Edit estimate</DropdownMenuItem>
             <DropdownMenuItem onClick={cloneEstimate}>Clone Estimate</DropdownMenuItem>

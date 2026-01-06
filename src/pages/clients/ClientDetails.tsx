@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, NavLink } from "react-router-dom";
+import { useParams, NavLink, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,9 +13,11 @@ import Notes from "../notes/Notes";
 import Files from "../files/Files";
 
 import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 export default function ClientDetails() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<any | null>(null);
   const [tab, setTab] = useState("contacts");
@@ -55,8 +57,9 @@ export default function ClientDetails() {
       if (!id) return;
       try {
         setLoading(true);
+        const headers = getAuthHeaders();
         // fetch client list and pick one (no /clients/:id endpoint exists)
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers });
         const list = await res.json();
         const row = (Array.isArray(list) ? list : []).find((x: any) => String(x._id) === String(id));
         if (row) {
@@ -64,7 +67,7 @@ export default function ClientDetails() {
           setForm({ ...row });
           const name = row.company || row.person || "";
           // fetch projects filtered by name (projects store client string)
-          const resP = await fetch(`${API_BASE}/api/projects?q=${encodeURIComponent(name)}`);
+          const resP = await fetch(`${API_BASE}/api/projects?q=${encodeURIComponent(name)}`, { headers });
           try {
             const pj = await resP.json().catch(() => []);
             const arr = Array.isArray(pj)
@@ -75,22 +78,22 @@ export default function ClientDetails() {
             setProjects([]);
           }
           // fetch estimates filtered by client name
-          const resE = await fetch(`${API_BASE}/api/estimates?q=${encodeURIComponent(name)}`);
+          const resE = await fetch(`${API_BASE}/api/estimates?q=${encodeURIComponent(name)}`, { headers });
           setEstimates(await resE.json().catch(() => []));
           // fetch expenses/notes/files using q by client display name (best-effort)
-          try { const r1 = await fetch(`${API_BASE}/api/expenses?q=${encodeURIComponent(name)}`); setExpenses(await r1.json().catch(()=>[])); } catch {}
+          try { const r1 = await fetch(`${API_BASE}/api/expenses?q=${encodeURIComponent(name)}`, { headers }); setExpenses(await r1.json().catch(()=>[])); } catch {}
           // Notes & Files are loaded via embedded modules below
           // fetch modules with clientId filters (precise)
-          try { const r = await fetch(`${API_BASE}/api/invoices?clientId=${encodeURIComponent(String(id))}`); setInvoices(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/payments?clientId=${encodeURIComponent(String(id))}`); setPayments(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/estimate-requests?clientId=${encodeURIComponent(String(id))}`); setEstimateRequests(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/orders?clientId=${encodeURIComponent(String(id))}`); setOrders(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/contracts?clientId=${encodeURIComponent(String(id))}`); setContracts(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/proposals?clientId=${encodeURIComponent(String(id))}`); setProposals(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`); const arr = await r.json().catch(()=>[]); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
-          try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`); setEvents(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`); setSubscriptions(await r.json().catch(()=>[])); } catch {}
-          try { const r = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(id))}`); setLicenses(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/invoices?clientId=${encodeURIComponent(String(id))}`, { headers }); setInvoices(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/payments?clientId=${encodeURIComponent(String(id))}`, { headers }); setPayments(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/estimate-requests?clientId=${encodeURIComponent(String(id))}`, { headers }); setEstimateRequests(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/orders?clientId=${encodeURIComponent(String(id))}`, { headers }); setOrders(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/contracts?clientId=${encodeURIComponent(String(id))}`, { headers }); setContracts(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/proposals?clientId=${encodeURIComponent(String(id))}`, { headers }); setProposals(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/tickets?clientId=${encodeURIComponent(String(id))}`, { headers }); const arr = await r.json().catch(()=>[]); setTickets(Array.isArray(arr) ? arr : []); } catch { setTickets([]); }
+          try { const r = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(id))}`, { headers }); setEvents(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/subscriptions?clientId=${encodeURIComponent(String(id))}`, { headers }); setSubscriptions(await r.json().catch(()=>[])); } catch {}
+          try { const r = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(id))}`, { headers }); setLicenses(await r.json().catch(()=>[])); } catch {}
         }
       } catch (e: any) {
         toast.error(String(e?.message || "Failed to load client"));
@@ -105,9 +108,10 @@ export default function ClientDetails() {
     (async () => {
       if (!projects || !projects.length) { setTasks([]); return; }
       try {
+        const headers = getAuthHeaders();
         const combined: any[] = [];
         for (const p of projects) {
-          const res = await fetch(`${API_BASE}/api/tasks?projectId=${encodeURIComponent(p._id)}`);
+          const res = await fetch(`${API_BASE}/api/tasks?projectId=${encodeURIComponent(p._id)}`, { headers });
           if (res.ok) {
             const arr = await res.json().catch(() => []);
             combined.push(...(Array.isArray(arr) ? arr : []));
@@ -600,9 +604,16 @@ export default function ClientDetails() {
               </TableHeader>
               <TableBody>
                 {(Array.isArray(projects) ? projects : []).map((p:any, idx: number)=> (
-                  <TableRow key={String(p._id)}>
+                  <TableRow
+                    key={String(p._id)}
+                    className="hover:bg-muted/40 cursor-pointer"
+                    onClick={() => {
+                      const pid = String(p?._id || "");
+                      if (pid) navigate(`/projects/overview/${encodeURIComponent(pid)}`);
+                    }}
+                  >
                     <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
-                    <TableCell className="whitespace-nowrap">{p.title}</TableCell>
+                    <TableCell className="whitespace-nowrap text-primary underline">{p.title}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{p.status||"Open"}</TableCell>
                     <TableCell className="whitespace-nowrap">{p.price?`Rs.${p.price}`:"Rs.0"}</TableCell>
                   </TableRow>

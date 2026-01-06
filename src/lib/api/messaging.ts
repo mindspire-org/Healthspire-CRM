@@ -121,13 +121,25 @@ export const sendMessage = async (
   content: string,
   attachments: any[] = []
 ): Promise<Message> => {
+  const normalizeAttachments = (atts: any[]): string[] => {
+    const list = Array.isArray(atts) ? atts : [];
+    return list
+      .map((a: any) => {
+        if (!a) return "";
+        if (typeof a === "string") return a;
+        if (typeof a === "object" && typeof a.url === "string") return a.url;
+        return "";
+      })
+      .filter((u: string) => Boolean(String(u || "").trim()));
+  };
+
   const response = await fetch(`${API_BASE}/api/messages/messages`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({
       conversationId,
       content,
-      attachments,
+      attachments: normalizeAttachments(attachments),
     }),
   });
   

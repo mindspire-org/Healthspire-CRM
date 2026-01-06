@@ -6,6 +6,8 @@ const LeadSchema = new mongoose.Schema(
     company: { type: String, default: "" },
     email: { type: String, default: "" },
     phone: { type: String, default: "" },
+    expectedPrice: { type: String, default: "" },
+    systemNeeded: { type: String, default: "" },
     type: { type: String, enum: ["Organization", "Person"], default: "Organization" },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
     status: { type: String, default: "New" },

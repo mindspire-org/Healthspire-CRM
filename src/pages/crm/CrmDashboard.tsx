@@ -15,6 +15,7 @@ type LeadDoc = {
   company?: string;
   email?: string;
   phone?: string;
+  ownerId?: string;
   status?: string;
   source?: string;
   value?: string;
@@ -22,6 +23,8 @@ type LeadDoc = {
   currencySymbol?: string;
   createdAt?: string;
 };
+
+type Employee = { _id: string; name?: string; firstName?: string; lastName?: string };
 
 const STATUS_ORDER = ["New", "Qualified", "Discussion", "Negotiation", "Won", "Lost"] as const;
 
@@ -64,8 +67,29 @@ function Kpi({ title, value, meta, tone }: { title: string; value: string; meta?
 export default function CrmDashboard() {
   const navigate = useNavigate();
   const [items, setItems] = useState<LeadDoc[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+
+  const employeeNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of employees) {
+      const name = (e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || "-").trim();
+      if (e._id) m.set(String(e._id), name);
+    }
+    return m;
+  }, [employees]);
+
+  const loadEmployees = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/employees`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => []);
+      setEmployees(Array.isArray(data) ? data : []);
+    } catch {
+      setEmployees([]);
+    }
+  };
 
   const load = async () => {
     try {
@@ -87,6 +111,7 @@ export default function CrmDashboard() {
   };
 
   useEffect(() => {
+    loadEmployees();
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -139,6 +164,70 @@ export default function CrmDashboard() {
       .slice(0, 8);
   }, [items]);
 
+  const insights = useMemo(() => {
+    const now = Date.now();
+    const periods = {
+      week: 7 * 24 * 60 * 60 * 1000,
+      month: 30 * 24 * 60 * 60 * 1000,
+      year: 365 * 24 * 60 * 60 * 1000,
+    } as const;
+
+    const parseTs = (iso?: string) => {
+      if (!iso) return 0;
+      const t = new Date(iso).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+
+    const aggTop = (rows: LeadDoc[], key: (l: LeadDoc) => string, filter?: (l: LeadDoc) => boolean) => {
+      const m = new Map<string, { count: number; value: number }>();
+      for (const l of rows) {
+        if (filter && !filter(l)) continue;
+        const k = String(key(l) || "-").trim() || "-";
+        const cur = m.get(k) || { count: 0, value: 0 };
+        cur.count += 1;
+        cur.value += safeNumber(l.value);
+        m.set(k, cur);
+      }
+      let topKey = "-";
+      let top = { count: 0, value: 0 };
+      for (const [k, v] of m.entries()) {
+        if (v.value > top.value || (v.value === top.value && v.count > top.count)) {
+          topKey = k;
+          top = v;
+        }
+      }
+      return { key: topKey, ...top };
+    };
+
+    const sliceBy = (ms: number) => {
+      const from = now - ms;
+      return items.filter((l) => {
+        const ts = parseTs(l.createdAt);
+        return ts >= from;
+      });
+    };
+
+    const mk = (label: string, ms: number) => {
+      const rows = sliceBy(ms);
+      const topSales = aggTop(
+        rows,
+        (l) => (l.ownerId ? String(l.ownerId) : "Unassigned"),
+        (l) => String(l.status || "").toLowerCase() === "won"
+      );
+      const topLeadSource = aggTop(rows, (l) => (l.source ? String(l.source) : "-") );
+      const topSaleSource = aggTop(rows, (l) => (l.source ? String(l.source) : "-") , (l) => String(l.status || "").toLowerCase() === "won");
+      return { label, topSales, topLeadSource, topSaleSource };
+    };
+
+    const summary = {
+      week: mk("This week", periods.week),
+      month: mk("This month", periods.month),
+      year: mk("This year", periods.year),
+    };
+
+    return summary;
+  }, [items]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="rounded-2xl border bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 p-6 text-white">
@@ -177,6 +266,39 @@ export default function CrmDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Top sales person</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Period</TableHead>
+                    <TableHead>Sales person</TableHead>
+                    <TableHead className="text-right">Won</TableHead>
+                    <TableHead className="text-right">Sales</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(["week", "month", "year"] as const).map((k) => {
+                    const row = insights[k];
+                    const id = row.topSales.key;
+                    const name = id === "Unassigned" ? "Unassigned" : (employeeNameById.get(String(id)) || "-");
+                    return (
+                      <TableRow key={k}>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.label}</TableCell>
+                        <TableCell className="whitespace-nowrap">{name}</TableCell>
+                        <TableCell className="text-right">{row.topSales.count}</TableCell>
+                        <TableCell className="text-right">{fmtMoney(row.topSales.value, stats.symbol)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -233,6 +355,35 @@ export default function CrmDashboard() {
         </div>
 
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Top sources</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Period</TableHead>
+                    <TableHead>Top lead source</TableHead>
+                    <TableHead>Top sales source</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(["week", "month", "year"] as const).map((k) => {
+                    const row = insights[k];
+                    return (
+                      <TableRow key={k}>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.label}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.topLeadSource.key}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.topSaleSource.key}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
           <Kpi
             title="New"
             value={String(stats.byStatus["New"]?.count || 0)}

@@ -26,7 +26,7 @@ const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].i
 
 const normalizeAvatarSrc = (input: string) => {
   const s = String(input || "").trim();
-  if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
+  if (!s || s.startsWith("<")) return "/placeholder.svg";
   const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
   try {
     const isAbs = /^https?:\/\//i.test(s);
@@ -384,27 +384,19 @@ export function TopNav({ onMenuClick }: TopNavProps) {
               <Avatar className="h-9 w-9">
                 <AvatarImage
                   src={normalizeAvatarSrc(String(me?.avatar || ""))}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64"; }}
+                  alt={me?.name || me?.email || "User"}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/placeholder.svg";
+                  }}
                 />
                 <AvatarFallback>{meInitials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-card">
-            <DropdownMenuLabel>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src={normalizeAvatarSrc(String(me?.avatar || ""))}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64"; }}
-                  />
-                  <AvatarFallback>{meInitials}</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col min-w-0">
-                  <span className="font-medium truncate">{me?.name || ""}</span>
-                  <span className="text-xs text-muted-foreground truncate">{me?.email || ""}</span>
-                </div>
-              </div>
+            <DropdownMenuLabel className="space-y-1">
+              <div className="text-sm font-medium leading-none">{me?.name || me?.email || "User"}</div>
+              <div className="text-xs text-muted-foreground">{me?.email || ""}</div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -416,7 +408,15 @@ export function TopNav({ onMenuClick }: TopNavProps) {
               Profile Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={(e)=>{e.preventDefault(); handleSignOut();}} className="text-destructive">Sign Out</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                handleSignOut();
+              }}
+              className="text-destructive"
+            >
+              Sign Out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Upload, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 const API_BASE = "http://localhost:5000";
 
@@ -132,10 +133,11 @@ export default function Expenses() {
 
   const loadLookups = async () => {
     try {
+      const headers = getAuthHeaders();
       const [empRes, clientRes, projRes] = await Promise.all([
-        fetch(`${API_BASE}/api/employees`),
-        fetch(`${API_BASE}/api/clients`),
-        fetch(`${API_BASE}/api/projects`),
+        fetch(`${API_BASE}/api/employees`, { headers }),
+        fetch(`${API_BASE}/api/clients`, { headers }),
+        fetch(`${API_BASE}/api/projects`, { headers }),
       ]);
       const [empData, clientData, projData] = await Promise.all([
         empRes.ok ? empRes.json() : [],

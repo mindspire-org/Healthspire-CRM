@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, RefreshCw, Plus, Calendar, BarChart3, Clock, Users, Target, LayoutGrid, TrendingUp, Activity, Sparkles } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 interface TaskBar {
   id: string;
@@ -14,8 +17,6 @@ interface TaskBar {
   end: string;   // yyyy-mm-dd
   projectId?: string;
 }
-
-const API_BASE = "http://localhost:5000";
 
 export default function Timeline() {
   const navigate = useNavigate();
@@ -55,25 +56,30 @@ export default function Timeline() {
   const colWidth = viewMode === 'days' ? 28 : viewMode === 'weeks' ? 84 : 120;
   const labelColWidth = 220;
 
+  const refreshProjects = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/projects`, { headers: getAuthHeaders() });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => []);
+      const arr: any[] = Array.isArray(data) ? data : [];
+      const mapped: TaskBar[] = arr
+        .filter((d: any) => d.start && d.deadline)
+        .map((d: any) => ({
+          id: String(d._id || ""),
+          title: d.title || "-",
+          start: new Date(d.start).toISOString().slice(0, 10),
+          end: new Date(d.deadline).toISOString().slice(0, 10),
+          projectId: String(d._id || ""),
+        }));
+      setBars(mapped);
+      setProjects(arr.map((p: any) => ({ _id: String(p._id), title: p.title || "-" })));
+    } catch {
+    }
+  };
+
   useEffect(() => {
     (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/projects`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const arr: any[] = Array.isArray(data) ? data : [];
-        const mapped: TaskBar[] = arr
-          .filter((d: any) => d.start && d.deadline)
-          .map((d: any) => ({
-            id: String(d._id || ""),
-            title: d.title || "-",
-            start: new Date(d.start).toISOString().slice(0,10),
-            end: new Date(d.deadline).toISOString().slice(0,10),
-            projectId: String(d._id || ""),
-          }));
-        setBars(mapped);
-        setProjects(arr.map((p:any)=>({ _id: String(p._id), title: p.title || '-' })));
-      } catch {}
+      await refreshProjects();
     })();
   }, []);
 
@@ -82,7 +88,7 @@ export default function Timeline() {
     (async () => {
       try {
         const url = project !== '-' ? `${API_BASE}/api/tasks?projectId=${encodeURIComponent(project)}` : `${API_BASE}/api/tasks`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: getAuthHeaders() });
         const data = await res.json().catch(()=>[]);
         setTasks(Array.isArray(data) ? data : []);
       } catch { setTasks([]); }
@@ -186,12 +192,15 @@ export default function Timeline() {
         <div className="relative px-6 py-12 sm:px-12 lg:px-16">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-white/80">
-                <Link to="/projects" className="hover:text-white transition-colors">
-                  Projects
-                </Link>
-                <span>/</span>
-                <span className="text-white font-medium">Timeline View</span>
+              <div className="flex items-center gap-3">
+                <BackButton to="/projects" variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10" />
+                <div className="flex items-center gap-2 text-white/80">
+                  <Link to="/projects" className="hover:text-white transition-colors">
+                    Projects
+                  </Link>
+                  <span>/</span>
+                  <span className="text-white font-medium">Timeline View</span>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-white/10 p-3 backdrop-blur-sm">
@@ -239,9 +248,10 @@ export default function Timeline() {
                   Months
                 </Button>
               </div>
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90">
+              <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90" onClick={() => navigate("/projects")}
+              >
                 <Plus className="w-4 h-4 mr-2"/>
-                Add Task
+                New Project
               </Button>
             </div>
           </div>
@@ -250,90 +260,52 @@ export default function Timeline() {
 
       <div className="px-6 py-8 sm:px-12 lg:px-16 space-y-8">
 
-      <Card className="p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="icon" onClick={movePrev}><ChevronLeft className="w-4 h-4"/></Button>
-          <Button variant="outline" size="icon" onClick={moveNext}><ChevronRight className="w-4 h-4"/></Button>
-          <Button variant="outline" size="sm" onClick={jumpToday}>Today</Button>
-          <Button variant="outline" size="icon" onClick={()=>{ /* re-fetch */ fetch(`${API_BASE}/api/projects`).then(r=>r.json()).then((data)=>{
-            const arr:any[] = Array.isArray(data)?data:[]; const mapped: TaskBar[] = arr.filter((d:any)=>d.start&&d.deadline).map((d:any)=>({ id:String(d._id||''), title:d.title||'-', start:new Date(d.start).toISOString().slice(0,10), end:new Date(d.deadline).toISOString().slice(0,10) })); setBars(mapped); setProjects(arr.map((p:any)=>({ _id:String(p._id), title:p.title||'-' })));
-          }).catch(()=>{}) }}><RefreshCw className="w-4 h-4"/></Button>
-          <Select value={groupBy} onValueChange={setGroupBy}>
-            <SelectTrigger className="w-40"><SelectValue placeholder="Group by"/></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="assignee">Assignee</SelectItem>
-              <SelectItem value="milestone">Milestone</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={project} onValueChange={setProject}><SelectTrigger className="w-48"><SelectValue placeholder="- Project -"/></SelectTrigger><SelectContent>
-            <SelectItem value="-">- Project -</SelectItem>
-            {projects.map(p=> (<SelectItem key={p._id} value={p._id}>{p.title}</SelectItem>))}
-          </SelectContent></Select>
-          <Select value={assignee} onValueChange={setAssignee}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Assigned to"/></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="-">- Assigned to -</SelectItem>
-              {assignees.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <Select value={milestone} onValueChange={setMilestone}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Milestone"/></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="-">- Milestone -</SelectItem>
-              {milestones.map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-            </SelectContent>
-          </Select>
-          <div className="ml-auto text-sm text-muted-foreground">{startDate.toLocaleString(undefined,{ month: 'long', year: 'numeric' })}</div>
-        </div>
-      </Card>
-
-      {/* Timeline grid */}
       <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Timeline Controls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="icon" onClick={movePrev}><ChevronLeft className="w-4 h-4"/></Button>
-              <Button variant="outline" size="icon" onClick={moveNext}><ChevronRight className="w-4 h-4"/></Button>
-              <Button variant="outline" size="sm" onClick={jumpToday}>Today</Button>
-              <Button variant="outline" size="icon" onClick={()=>{ /* re-fetch */ fetch(`${API_BASE}/api/projects`).then(r=>r.json()).then((data)=>{
-                const arr:any[] = Array.isArray(data)?data:[]; const mapped: TaskBar[] = arr.filter((d:any)=>d.start&&d.deadline).map((d:any)=>({ id:String(d._id||''), title:d.title||'-', start:new Date(d.start).toISOString().slice(0,10), end:new Date(d.deadline).toISOString().slice(0,10) })); setBars(mapped); setProjects(arr.map((p:any)=>({ _id:String(p._id), title:p.title||'-' })));
-              }).catch(()=>{}) }}><RefreshCw className="w-4 h-4"/></Button>
-              <Select value={groupBy} onValueChange={setGroupBy}>
-                <SelectTrigger className="w-40"><SelectValue placeholder="Group by"/></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="assignee">Assignee</SelectItem>
-                  <SelectItem value="milestone">Milestone</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={project} onValueChange={setProject}><SelectTrigger className="w-48"><SelectValue placeholder="- Project -"/></SelectTrigger><SelectContent>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Timeline Controls
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="icon" onClick={movePrev}><ChevronLeft className="w-4 h-4"/></Button>
+            <Button variant="outline" size="icon" onClick={moveNext}><ChevronRight className="w-4 h-4"/></Button>
+            <Button variant="outline" size="sm" onClick={jumpToday}>Today</Button>
+            <Button variant="outline" size="icon" onClick={() => { void refreshProjects(); }}><RefreshCw className="w-4 h-4"/></Button>
+            <Select value={groupBy} onValueChange={setGroupBy}>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Group by"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="assignee">Assignee</SelectItem>
+                <SelectItem value="milestone">Milestone</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={project} onValueChange={setProject}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="- Project -"/></SelectTrigger>
+              <SelectContent>
                 <SelectItem value="-">- Project -</SelectItem>
-                {projects.map(p=> (<SelectItem key={p._id} value={p._id}>{p.title}</SelectItem>))}
-              </SelectContent></Select>
-              <Select value={assignee} onValueChange={setAssignee}>
-                <SelectTrigger className="w-48"><SelectValue placeholder="Assigned to"/></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="-">- Assigned to -</SelectItem>
-                  {assignees.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <Select value={milestone} onValueChange={setMilestone}>
-                <SelectTrigger className="w-48"><SelectValue placeholder="Milestone"/></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="-">- Milestone -</SelectItem>
-                  {milestones.map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-                </SelectContent>
-              </Select>
-              <div className="ml-auto text-sm text-muted-foreground">{startDate.toLocaleString(undefined,{ month: 'long', year: 'numeric' })}</div>
-            </div>
-          </CardContent>
-        </Card>
+                {projects.map(p => (<SelectItem key={p._id} value={p._id}>{p.title}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={assignee} onValueChange={setAssignee}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Assigned to"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-">- Assigned to -</SelectItem>
+                {assignees.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <Select value={milestone} onValueChange={setMilestone}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Milestone"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="-">- Milestone -</SelectItem>
+                {milestones.map(m => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+              </SelectContent>
+            </Select>
+            <div className="ml-auto text-sm text-muted-foreground">{startDate.toLocaleString(undefined,{ month: 'long', year: 'numeric' })}</div>
+          </div>
+        </CardContent>
+      </Card>
 
         {/* Timeline Grid */}
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm dark:bg-slate-800/80">

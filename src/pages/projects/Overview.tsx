@@ -39,8 +39,11 @@ interface Row {
 
 export default function Overview() {
   const navigate = useNavigate();
-  const user = getStoredAuthUser();
-  const isAdmin = user?.role === "admin";
+  const [meRole, setMeRole] = useState<string>(() => {
+    const u: any = getStoredAuthUser();
+    return String(u?.role || u?.user?.role || "");
+  });
+  const isAdmin = String(meRole || "").trim().toLowerCase() === "admin";
   const [rows, setRows] = useState<Row[]>([]);
   const [query, setQuery] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
@@ -66,6 +69,14 @@ export default function Overview() {
   const [labelDraft, setLabelDraft] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isEditMode = Boolean(editingId);
+
+  const safeDateTs = (ymd: string) => {
+    if (!ymd || ymd === "-") return NaN;
+    const t = new Date(ymd).getTime();
+    return Number.isFinite(t) ? t : NaN;
+  };
 
   // Progress editor dialog state
   const [progressOpen, setProgressOpen] = useState(false);
@@ -126,6 +137,20 @@ export default function Overview() {
   }, [query]);
 
   useEffect(() => {
+    if (String(meRole || "").trim()) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/users/me`, { headers: getAuthHeaders() });
+        const json = await res.json().catch(() => null);
+        const role = String(json?.user?.role || json?.role || "");
+        if (res.ok && role) setMeRole(role);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [meRole]);
+
+  useEffect(() => {
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
@@ -184,28 +209,32 @@ export default function Overview() {
               .join(", ")
           : "",
       };
-      const res = await fetch(`${API_BASE}/api/projects`, {
-        method: "POST",
+      const isEdit = Boolean(editingId);
+      const url = isEdit ? `${API_BASE}/api/projects/${editingId}` : `${API_BASE}/api/projects`;
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        await loadProjects(query);
-        toast.success("Project created successfully");
-        setOpenAdd(false);
-        // Reset form
-        setTitle("");
-        setClient("");
-        setClientIdSel("");
-        setStart("");
-        setDeadline("");
-        setPrice("");
-        setLabels("");
-        setDesc("");
-        setProjectType("Client Project");
-      }
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || (isEdit ? "Failed to update project" : "Failed to create project"));
+
+      await loadProjects(query);
+      toast.success(isEdit ? "Project updated successfully" : "Project created successfully");
+      setOpenAdd(false);
+      setEditingId(null);
+      // Reset form
+      setTitle("");
+      setClient("");
+      setClientIdSel("");
+      setStart("");
+      setDeadline("");
+      setPrice("");
+      setLabels("");
+      setDesc("");
+      setProjectType("Client Project");
     } catch {
-      toast.error("Failed to create project");
+      toast.error("Failed to save project");
     } finally {
       setLoading(false);
     }
@@ -213,11 +242,19 @@ export default function Overview() {
 
   const deleteProject = async (id: string) => {
     try {
+      if (!isAdmin) {
+        toast.error("Only admins can delete projects");
+        return;
+      }
       if (!window.confirm("Delete this project?")) return;
-      await fetch(`${API_BASE}/api/projects/${id}`, { method: "DELETE", headers: getAuthHeaders() });
+      const res = await fetch(`${API_BASE}/api/projects/${id}`, { method: "DELETE", headers: getAuthHeaders() });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to delete");
       setRows((prev) => prev.filter((r) => r.id !== id));
       toast.success("Project removed");
-    } catch {}
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete project");
+    }
   };
 
   const updateProjectStatus = async (id: string, status: Row["status"]) => {
@@ -227,11 +264,13 @@ export default function Overview() {
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ status }),
       });
-      if (res.ok) {
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status, progress: status === "Completed" ? 100 : r.progress } : r)));
-        toast.success("Status updated");
-      }
-    } catch {}
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error || "Failed to update status");
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status, progress: status === "Completed" ? 100 : r.progress } : r)));
+      toast.success("Status updated");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update status");
+    }
   };
 
   const openEdit = (r: Row) => {
@@ -299,6 +338,17 @@ export default function Overview() {
     localStorage.setItem("project_labels", JSON.stringify(arr));
     toast.success("Labels updated");
     setOpenLabels(false);
+  };
+
+  const addDraftLabel = () => {
+    const v = String(newLabel || "").trim();
+    if (!v) return;
+    if (labelDraft.some((x) => String(x).toLowerCase() === v.toLowerCase())) {
+      setNewLabel("");
+      return;
+    }
+    setLabelDraft((p) => [...p, v]);
+    setNewLabel("");
   };
 
   const resetFilters = () => {
@@ -445,15 +495,23 @@ export default function Overview() {
                 </Link>
               </Button>
               <Dialog open={openAdd} onOpenChange={setOpenAdd}>
-                <DialogTrigger asChild>
-                  <Button size="lg" className="bg-white text-blue-600 hover:bg-white/90" disabled={!isAdmin}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Project
-                  </Button>
-                </DialogTrigger>
+                <Button
+                  size="lg"
+                  className="bg-white text-blue-600 hover:bg-white/90"
+                  onClick={() => {
+                    if (!isAdmin) {
+                      toast.error("Only admins can create projects");
+                      return;
+                    }
+                    setOpenAdd(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Project
+                </Button>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Create New Project</DialogTitle>
+                    <DialogTitle>{isEditMode ? "Edit Project" : "Create New Project"}</DialogTitle>
                   </DialogHeader>
                   {!isAdmin && (
                     <div className="text-sm text-destructive">Only admins can create projects.</div>
@@ -526,7 +584,13 @@ export default function Overview() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button type="submit" onClick={createProject} disabled={!isAdmin || loading}>Create Project</Button>
+                    <Button
+                      type="submit"
+                      onClick={createProject}
+                      disabled={!isAdmin || loading}
+                    >
+                      {isEditMode ? "Save Changes" : "Create Project"}
+                    </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -677,31 +741,28 @@ export default function Overview() {
                             value={newLabel}
                             onChange={(e) => setNewLabel(e.target.value)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" && newLabel.trim()) {
-                                const updated = [...labelOptions, newLabel.trim()];
-                                setLabelOptions(updated);
-                                setNewLabel("");
-                              }
+                              if (e.key === "Enter") addDraftLabel();
                             }}
                           />
-                          <Button onClick={() => {
-                            if (newLabel.trim()) {
-                              const updated = [...labelOptions, newLabel.trim()];
-                              setLabelOptions(updated);
-                              setNewLabel("");
-                            }
-                          }}>Add</Button>
+                          <Button type="button" onClick={addDraftLabel}>Add</Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {labelOptions.map((label) => (
-                            <Badge key={label} variant="outline" className="cursor-pointer" onClick={() => {
-                              setLabelOptions(labelOptions.filter(l => l !== label));
-                            }}>
+                          {labelDraft.map((label) => (
+                            <Badge
+                              key={label}
+                              variant="outline"
+                              className="cursor-pointer"
+                              onClick={() => setLabelDraft((p) => p.filter((l) => l !== label))}
+                            >
                               {label} ×
                             </Badge>
                           ))}
                         </div>
                       </div>
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setOpenLabels(false)}>Close</Button>
+                        <Button type="button" onClick={saveLabels}>Save</Button>
+                      </DialogFooter>
                     </DialogContent>
                   </Dialog>
                 )}
@@ -782,7 +843,14 @@ export default function Overview() {
                       </TableCell>
                       <TableCell className="font-medium">{r.price}</TableCell>
                       <TableCell>{r.start}</TableCell>
-                      <TableCell className={new Date(r.due) < new Date(r.start) ? "text-destructive font-medium" : ""}>
+                      <TableCell
+                        className={(() => {
+                          const dueTs = safeDateTs(r.due);
+                          const startTs = safeDateTs(r.start);
+                          if (!Number.isFinite(dueTs) || !Number.isFinite(startTs)) return "";
+                          return dueTs < startTs ? "text-destructive font-medium" : "";
+                        })()}
+                      >
                         {r.due}
                       </TableCell>
                       <TableCell className="min-w-[140px]">
@@ -835,16 +903,20 @@ export default function Overview() {
                             <DropdownMenuItem onClick={() => navigate(`/projects/overview/${r.id}`)}>
                               <Eye className="w-4 h-4 mr-2"/> View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEdit(r)}>
-                              <Pencil className="w-4 h-4 mr-2"/> Edit Project
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => deleteProject(r.id)} 
-                              className="text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4 mr-2"/> Delete Project
-                            </DropdownMenuItem>
+                            {isAdmin ? (
+                              <>
+                                <DropdownMenuItem onClick={() => openEdit(r)}>
+                                  <Pencil className="w-4 h-4 mr-2"/> Edit Project
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => deleteProject(r.id)} 
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2"/> Delete Project
+                                </DropdownMenuItem>
+                              </>
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

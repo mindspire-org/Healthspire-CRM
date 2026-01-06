@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, Trash2, Calendar, DollarSign, Tag, FileText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 interface SubscriptionDoc {
   _id: string;
@@ -41,7 +41,7 @@ export default function SubscriptionDetails() {
     const loadSubscription = async () => {
       if (!id) return;
       try {
-        const res = await fetch(`${API_BASE}/api/subscriptions/${id}`);
+        const res = await fetch(`${API_BASE}/api/subscriptions/${id}`, { headers: getAuthHeaders() });
         const json = await res.json().catch(() => null);
         if (!res.ok) throw new Error(json?.error || "Failed to load subscription");
         setSubscription(json);
@@ -60,7 +60,7 @@ export default function SubscriptionDetails() {
     if (!confirm("Are you sure you want to delete this subscription?")) return;
 
     try {
-      const res = await fetch(`${API_BASE}/api/subscriptions/${subscription._id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/subscriptions/${subscription._id}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to delete subscription");
       toast.success("Subscription deleted");
@@ -78,14 +78,14 @@ export default function SubscriptionDetails() {
       const endpoint = isCancelled ? "reactivate" : "cancel";
       const res = await fetch(`${API_BASE}/api/subscriptions/${subscription._id}/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(isCancelled ? {} : { cancelledBy: "" }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to update status");
       toast.success(isCancelled ? "Subscription reactivated" : "Subscription cancelled");
       // Reload the subscription data
-      const updatedRes = await fetch(`${API_BASE}/api/subscriptions/${subscription._id}`);
+      const updatedRes = await fetch(`${API_BASE}/api/subscriptions/${subscription._id}`, { headers: getAuthHeaders() });
       const updatedJson = await updatedRes.json().catch(() => null);
       if (updatedRes.ok) setSubscription(updatedJson);
     } catch (e: any) {

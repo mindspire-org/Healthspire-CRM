@@ -67,6 +67,7 @@ import accountingSettingsRouter from "./routes/accountingSettings.js";
 import accountingPeriodsRouter from "./routes/accountingPeriods.js";
 import vendorsRouter from "./routes/vendors.js";
 import statementsRouter from "./routes/statements.js";
+import deleteAccountRequestsRouter from "./routes/deleteAccountRequests.js";
 
 dotenv.config();
 
@@ -231,6 +232,7 @@ app.use("/api/client", clientPortalRouter);
 app.use("/api/project-requests", projectRequestsRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/estimate-forms", estimateFormsRouter);
+app.use("/api/delete-account-requests", deleteAccountRequestsRouter);
 // Backward/alternative path alias to avoid 404s from different frontends
 app.use("/api/estimateforms", estimateFormsRouter);
 // Help & Support

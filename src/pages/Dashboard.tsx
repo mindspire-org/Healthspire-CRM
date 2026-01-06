@@ -1,130 +1,70 @@
 ﻿import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import {
+  Clock,
+  CheckCircle,
+  Calendar,
+  Users,
+  Briefcase,
+  RefreshCw,
+  Target,
+  FileText,
+  Settings,
+  Eye,
+  Plus,
+} from "lucide-react";
+
+import {
+  ResponsiveContainer,
   BarChart,
   Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  AreaChart,
+  Area,
   LineChart,
   Line,
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
 } from "recharts";
-import {
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  Calendar,
-  Users,
-  Briefcase,
-  TrendingUp,
-  Search,
-  MoreHorizontal,
-  DollarSign,
-  Target,
-  Activity,
-  FileText,
-  Settings,
-  Bell,
-  User,
-  MapPin,
-  Phone,
-  Mail,
-  Download,
-  Eye,
-  Edit,
-  Plus,
-  ArrowUp,
-  ArrowDown,
-  Star,
-  Shield,
-  Zap,
-  Globe,
-  Building,
-  Award,
-  BarChart3,
-  PieChart as PieChartIcon,
-} from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5000";
-
-const revenueData = [
-  { month: "Jan", revenue: 4000, profit: 2400 },
-  { month: "Feb", revenue: 3000, profit: 1398 },
-  { month: "Mar", revenue: 2000, profit: 800 },
-  { month: "Apr", revenue: 2780, profit: 1908 },
-  { month: "May", revenue: 1890, profit: 1200 },
-  { month: "Jun", revenue: 2390, profit: 1500 },
-];
-
-const invoiceData = [
-  { name: "Paid", value: 8, color: "#10b981" },
-  { name: "Not paid", value: 2, color: "#f59e0b" },
-  { name: "Draft", value: 11, color: "#6366f1" },
-];
-
-const incomeData = [
-  { month: "Jan", income: 4000, expense: 2400 },
-  { month: "Feb", income: 3000, expense: 1398 },
-  { month: "Mar", income: 2000, expense: 9800 },
-  { month: "Apr", income: 2780, expense: 3908 },
-  { month: "May", income: 1890, expense: 4800 },
-  { month: "Jun", income: 2390, expense: 3800 },
-];
-
-const projectStatusData = [
-  { name: "Completed", value: 45, color: "#10b981" },
-  { name: "In Progress", value: 28, color: "#3b82f6" },
-  { name: "On Hold", value: 12, color: "#f59e0b" },
-  { name: "Not Started", value: 8, color: "#ef4444" },
-];
-
-const teamPerformanceData = [
-  { name: "Development", completed: 85, total: 100 },
-  { name: "Design", completed: 72, total: 85 },
-  { name: "Marketing", completed: 68, total: 75 },
-  { name: "Sales", completed: 92, total: 110 },
-];
-
-const recentActivities = [
-  { action: "Project completed", detail: "E-commerce Platform", time: "2 hours ago", type: "success" },
-  { action: "New team member", detail: "Sarah Johnson joined", time: "3 hours ago", type: "info" },
-  { action: "Invoice sent", detail: "Client ABC - $5,000", time: "5 hours ago", type: "warning" },
-  { action: "Task deadline", detail: "Mobile App UI Design", time: "1 day ago", type: "danger" },
-];
-
-const topPerformers = [
-  { name: "Alex Chen", avatar: "AC", role: "Frontend Developer", tasks: 45, rating: 4.9 },
-  { name: "Emma Wilson", avatar: "EW", role: "Project Manager", tasks: 38, rating: 4.8 },
-  { name: "Mike Johnson", avatar: "MJ", role: "Backend Developer", tasks: 42, rating: 4.7 },
-  { name: "Sarah Davis", avatar: "SD", role: "UX Designer", tasks: 35, rating: 4.9 },
-];
+import { API_BASE } from "@/lib/api/base";
 
 type ProjectRow = { id: string; name: string; estimate: string };
 type TaskRow = { id: string; title: string; startDate: string; deadline: string; status: string };
 
-const announcements = [
-  "polyfloor & doors door",
-  "2 Medel MS Launch",
-  "3 Marketing plan 10 pages",
-  "4 Tender Websites",
-];
+type LeadRow = { id: string; name: string; status: string; createdAt: string };
+
+type AttendanceMember = {
+  employeeId: string;
+  name?: string;
+  initials?: string;
+  avatarUrl?: string;
+  clockedIn?: boolean;
+  startTime?: string;
+};
+
+type AnnouncementRow = {
+  _id: string;
+  title?: string;
+  message?: string;
+  createdAt?: string;
+};
+
+type EventRow = {
+  _id: string;
+  title?: string;
+  start?: string;
+  end?: string;
+};
 
 function GlassCard({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return (
@@ -211,6 +151,11 @@ export default function Dashboard() {
   const [eventsToday, setEventsToday] = useState(0);
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
+  const [leadsCount, setLeadsCount] = useState(0);
+  const [recentLeads, setRecentLeads] = useState<LeadRow[]>([]);
+  const [salesTotal, setSalesTotal] = useState(0);
+  const [pendingAmount, setPendingAmount] = useState(0);
+  const [recurringMrr, setRecurringMrr] = useState(0);
   const [meName, setMeName] = useState("Admin");
   const [meEmail, setMeEmail] = useState("");
   const [meAvatar, setMeAvatar] = useState<string>("");
@@ -220,12 +165,21 @@ export default function Dashboard() {
   const [onLeaveToday, setOnLeaveToday] = useState(0);
   const [projectsList, setProjectsList] = useState<ProjectRow[]>([]);
   const [tasksTable, setTasksTable] = useState<TaskRow[]>([]);
+  const [currencyCode, setCurrencyCode] = useState("PKR");
+
+  const [clockMembers, setClockMembers] = useState<AttendanceMember[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState(0);
+  const [ticketsStatus, setTicketsStatus] = useState({ open: 0, closed: 0, other: 0 });
+  const [eventsCountToday, setEventsCountToday] = useState(0);
+  const [upcomingEvents, setUpcomingEvents] = useState<EventRow[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
+  const [invoiceOverview, setInvoiceOverview] = useState({ overdue: 0, unpaid: 0, paid: 0, draft: 0, total: 0 });
 
   const normalizeAvatarSrc = useMemo(() => (input: string) => {
     const s = String(input || "").trim();
-    if (!s || s.startsWith("<")) return "/api/placeholder/64/64";
-    const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
-        try {
+    if (!s || s.startsWith("<")) return "/placeholder.svg";
+    const base = API_BASE;
+    try {
       const isAbs = /^https?:\/\//i.test(s);
       if (isAbs) {
         const u = new URL(s);
@@ -241,9 +195,55 @@ export default function Dashboard() {
       const rel = s.startsWith("/") ? s : `/${s}`;
       return `${base}${rel}`;
     }
-  }, [API_BASE]);
+  }, []);
 
   const adminAvatarSrc = useMemo(() => normalizeAvatarSrc(meAvatar), [meAvatar, normalizeAvatarSrc]);
+
+  const CURRENCY_SYMBOL = currencyCode || "PKR";
+  const formatMoney = useMemo(() => {
+    return (value: number) => {
+      const n = Number(value || 0);
+      return `${CURRENCY_SYMBOL} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    };
+  }, [CURRENCY_SYMBOL]);
+
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  useEffect(() => {
+    const readCurrency = () => {
+      try {
+        const raw = localStorage.getItem("app_settings_v1");
+        if (!raw) {
+          setCurrencyCode("PKR");
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        const cur = String(parsed?.localization?.currency || "PKR").trim() || "PKR";
+        setCurrencyCode(cur);
+      } catch {
+        setCurrencyCode("PKR");
+      }
+    };
+    readCurrency();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "app_settings_v1") readCurrency();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const normalizeToMonthly = useMemo(() => {
+    return (amount: number, everyCount: number, unit: string) => {
+      const c = Math.max(1, Number(everyCount) || 1);
+      const u = String(unit || "month").toLowerCase();
+
+      if (u === "day" || u === "days") return (amount * 30) / c;
+      if (u === "week" || u === "weeks") return (amount * 4.345) / c;
+      if (u === "month" || u === "months") return amount / c;
+      if (u === "year" || u === "years") return amount / 12 / c;
+      return amount / c;
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -276,6 +276,67 @@ export default function Dashboard() {
       } catch {}
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const headers = getAuthHeaders();
+
+        const [leadsRes, ordersRes, invoicesRes, subsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/leads`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/orders`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/invoices`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/subscriptions`, { headers }).catch(() => null as any),
+        ]);
+
+        if (leadsRes?.ok) {
+          const leadsJson = await leadsRes.json().catch(() => []);
+          const list = Array.isArray(leadsJson) ? leadsJson : [];
+          setLeadsCount(list.length);
+          const latest = list
+            .slice()
+            .sort((a: any, b: any) => new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime())
+            .slice(0, 5)
+            .map((l: any) => ({
+              id: String(l._id || ""),
+              name: String(l.name || l.company || "-").trim() || "-",
+              status: String(l.status || "New"),
+              createdAt: l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 10) : "-",
+            }));
+          setRecentLeads(latest);
+        }
+
+        if (ordersRes?.ok) {
+          const ordersJson = await ordersRes.json().catch(() => []);
+          const list = Array.isArray(ordersJson) ? ordersJson : [];
+          const sum = list.reduce((acc: number, o: any) => acc + (Number(o.total) || 0), 0);
+          setSalesTotal(sum);
+        }
+
+        if (invoicesRes?.ok) {
+          const invoicesJson = await invoicesRes.json().catch(() => []);
+          const list = Array.isArray(invoicesJson) ? invoicesJson : [];
+          const pending = list
+            .filter((i: any) => String(i.status || "").toLowerCase() !== "paid")
+            .reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          setPendingAmount(pending);
+        }
+
+        if (subsRes?.ok) {
+          const subsJson = await subsRes.json().catch(() => []);
+          const list = Array.isArray(subsJson) ? subsJson : [];
+          const mrr = list
+            .filter((s: any) => String(s.status || "active").toLowerCase() === "active")
+            .reduce((acc: number, s: any) => {
+              const amount = Number(s.amount) || 0;
+              const monthly = normalizeToMonthly(amount, Number(s.repeatEveryCount || 1) || 1, String(s.repeatEveryUnit || "month"));
+              return acc + monthly;
+            }, 0);
+          setRecurringMrr(mrr);
+        }
+      } catch {}
+    })();
+  }, [normalizeToMonthly]);
 
   const meInitials = String(meName || meEmail || "Admin")
     .split(" ")
@@ -338,432 +399,647 @@ export default function Dashboard() {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const headers = getAuthHeaders();
+        const [membersRes, expensesRes, ticketsRes, eventsRes, annRes, invRes] = await Promise.all([
+          fetch(`${API_BASE}/api/attendance/members`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/expenses`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/tickets`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/events`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/announcements?active=1`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/invoices`, { headers }).catch(() => null as any),
+        ]);
+
+        if (membersRes?.ok) {
+          const json = await membersRes.json().catch(() => []);
+          setClockMembers(Array.isArray(json) ? json : []);
+        }
+
+        if (expensesRes?.ok) {
+          const json = await expensesRes.json().catch(() => []);
+          const list = Array.isArray(json) ? json : [];
+          const sum = list.reduce((acc: number, x: any) => acc + (Number(x.amount) || 0), 0);
+          setExpensesTotal(sum);
+        }
+
+        if (ticketsRes?.ok) {
+          const json = await ticketsRes.json().catch(() => []);
+          const list = Array.isArray(json) ? json : [];
+          const open = list.filter((t: any) => String(t.status || "open").toLowerCase() === "open").length;
+          const closed = list.filter((t: any) => String(t.status || "").toLowerCase() === "closed").length;
+          const other = Math.max(0, list.length - open - closed);
+          setTicketsStatus({ open, closed, other });
+        }
+
+        if (eventsRes?.ok) {
+          const json = await eventsRes.json().catch(() => []);
+          const list = Array.isArray(json) ? json : [];
+          const todays = list.filter((e: any) => {
+            const d = e?.start ? new Date(e.start).toISOString().slice(0, 10) : "";
+            return d === todayIso;
+          });
+          setEventsCountToday(todays.length);
+          const upcoming = list
+            .filter((e: any) => {
+              const d = e?.start ? new Date(e.start) : null;
+              if (!d) return false;
+              return d >= new Date();
+            })
+            .sort((a: any, b: any) => new Date(a.start || 0).getTime() - new Date(b.start || 0).getTime())
+            .slice(0, 5)
+            .map((e: any) => ({ _id: String(e._id || ""), title: String(e.title || "-").trim() || "-", start: e.start, end: e.end }));
+          setUpcomingEvents(upcoming);
+        }
+
+        if (annRes?.ok) {
+          const json = await annRes.json().catch(() => []);
+          const list = Array.isArray(json) ? json : [];
+          setAnnouncements(
+            list.slice(0, 5).map((a: any) => ({
+              _id: String(a._id || ""),
+              title: String(a.title || "").trim(),
+              message: String(a.message || ""),
+              createdAt: a.createdAt,
+            }))
+          );
+        }
+
+        if (invRes?.ok) {
+          const json = await invRes.json().catch(() => []);
+          const list = Array.isArray(json) ? json : [];
+          const total = list.reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          const paid = list.filter((i: any) => String(i.status || "").toLowerCase() === "paid").reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          const draft = list.filter((i: any) => String(i.status || "").toLowerCase() === "draft").reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          const unpaid = list
+            .filter((i: any) => {
+              const s = String(i.status || "").toLowerCase();
+              return s !== "paid" && s !== "draft";
+            })
+            .reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          const overdue = list
+            .filter((i: any) => {
+              const s = String(i.status || "").toLowerCase();
+              if (s === "paid") return false;
+              const due = i?.dueDate ? new Date(i.dueDate) : null;
+              if (!due) return false;
+              return due < new Date();
+            })
+            .reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+          setInvoiceOverview({ overdue, unpaid, paid, draft, total });
+        }
+      } catch {}
+    })();
+  }, [todayIso]);
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-10">
       {/* Welcome Header */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
+      <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
         <div
           className="absolute inset-0 opacity-40"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35) 0, rgba(255,255,255,0) 45%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.25) 0, rgba(255,255,255,0) 40%), radial-gradient(circle at 40% 85%, rgba(255,255,255,0.18) 0, rgba(255,255,255,0) 45%)",
+              "radial-gradient(circle at 15% 25%, rgba(99,102,241,0.55) 0, rgba(99,102,241,0) 45%), radial-gradient(circle at 85% 30%, rgba(168,85,247,0.45) 0, rgba(168,85,247,0) 40%), radial-gradient(circle at 45% 90%, rgba(34,197,94,0.25) 0, rgba(34,197,94,0) 45%)",
           }}
         />
-        <DashboardOrb className="absolute -right-6 -top-10 opacity-80 hidden md:block" />
+        <DashboardOrb className="absolute -right-10 -top-14 opacity-60 hidden lg:block" />
 
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <div className="text-xs uppercase tracking-wide text-white/80">Dashboard</div>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back, {meName}!</h1>
-            <p className="mt-2 text-white/80 max-w-xl">
-              {meEmail || "Here's what's happening across your organization today."}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <p className="text-xs text-white/70">Total Revenue</p>
-              <p className="text-3xl font-extrabold">${totalRevenue.toLocaleString()}</p>
+        <div className="relative grid gap-6 lg:grid-cols-12 lg:items-center">
+          <div className="lg:col-span-7">
+            <div className="text-xs uppercase tracking-wide text-white/70">Overview</div>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight">{meName}</h1>
+            <p className="mt-1 text-white/70 max-w-xl">{meEmail || "Dashboard summary for today."}</p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button className="bg-white/10 text-white hover:bg-white/20" variant="outline" onClick={() => navigate("/crm")}>
+                <Target className="w-4 h-4 mr-2" />
+                Leads
+              </Button>
+              <Button className="bg-white/10 text-white hover:bg-white/20" variant="outline" onClick={() => navigate("/projects")}>
+                <Briefcase className="w-4 h-4 mr-2" />
+                Projects
+              </Button>
+              <Button className="bg-white/10 text-white hover:bg-white/20" variant="outline" onClick={() => navigate("/sales/recurring")}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Recurring
+              </Button>
             </div>
-            <Avatar className="h-14 w-14 border-2 border-white/70 bg-white shadow-lg">
-              <AvatarImage
-                src={adminAvatarSrc}
-                alt="Admin"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = "/api/placeholder/64/64";
-                }}
-              />
-              <AvatarFallback className="bg-white text-indigo-600 text-lg font-bold">{meInitials}</AvatarFallback>
-            </Avatar>
+          </div>
+
+          <div className="lg:col-span-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xs text-white/70">Total Sales</div>
+                <div className="mt-1 text-2xl font-extrabold truncate">{formatMoney(salesTotal)}</div>
+                <div className="mt-1 text-xs text-white/60">All time</div>
+              </div>
+              <Avatar className="h-14 w-14 border-2 border-white/40 bg-white/10 shadow-lg">
+                <AvatarImage
+                  src={adminAvatarSrc}
+                  alt="Admin"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "/placeholder.svg";
+                  }}
+                />
+                <AvatarFallback className="bg-white text-indigo-600 text-lg font-bold">{meInitials}</AvatarFallback>
+              </Avatar>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Sales + CRM KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">Clock</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                  {clockMembers.find((m) => m.clockedIn)?.startTime
+                    ? `Started at: ${clockMembers.find((m) => m.clockedIn)!.startTime}`
+                    : "Not clocked in"}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">Today</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Clock className="w-6 h-6 text-slate-700 dark:text-slate-200" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
         <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/70 dark:from-emerald-950/40 dark:to-emerald-900/20">
-          <CardContent className="p-4">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-green-600 font-medium">Active Projects</p>
-                <p className="text-3xl font-bold text-green-900 mt-1">{projectCounts.open}</p>
-                <p className="text-xs text-green-600 mt-1">+{projectCounts.completed} completed</p>
+                <p className="text-sm text-green-700 dark:text-green-200 font-medium">My open tasks</p>
+                <p className="text-3xl font-bold text-green-900 dark:text-white mt-1">{openTasksCount}</p>
+                <p className="text-xs text-green-700 mt-1">All tasks</p>
               </div>
               <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <Briefcase className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+                <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-sky-50/90 to-indigo-100/70 dark:from-sky-950/40 dark:to-indigo-900/20">
-          <CardContent className="p-4">
+        <GlassCard className="bg-gradient-to-br from-indigo-50/90 to-indigo-100/70 dark:from-indigo-950/40 dark:to-indigo-900/20">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-blue-600 font-medium">Open Tasks</p>
-                <p className="text-3xl font-bold text-blue-900 mt-1">{openTasksCount}</p>
-                <p className="text-xs text-blue-600 mt-1">{eventsToday} due today</p>
+                <p className="text-sm text-indigo-700 dark:text-indigo-200 font-medium">Events today</p>
+                <p className="text-3xl font-bold text-indigo-900 dark:text-white mt-1">{Math.max(eventsToday, eventsCountToday)}</p>
+                <p className="text-xs text-indigo-700 mt-1">{todayIso}</p>
               </div>
               <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <CheckCircle className="w-6 h-6 text-sky-700 dark:text-sky-300" />
+                <Calendar className="w-6 h-6 text-indigo-700 dark:text-indigo-300" />
               </div>
             </div>
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-amber-50/90 to-orange-100/70 dark:from-amber-950/40 dark:to-orange-900/20">
-          <CardContent className="p-4">
+        <GlassCard className="bg-gradient-to-br from-rose-50/90 to-rose-100/70 dark:from-rose-950/40 dark:to-rose-900/20">
+          <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-orange-600 font-medium">Team Members</p>
-                <p className="text-3xl font-bold text-orange-900 mt-1">{teamMembers}</p>
-                <p className="text-xs text-orange-600 mt-1">{onLeaveToday} on leave</p>
+                <p className="text-sm text-rose-700 dark:text-rose-200 font-medium">Due</p>
+                <p className="text-2xl font-bold text-rose-900 dark:text-white mt-1">{formatMoney(pendingAmount)}</p>
+                <p className="text-xs text-rose-700 mt-1">Invoices unpaid</p>
               </div>
               <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <Users className="w-6 h-6 text-amber-700 dark:text-amber-300" />
-              </div>
-            </div>
-          </CardContent>
-        </GlassCard>
-
-        <GlassCard className="bg-gradient-to-br from-fuchsia-50/90 to-violet-100/70 dark:from-fuchsia-950/40 dark:to-violet-900/20">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Pending Leaves</p>
-                <p className="text-3xl font-bold text-purple-900 mt-1">{pendingLeaves}</p>
-                <p className="text-xs text-purple-600 mt-1">Need approval</p>
-              </div>
-              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <Calendar className="w-6 h-6 text-violet-700 dark:text-violet-300" />
+                <FileText className="w-6 h-6 text-rose-600" />
               </div>
             </div>
           </CardContent>
         </GlassCard>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column - Charts & Analytics */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Revenue & Profit Trend */}
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="xl:col-span-4 space-y-4">
           <GlassCard>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Revenue & Profit Trend</CardTitle>
-              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Projects Overview</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={revenueData} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.55} />
-                      <stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34D399" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="#34D399" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.35)" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                  <Tooltip content={<FancyTooltip />} />
-                  <Area type="monotone" name="Revenue" dataKey="revenue" stroke="#3B82F6" strokeWidth={2.5} fill="url(#revFill)" />
-                  <Area type="monotone" name="Profit" dataKey="profit" stroke="#10B981" strokeWidth={2.5} fill="url(#profitFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div className="text-lg font-extrabold text-emerald-600">{projectCounts.open}</div>
+                  <div className="text-xs text-muted-foreground">Open</div>
+                </div>
+                <div>
+                  <div className="text-lg font-extrabold text-indigo-600">{projectCounts.completed}</div>
+                  <div className="text-xs text-muted-foreground">Completed</div>
+                </div>
+                <div>
+                  <div className="text-lg font-extrabold text-amber-600">{projectCounts.hold}</div>
+                  <div className="text-xs text-muted-foreground">Hold</div>
+                </div>
+              </div>
+              <div className="mt-3 h-[150px] rounded-lg bg-white/80 dark:bg-slate-950/40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      { name: "Open", value: projectCounts.open },
+                      { name: "Completed", value: projectCounts.completed },
+                      { name: "Hold", value: projectCounts.hold },
+                    ]}
+                    margin={{ top: 12, right: 12, left: 0, bottom: 6 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} width={34} />
+                    <Tooltip content={<FancyTooltip />} />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </GlassCard>
 
-          {/* Project Status Overview */}
+          <GlassCard>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">All Tasks Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="h-[170px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "To do", value: tasksPie.todo },
+                        { name: "In progress", value: tasksPie.inProgress },
+                        { name: "Done", value: tasksPie.completed },
+                        { name: "Expired", value: tasksPie.expired },
+                      ]}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={48}
+                      outerRadius={70}
+                      paddingAngle={2}
+                    >
+                      {["#f59e0b", "#3b82f6", "#22c55e", "#ef4444"].map((c) => (
+                        <Cell key={c} fill={c} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<FancyTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </GlassCard>
+        </div>
+
+        <div className="xl:col-span-4 space-y-4">
+          <GlassCard>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Invoice Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Overdue</span>
+                  <span className="font-semibold text-rose-600">{formatMoney(invoiceOverview.overdue)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Unpaid</span>
+                  <span className="font-semibold">{formatMoney(invoiceOverview.unpaid)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Paid</span>
+                  <span className="font-semibold text-emerald-600">{formatMoney(invoiceOverview.paid)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Draft</span>
+                  <span className="font-semibold">{formatMoney(invoiceOverview.draft)}</span>
+                </div>
+              </div>
+              <div className="mt-3 h-[140px] rounded-lg bg-white/80 dark:bg-slate-950/40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={[
+                      { name: "Overdue", value: invoiceOverview.overdue },
+                      { name: "Unpaid", value: invoiceOverview.unpaid },
+                      { name: "Paid", value: invoiceOverview.paid },
+                      { name: "Draft", value: invoiceOverview.draft },
+                    ]}
+                    margin={{ top: 12, right: 12, left: 0, bottom: 6 }}
+                  >
+                    <defs>
+                      <linearGradient id="invFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={34} />
+                    <Tooltip content={<FancyTooltip />} />
+                    <Area type="monotone" dataKey="value" stroke="#6366f1" fill="url(#invFill)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </GlassCard>
+
+          <GlassCard>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Income vs Expenses</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                  <div className="text-xs text-muted-foreground">Income</div>
+                  <div className="mt-1 text-sm font-semibold">{formatMoney(salesTotal)}</div>
+                </div>
+                <div className="rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                  <div className="text-xs text-muted-foreground">Expenses</div>
+                  <div className="mt-1 text-sm font-semibold">{formatMoney(expensesTotal)}</div>
+                </div>
+              </div>
+              <div className="mt-3 h-[120px] rounded-lg bg-white/80 dark:bg-slate-950/40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={[
+                      { name: "Income", a: salesTotal },
+                      { name: "Expenses", a: expensesTotal },
+                      { name: "Net", a: salesTotal - expensesTotal },
+                    ]}
+                    margin={{ top: 12, right: 12, left: 0, bottom: 6 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} width={34} />
+                    <Tooltip content={<FancyTooltip />} />
+                    <Line type="monotone" dataKey="a" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </GlassCard>
+        </div>
+
+        <div className="xl:col-span-4 space-y-4">
+          <GlassCard>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Tickets Status</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="h-[170px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Open", value: ticketsStatus.open },
+                        { name: "Closed", value: ticketsStatus.closed },
+                        { name: "Other", value: ticketsStatus.other },
+                      ]}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={48}
+                      outerRadius={70}
+                      paddingAngle={2}
+                    >
+                      {["#f59e0b", "#22c55e", "#94a3b8"].map((c) => (
+                        <Cell key={c} fill={c} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<FancyTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                <div>
+                  <div className="font-semibold">{ticketsStatus.open}</div>
+                  <div className="text-muted-foreground">Open</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{ticketsStatus.closed}</div>
+                  <div className="text-muted-foreground">Closed</div>
+                </div>
+                <div>
+                  <div className="font-semibold">{ticketsStatus.other}</div>
+                  <div className="text-muted-foreground">Other</div>
+                </div>
+              </div>
+            </CardContent>
+          </GlassCard>
+
           <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Project Status Overview</CardTitle>
-              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
+              <CardTitle className="text-sm">Announcements</CardTitle>
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10" onClick={() => navigate("/announcements")}>
+                <Eye className="w-4 h-4 mr-2" />
+                View
+              </Button>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {announcements.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No announcements</div>
+                ) : (
+                  announcements.map((a) => (
+                    <div key={a._id} className="rounded-xl border border-white/30 bg-white/50 p-3 text-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
+                      <div className="font-medium">{a.title || "Announcement"}</div>
+                      <div className="text-xs text-muted-foreground line-clamp-2">{a.message || ""}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </GlassCard>
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-8 space-y-6">
+          <GlassCard>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Recent Leads</CardTitle>
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10" onClick={() => navigate("/crm/leads") }>
                 <Eye className="w-4 h-4 mr-2" />
                 View All
               </Button>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <defs>
-                    <filter id="pieShadow" x="-50%" y="-50%" width="200%" height="200%">
-                      <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#0f172a" floodOpacity="0.18" />
-                    </filter>
-                  </defs>
-                  <Pie
-                    data={projectStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    dataKey="value"
-                    stroke="rgba(255,255,255,0.8)"
-                    strokeWidth={2}
-                    filter="url(#pieShadow)"
-                  >
-                    {projectStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<FancyTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {projectStatusData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-sm">{item.name}: {item.value}</span>
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded-xl border border-white/30 bg-white/40 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                <table className="w-full text-sm min-w-[520px]">
+                  <thead>
+                    <tr className="border-b border-white/30 dark:border-white/10">
+                      <th className="text-left py-3 px-4">Name</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                      <th className="text-left py-3 px-4">Created</th>
+                      <th className="text-left py-3 px-4">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentLeads.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 px-4 text-center text-muted-foreground">No leads found</td>
+                      </tr>
+                    ) : (
+                      recentLeads.map((l) => (
+                        <tr key={l.id} className="border-b border-white/30 hover:bg-white/60 dark:border-white/10 dark:hover:bg-white/10">
+                          <td className="py-3 px-4 font-medium text-primary">{l.name}</td>
+                          <td className="py-3 px-4">
+                            <Badge variant="secondary">{l.status}</Badge>
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground">{l.createdAt}</td>
+                          <td className="py-3 px-4">
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/crm/leads/${l.id}`)}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </GlassCard>
 
-          {/* Team Performance */}
           <GlassCard>
-            <CardHeader>
-              <CardTitle className="text-lg">Team Performance</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Recent Tasks</CardTitle>
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10" onClick={() => navigate("/tasks")}>
+                <Eye className="w-4 h-4 mr-2" />
+                View All Tasks
+              </Button>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {teamPerformanceData.map((team, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">{team.name}</h4>
-                      <span className="text-sm text-muted-foreground">{team.completed}/{team.total} tasks</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full transition-all duration-300 bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500"
-                        style={{
-                          width: `${(team.completed / team.total) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded-xl border border-white/30 bg-white/40 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                <table className="w-full text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-white/30 dark:border-white/10">
+                      <th className="text-left py-3 px-4">ID</th>
+                      <th className="text-left py-3 px-4">Title</th>
+                      <th className="text-left py-3 px-4">Start Date</th>
+                      <th className="text-left py-3 px-4">Deadline</th>
+                      <th className="text-left py-3 px-4">Status</th>
+                      <th className="text-left py-3 px-4">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tasksTable.slice(0, 5).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 px-4 text-center text-muted-foreground">No tasks found</td>
+                      </tr>
+                    ) : (
+                      tasksTable.slice(0, 5).map((task) => (
+                        <tr key={task.id} className="border-b border-white/30 hover:bg-white/60 dark:border-white/10 dark:hover:bg-white/10">
+                          <td className="py-3 px-4">{task.id}</td>
+                          <td className="py-3 px-4 text-primary font-medium">{task.title}</td>
+                          <td className="py-3 px-4">{task.startDate}</td>
+                          <td className="py-3 px-4">{task.deadline}</td>
+                          <td className="py-3 px-4">
+                            <Badge
+                              variant={task.status === "done" ? "default" : task.status === "in-progress" ? "secondary" : "outline"}
+                            >
+                              {task.status}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={() => navigate(`/tasks/${task.id}`)}>
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </CardContent>
-          </GlassCard>
-
-          {/* Income vs Expenses */}
-          <GlassCard>
-            <CardHeader>
-              <CardTitle className="text-lg">Income vs Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={incomeData} margin={{ top: 8, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="4 10" stroke="rgba(148,163,184,0.35)" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
-                  <Tooltip content={<FancyTooltip />} />
-                  <Line type="monotone" name="Income" dataKey="income" stroke="#10B981" strokeWidth={2.8} dot={false} />
-                  <Line type="monotone" name="Expense" dataKey="expense" stroke="#EF4444" strokeWidth={2.8} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
             </CardContent>
           </GlassCard>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <GlassCard>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/projects") }>
-                <Plus className="w-4 h-4 mr-2" />
-                New Project
-              </Button>
-              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/hrm/employees") }>
-                <Users className="w-4 h-4 mr-2" />
-                Add Team Member
-              </Button>
-              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/invoices") }>
-                <FileText className="w-4 h-4 mr-2" />
-                Create Invoice
-              </Button>
-              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/settings") }>
-                <Settings className="w-4 h-4 mr-2" />
-                System Settings
-              </Button>
-            </CardContent>
-          </GlassCard>
-
-          {/* Recent Activities */}
-          <GlassCard>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Activities</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3 rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
-                    <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                      activity.type === "success" ? "bg-green-500" :
-                      activity.type === "warning" ? "bg-yellow-500" :
-                      activity.type === "danger" ? "bg-red-500" : "bg-blue-500"
-                    }`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">
-                        <span className="font-medium">{activity.action}</span>
-                        <span className="text-muted-foreground"> {activity.detail}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </GlassCard>
-
-          {/* Top Performers */}
+        <div className="xl:col-span-4 space-y-6">
           <GlassCard>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Top Performers</CardTitle>
-              <Badge variant="secondary">This Month</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {topPerformers.map((performer) => (
-                  <div key={performer.name} className="flex items-center justify-between rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur hover:bg-white/70 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">{performer.avatar}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{performer.name}</p>
-                        <p className="text-xs text-muted-foreground">{performer.role}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-yellow-500">
-                        <Star className="w-3 h-3 fill-yellow-400" />
-                        <span className="text-xs font-medium">{performer.rating}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{performer.tasks} tasks</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </GlassCard>
-
-          {/* Invoice Overview */}
-          <GlassCard>
-            <CardHeader>
-              <CardTitle className="text-lg">Invoice Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={150}>
-                <PieChart>
-                  <Pie data={invoiceData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value">
-                    {invoiceData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<FancyTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-1 gap-2 mt-4">
-                {invoiceData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span>{item.name}</span>
-                    </div>
-                    <span className="font-medium">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </GlassCard>
-
-          {/* Open Projects */}
-          <GlassCard>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">Open Projects</CardTitle>
-              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
+              <CardTitle className="text-lg">Upcoming Events</CardTitle>
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10" onClick={() => navigate("/events")}>
                 <Eye className="w-4 h-4 mr-2" />
                 View All
               </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {projectsList.slice(0, 5).map((project) => (
-                  <div key={project.id} className="text-xs rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
-                    <a href="#" className="text-primary font-medium hover:underline">{project.name}</a>
-                    <p className="text-muted-foreground">Estimate: {project.estimate}</p>
-                  </div>
-                ))}
+                {upcomingEvents.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No upcoming events</div>
+                ) : (
+                  upcomingEvents.map((e) => (
+                    <div key={e._id} className="rounded-xl border border-white/30 bg-white/50 p-3 text-sm backdrop-blur dark:border-white/10 dark:bg-white/5">
+                      <div className="font-medium">{e.title || "Event"}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {e.start ? new Date(e.start).toLocaleString() : ""}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </GlassCard>
+
+          <GlassCard>
+            <CardHeader>
+              <CardTitle className="text-lg">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/projects")}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/hrm/employees")}>
+                <Users className="w-4 h-4 mr-2" />
+                Add Team Member
+              </Button>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/invoices")}>
+                <FileText className="w-4 h-4 mr-2" />
+                Create Invoice
+              </Button>
+              <Button className="w-full justify-start bg-white/60 dark:bg-white/10" variant="outline" onClick={() => navigate("/settings")}>
+                <Settings className="w-4 h-4 mr-2" />
+                System Settings
+              </Button>
+            </CardContent>
+          </GlassCard>
+
+          <GlassCard>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Open Projects</CardTitle>
+              <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10" onClick={() => navigate("/projects")}>
+                <Eye className="w-4 h-4 mr-2" />
+                View All
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {projectsList.slice(0, 5).length === 0 ? (
+                  <div className="text-sm text-muted-foreground">No projects</div>
+                ) : (
+                  projectsList.slice(0, 5).map((project) => (
+                    <div key={project.id} className="text-xs rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                      <button
+                        type="button"
+                        className="text-primary font-medium hover:underline text-left"
+                        onClick={() => navigate(`/projects/overview/${project.id}`)}
+                      >
+                        {project.name}
+                      </button>
+                      <p className="text-muted-foreground">Estimate: {project.estimate}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </GlassCard>
         </div>
       </div>
-
-      {/* Tasks Table */}
-      <GlassCard>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg">Recent Tasks</CardTitle>
-          <Button variant="outline" size="sm" className="bg-white/60 dark:bg-white/10">
-            <Eye className="w-4 h-4 mr-2" />
-            View All Tasks
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto rounded-xl border border-white/30 bg-white/40 backdrop-blur dark:border-white/10 dark:bg-white/5">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="border-b border-white/30 dark:border-white/10">
-                  <th className="text-left py-3 px-4">ID</th>
-                  <th className="text-left py-3 px-4">Title</th>
-                  <th className="text-left py-3 px-4">Start Date</th>
-                  <th className="text-left py-3 px-4">Deadline</th>
-                  <th className="text-left py-3 px-4">Status</th>
-                  <th className="text-left py-3 px-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasksTable.slice(0, 5).map((task) => (
-                  <tr key={task.id} className="border-b border-white/30 hover:bg-white/60 dark:border-white/10 dark:hover:bg-white/10">
-                    <td className="py-3 px-4">{task.id}</td>
-                    <td className="py-3 px-4 text-primary font-medium">{task.title}</td>
-                    <td className="py-3 px-4">{task.startDate}</td>
-                    <td className="py-3 px-4">{task.deadline}</td>
-                    <td className="py-3 px-4">
-                      <Badge
-                        variant={task.status === "done" ? "default" : 
-                                task.status === "in-progress" ? "secondary" : "outline"}
-                      >
-                        {task.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline">
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Edit className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </GlassCard>
     </div>
   );
 }

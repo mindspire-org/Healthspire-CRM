@@ -72,6 +72,7 @@ type ContactDoc = {
   lastName?: string;
   isPrimaryContact?: boolean;
   avatar?: string;
+  phone?: string;
 };
 
 type LeadDoc = {
@@ -80,6 +81,8 @@ type LeadDoc = {
   company?: string;
   email?: string;
   phone?: string;
+  expectedPrice?: string;
+  systemNeeded?: string;
   type?: "Organization" | "Person";
   ownerId?: string;
   status?: string;
@@ -120,6 +123,19 @@ export default function Leads() {
   const [contacts, setContacts] = useState<ContactDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const role = (getStoredAuthUser()?.role || "admin") as string;
+
+  const openWhatsappReminder = (phoneRaw?: string, leadName?: string) => {
+    const phone = String(phoneRaw || "")
+      .trim()
+      .replace(/[^0-9]/g, "");
+    if (!phone) {
+      toast.error("No phone number found");
+      return;
+    }
+    const msg = `Reminder: following up on your inquiry${leadName ? ` (${leadName})` : ""}.`;
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   const [kanbanCounts, setKanbanCounts] = useState<Record<string, { contacts: number; files: number; contracts: number }>>({});
 
@@ -201,6 +217,8 @@ export default function Leads() {
     company: "",
     email: "",
     phone: "",
+    expectedPrice: "",
+    systemNeeded: "",
     status: "New",
     source: "",
     ownerId: "-",
@@ -248,6 +266,17 @@ export default function Leads() {
     return m;
   }, [contacts]);
 
+  // Extract unique system needed values from leads
+  const uniqueSystemNeededOptions = useMemo(() => {
+    const uniqueValues = new Set<string>();
+    items.forEach(lead => {
+      if (lead.systemNeeded && lead.systemNeeded.trim()) {
+        uniqueValues.add(lead.systemNeeded.trim());
+      }
+    });
+    return Array.from(uniqueValues).sort();
+  }, [items]);
+
   const contactCountByLeadId = useMemo(() => {
     const m = new Map<string, number>();
     for (const c of contacts) {
@@ -278,6 +307,15 @@ export default function Leads() {
     } catch (e: any) {
       toast.error(e?.message || "Failed to approve lead");
     }
+  };
+
+  const formatLeadValue = (lead: LeadDoc) => {
+    const raw = String((lead as any)?.expectedPrice ?? "").trim();
+    if (!raw) return "-";
+    const cur = String((lead as any)?.currencySymbol || (lead as any)?.currency || "").trim();
+    const n = Number(raw.replace(/,/g, ""));
+    const formatted = Number.isFinite(n) ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n) : raw;
+    return cur ? `${cur} ${formatted}` : formatted;
   };
 
   const updateLeadStatus = async (leadId: string, status: string) => {
@@ -470,6 +508,8 @@ export default function Leads() {
       company: "",
       email: "",
       phone: "",
+      expectedPrice: "",
+      systemNeeded: "",
       status: "New",
       source: "",
       ownerId: "-",
@@ -498,6 +538,8 @@ export default function Leads() {
       company: lead.company || "",
       email: lead.email || "",
       phone: lead.phone || "",
+      expectedPrice: lead.expectedPrice || "",
+      systemNeeded: lead.systemNeeded || "",
       status: lead.status || "New",
       source: lead.source || "",
       ownerId: lead.ownerId || "-",
@@ -537,6 +579,8 @@ export default function Leads() {
         company: leadForm.company,
         email: leadForm.email,
         phone: leadForm.phone,
+        expectedPrice: leadForm.expectedPrice,
+        systemNeeded: leadForm.systemNeeded,
         status: leadForm.status,
         source: leadForm.source,
         address: leadForm.address,
@@ -634,20 +678,16 @@ export default function Leads() {
 
   const exportExcel = () => {
     const rows: string[][] = [
-      ["Name", "Primary contact", "Phone", "Owner", "Labels", "Created", "Status", "Source"],
+      ["Name", "Primary contact", "Phone", "Owner", "Lead value", "Labels", "Created", "Status", "Source"],
       ...items.map((l) => [
         l.name || "",
         displayContactName(primaryContactByLeadId.get(l._id)),
         l.phone || "",
-        l.ownerId ? (employeeNameById.get(l.ownerId) || "") : "",
-        Array.isArray(l.labels)
-          ? l.labels
-              .map((id) => labelById.get(id)?.name || "")
-              .filter(Boolean)
-              .join(" | ")
-          : "",
+        l.ownerId ? (employeeNameById.get(l.ownerId) || "-") : "-",
+        formatLeadValue(l),
+        Array.isArray(l.labels) ? l.labels.map((id) => labelById.get(id)?.name).filter(Boolean).join(", ") : "",
         formatDate(l.createdAt),
-        l.status || "",
+        l.status || "New",
         l.source || "",
       ]),
     ];
@@ -658,24 +698,24 @@ export default function Leads() {
     const rowsHtml = items
       .map((l) => {
         const owner = l.ownerId ? (employeeNameById.get(l.ownerId) || "-") : "-";
-        const pc = displayContactName(primaryContactByLeadId.get(l._id));
-        const lbl = Array.isArray(l.labels)
-          ? l.labels
-              .map((id) => labelById.get(id)?.name || "")
-              .filter(Boolean)
-              .join(", ")
-          : "";
+        const value = formatLeadValue(l);
+        const labels = Array.isArray(l.labels) ? l.labels.map((id) => labelById.get(id)?.name).filter(Boolean).join(", ") : "";
+        const created = formatDate(l.createdAt);
+        const status = l.status || "New";
+        const source = l.source || "-";
         return `
           <tr>
             <td>${l.name || "-"}</td>
-            <td>${pc || "-"}</td>
+            <td>${displayContactName(primaryContactByLeadId.get(l._id))}</td>
             <td>${l.phone || "-"}</td>
             <td>${owner}</td>
-            <td>${lbl || "-"}</td>
-            <td>${formatDate(l.createdAt)}</td>
-            <td>${l.status || "-"}</td>
-            <td>${l.source || "-"}</td>
-          </tr>`;
+            <td>${value}</td>
+            <td>${labels || "-"}</td>
+            <td>${created}</td>
+            <td>${status}</td>
+            <td>${source}</td>
+          </tr>
+        `;
       })
       .join("");
 
@@ -701,6 +741,7 @@ export default function Leads() {
           <th>Primary contact</th>
           <th>Phone</th>
           <th>Owner</th>
+          <th>Lead value</th>
           <th>Labels</th>
           <th>Created</th>
           <th>Status</th>
@@ -782,6 +823,81 @@ export default function Leads() {
     } catch (e: any) {
       toast.error(e?.message || "Failed to import");
     }
+  };
+
+  const createLeadContactFromForm = async (leadId: string) => {
+    const firstName = String(makeClientForm.firstName || "").trim();
+    const lastName = String(makeClientForm.lastName || "").trim();
+    const email = String(makeClientForm.email || "").trim();
+    const phone = String(makeClientForm.contactPhone || makeClientForm.phone || "").trim();
+    const jobTitle = String(makeClientForm.jobTitle || "").trim();
+    const skype = String(makeClientForm.skype || "").trim();
+
+    const name = `${firstName}${lastName ? ` ${lastName}` : ""}`.trim();
+    if (!name) throw new Error("Contact name is required");
+    if (!email) throw new Error("Contact email is required");
+
+    if (makeClientForm.primaryContact) {
+      try {
+        const params = new URLSearchParams();
+        params.set("leadId", leadId);
+        const r = await fetch(`${API_BASE}/api/contacts?${params.toString()}`, { headers: getAuthHeaders() });
+        const json = await r.json().catch(() => null);
+        if (r.ok && Array.isArray(json)) {
+          const updates = json
+            .filter((c: any) => c?._id && c.isPrimaryContact)
+            .map((c: any) =>
+              fetch(`${API_BASE}/api/contacts/${c._id}`, {
+                method: "PUT",
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({ isPrimaryContact: false }),
+              })
+            );
+          await Promise.all(updates);
+        }
+      } catch {
+      }
+    }
+
+    const res = await fetch(`${API_BASE}/api/contacts`, {
+      method: "POST",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        leadId,
+        firstName,
+        lastName,
+        name,
+        email,
+        phone,
+        skype,
+        jobTitle,
+        gender: makeClientForm.gender,
+        isPrimaryContact: Boolean(makeClientForm.primaryContact),
+      }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(json?.error || "Failed to create contact");
+    await loadContacts();
+  };
+
+  const openConvertDialog = (mode: "client" | "contact", lead: LeadDoc) => {
+    setConvertMode(mode);
+    setMakeClientLead(lead);
+    setMakeClientStep(mode === "contact" ? "contact" : "details");
+
+    setMakeClientForm((p) => ({
+      ...p,
+      type: ((lead.type as any) || "Organization") as any,
+      name: lead.name || "",
+      phone: lead.phone || "",
+      contactPhone: lead.phone || p.contactPhone,
+      email: lead.email || p.email,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      primaryContact: true,
+    }));
+
+    setMakeClientOpen(true);
   };
 
   const saveMakeClient = async () => {
@@ -1007,6 +1123,45 @@ export default function Leads() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
+                    <Label>Expected Price / Lead Value</Label>
+                    <Input 
+                      type="number" 
+                      placeholder="Enter expected price" 
+                      value={leadForm.expectedPrice} 
+                      onChange={(e)=>setLeadForm((p)=>({ ...p, expectedPrice: e.target.value }))} 
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>System Needed</Label>
+                    <Select value={leadForm.systemNeeded} onValueChange={(v)=>setLeadForm((p)=>({ ...p, systemNeeded: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select system needed" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {uniqueSystemNeededOptions.length > 0 && (
+                          <>
+                            {uniqueSystemNeededOptions.map((option) => (
+                              <SelectItem key={option} value={option}>{option}</SelectItem>
+                            ))}
+                            <SelectItem value="">- Clear -</SelectItem>
+                          </>
+                        )}
+                        <SelectItem value="custom">+ Add Custom Value</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {leadForm.systemNeeded === "custom" && (
+                      <Input 
+                        placeholder="Enter custom system needed" 
+                        value={leadForm.systemNeeded === "custom" ? "" : leadForm.systemNeeded}
+                        onChange={(e)=>setLeadForm((p)=>({ ...p, systemNeeded: e.target.value }))}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
                     <Label>Owner</Label>
                     <Select value={leadForm.ownerId} onValueChange={(v)=>setLeadForm((p)=>({ ...p, ownerId: v }))}>
                       <SelectTrigger><SelectValue placeholder="- Owner -" /></SelectTrigger>
@@ -1185,6 +1340,7 @@ export default function Leads() {
                     <TableHead>Primary contact</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Owner</TableHead>
+                    <TableHead>Lead value</TableHead>
                     <TableHead>Labels</TableHead>
                     <TableHead>Created date</TableHead>
                     <TableHead>Status</TableHead>
@@ -1257,6 +1413,7 @@ export default function Leads() {
                             <span className="text-muted-foreground">-</span>
                           )}
                         </TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold text-green-600 dark:text-green-400">{formatLeadValue(lead)}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           <div className="flex flex-wrap gap-1">
                             {leadLabels.length ? leadLabels.map((l) => (
@@ -1276,6 +1433,15 @@ export default function Leads() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEditLead(lead)}><Edit className="w-4 h-4 mr-2"/>Edit</DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  const phone = lead.phone || primary?.phone;
+                                  openWhatsappReminder(phone, lead.name);
+                                }}
+                              >
+                                <ExternalLink className="w-4 h-4 mr-2"/>
+                                WhatsApp reminder
+                              </DropdownMenuItem>
                               {role === "admin" && (
                                 <DropdownMenuItem onClick={() => approveLead(lead._id)}><Check className="w-4 h-4 mr-2"/>Approve to Client</DropdownMenuItem>
                               )}
@@ -1287,7 +1453,7 @@ export default function Leads() {
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">No leads</TableCell>
+                      <TableCell colSpan={9} className="text-center text-muted-foreground">No leads</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -1404,6 +1570,7 @@ export default function Leads() {
                           </div>
                         </div>
 
+                        <div className="mt-1 text-sm font-semibold">{formatLeadValue(lead)}</div>
                         <div className="text-xs text-muted-foreground mt-1">{lead.source || "-"}</div>
 
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">

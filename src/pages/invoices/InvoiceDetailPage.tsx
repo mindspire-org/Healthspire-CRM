@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, Plus, FileText, DollarSign, CheckSquare, Mail, Printer, Download, Copy, MessageCircle } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { toast } from "@/components/ui/sonner";
@@ -464,8 +465,11 @@ export default function InvoiceDetailPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">INVOICE #{inv.number || id}</h1>
+        <div className="flex items-center gap-3">
+          <BackButton to="/invoices" />
+          <div>
+            <h1 className="text-xl font-bold">INVOICE #{inv.number || id}</h1>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => setOpenPay(true)}><DollarSign className="w-4 h-4 mr-2"/>Add payment</Button>

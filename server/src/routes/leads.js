@@ -42,6 +42,8 @@ function cleanPayload(body) {
   if (body?.company !== undefined) p.company = toStr(body.company);
   if (body?.email !== undefined) p.email = toStr(body.email);
   if (body?.phone !== undefined) p.phone = toStr(body.phone);
+  if (body?.expectedPrice !== undefined) p.expectedPrice = toStr(body.expectedPrice);
+  if (body?.systemNeeded !== undefined) p.systemNeeded = toStr(body.systemNeeded);
   if (body?.type !== undefined) p.type = toStr(body.type) || "Organization";
   if (body?.ownerId !== undefined) p.ownerId = body.ownerId || undefined;
   if (body?.status !== undefined) p.status = toStr(body.status) || "New";
@@ -167,7 +169,7 @@ router.post("/:id/approve", authenticate, async (req, res) => {
     const client = await Client.create(clientPayload);
 
     // Mark lead as Qualified (still retained in leads)
-    await Lead.findByIdAndUpdate(lead._id, { $set: { status: "Qualified" } });
+    await Lead.findByIdAndUpdate(lead._id, { $set: { status: "Won" } });
 
     res.json({ ok: true, clientId: client._id });
   } catch (e) {

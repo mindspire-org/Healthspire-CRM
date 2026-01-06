@@ -311,12 +311,7 @@ This client has been successfully served and we are proud to have them in our po
         return;
       }
 
-      const el = document.createElement("div");
-      el.style.position = "fixed";
-      el.style.left = "-10000px";
-      el.style.top = "0";
-      el.style.width = "794px";
-      el.style.background = "#ffffff";
+      const sanitize = (str: string) => String(str || "").replace(/[&<>"']/g, (c) => ({ "&": "&", "<": "<", ">": ">", '"': "\"", "'": "'" }[c] || c));
 
       const created = new Date();
       const createdStr = created.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
@@ -325,134 +320,134 @@ This client has been successfully served and we are proud to have them in our po
 
       const total = rows.length;
       const active = rows.filter((c) => c.status === "active").length;
-      const inactive = rows.filter((c) => c.status === "inactive").length;
-      const uniqueLabels = Array.from(new Set(rows.flatMap((c) => c.labels || []))).length;
+      const inactive = total - active;
+      const labels = [...new Set(rows.flatMap((c) => c.labels || []))];
 
-      const sanitize = (s: string) =>
-        String(s || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/\"/g, "&quot;")
-          .replace(/'/g, "&#039;");
-
-      const initials = (name: string) => {
-        const t = String(name || "").trim();
-        if (!t) return "CL";
-        return t
-          .split(/\s+/)
-          .map((w) => w[0])
-          .join("")
-          .slice(0, 2)
-          .toUpperCase();
-      };
-
-      const statusPill = (s: string) => {
-        const v = String(s || "inactive").toLowerCase();
-        if (v === "active") return { bg: "#DCFCE7", fg: "#166534" };
-        return { bg: "#F1F5F9", fg: "#475569" };
-      };
-
+      const el = document.createElement("div");
+      el.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+        width: 800px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2937;
+        background: white;
+        padding: 20px;
+        box-sizing: border-box;
+      `;
+      
       el.innerHTML = `
-        <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color: #0f172a; line-height: 1.45; padding: 18px;">
-          <div style="background: linear-gradient(135deg, ${paletteA}, ${paletteB}); border-radius: 16px; padding: 28px 26px; color: #fff;">
+        <div style="max-width: 800px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, ${paletteA}, ${paletteB}); border-radius: 16px; padding: 28px 26px; color: #fff; margin-bottom: 20px;">
             <div style="display:flex; align-items:center; justify-content:space-between; gap: 14px;">
               <div>
-                <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.2px;">${sanitize(pdfConfig.companyName)}</div>
-                <div style="margin-top: 4px; font-size: 14px; opacity: 0.9;">${sanitize(pdfConfig.tagline)}</div>
+                <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.2px; margin: 0;">${sanitize(pdfConfig.companyName)}</div>
+                <div style="margin-top: 4px; font-size: 14px; opacity: 0.9; margin: 0;">${sanitize(pdfConfig.tagline)}</div>
               </div>
               <div style="text-align:right; font-size:12px; opacity:0.9;">
-                <div>Portfolio Export</div>
-                <div>Generated: ${sanitize(createdStr)}</div>
+                <div style="margin: 0;">Portfolio Export</div>
+                <div style="margin: 0;">Generated: ${sanitize(createdStr)}</div>
               </div>
             </div>
           </div>
 
           ${pdfConfig.includeStats ? `
-            <div style="margin-top: 16px; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; background: #f8fafc;">
-              <div style="font-weight: 700; color: ${paletteA}; margin-bottom: 10px;">Overview</div>
+            <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; background: #f8fafc; margin-bottom: 20px;">
+              <div style="font-weight: 700; color: ${paletteA}; margin-bottom: 10px; margin: 0;">Overview</div>
               <div style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;">
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                  <div style="font-size: 11px; color:#64748b;">Total Clients</div>
-                  <div style="font-size: 20px; font-weight: 800; color:${paletteA};">${total}</div>
+                <div style="text-align:center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="font-size: 24px; font-weight: 700; color: ${paletteA}; margin: 0;">${total}</div>
+                  <div style="font-size: 12px; color: #64748b; margin: 0;">Total Clients</div>
                 </div>
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                  <div style="font-size: 11px; color:#64748b;">Active</div>
-                  <div style="font-size: 20px; font-weight: 800; color:#16a34a;">${active}</div>
+                <div style="text-align:center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="font-size: 24px; font-weight: 700; color: #10b981; margin: 0;">${active}</div>
+                  <div style="font-size: 12px; color: #64748b; margin: 0;">Active</div>
                 </div>
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                  <div style="font-size: 11px; color:#64748b;">Inactive</div>
-                  <div style="font-size: 20px; font-weight: 800; color:#f59e0b;">${inactive}</div>
+                <div style="text-align:center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="font-size: 24px; font-weight: 700; color: #f59e0b; margin: 0;">${inactive}</div>
+                  <div style="font-size: 12px; color: #64748b; margin: 0;">Inactive</div>
                 </div>
-                <div style="background:#fff; border:1px solid #e2e8f0; border-radius: 12px; padding: 12px;">
-                  <div style="font-size: 11px; color:#64748b;">Unique Labels</div>
-                  <div style="font-size: 20px; font-weight: 800; color:${paletteB};">${uniqueLabels}</div>
+                <div style="text-align:center; padding: 12px; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <div style="font-size: 24px; font-weight: 700; color: ${paletteB}; margin: 0;">${labels.length}</div>
+                  <div style="font-size: 12px; color: #64748b; margin: 0;">Labels</div>
                 </div>
               </div>
             </div>
           ` : ""}
 
-          <div style="margin-top: 16px;">
-            <div style="display:flex; align-items:flex-end; justify-content:space-between; gap: 10px;">
-              <div style="font-weight: 800; font-size: 16px; color: ${paletteA};">Clients</div>
-              <div style="font-size: 11px; color:#64748b;">Showing ${total} client(s)</div>
-            </div>
-            <div style="margin-top: 10px; display:flex; flex-direction:column; gap: 10px;">
+          <div>
+            <div style="font-weight: 700; color: ${paletteA}; margin-bottom: 12px; font-size: 18px; margin: 0;">Client Portfolio</div>
+            <div style="display: grid; gap: 12px;">
               ${rows
-                .map((c) => {
-                  const pill = statusPill(c.status);
-                  const chips = (c.labels || [])
-                    .slice(0, 10)
-                    .map(
-                      (l) =>
-                        `<span style=\"display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; font-size:11px; border:1px solid ${paletteA}33; color:${paletteA}; background:${paletteA}0f;\">${sanitize(l)}</span>`
-                    )
-                    .join(" ");
-                  return `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; background:#fff; box-shadow: 0 6px 18px rgba(2,6,23,0.06); page-break-inside: avoid;">
-                      <div style="display:flex; gap: 12px; align-items:center;">
-                        <div style="width:44px; height:44px; border-radius: 14px; background: linear-gradient(135deg, ${paletteA}, ${paletteB}); display:flex; align-items:center; justify-content:center; color:#fff; font-weight: 800;">
-                          ${sanitize(initials(c.displayName))}
-                        </div>
-                        <div style="flex:1; min-width:0;">
-                          <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
-                            <div style="font-size: 15px; font-weight: 800; color:#0f172a;">${sanitize(c.displayName)}</div>
-                            <div style="padding:4px 10px; border-radius:999px; background:${pill.bg}; color:${pill.fg}; font-size:11px; font-weight:700;">${sanitize(c.status)}</div>
-                          </div>
-                          <div style="margin-top:2px; font-size: 12px; color:#64748b;">${sanitize(c.owner || c.email || "-")}</div>
-                        </div>
-                      </div>
-
-                      <div style="margin-top: 10px; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 12px; color:#0f172a;">
-                        <div><span style="color:#64748b;">Email:</span> ${sanitize(c.email || "-")}</div>
-                        <div><span style="color:#64748b;">Phone:</span> ${sanitize(c.phone || "-")}</div>
-                        <div><span style="color:#64748b;">Website:</span> ${sanitize(c.website || "-")}</div>
-                        <div><span style="color:#64748b;">Address:</span> ${sanitize(c.address || "-")}</div>
-                      </div>
-
-                      ${chips ? `<div style=\"margin-top: 10px; display:flex; flex-wrap:wrap; gap: 6px;\">${chips}</div>` : ""}
+                .map(
+                  (client) => `
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; background: white; page-break-inside: avoid;">
+                  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin-bottom: 8px;">
+                    <div>
+                      <div style="font-weight: 600; font-size: 16px; color: #1f2937; margin: 0;">${sanitize(client.displayName)}</div>
+                      <div style="font-size: 13px; color: #64748b; margin-top: 2px; margin: 0;">${sanitize(client.owner || "No owner")}</div>
                     </div>
-                  `;
-                })
+                    <div style="padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; background: ${client.status === "active" ? "#dcfce7" : "#fef3c7"}; color: ${client.status === "active" ? "#166534" : "#92400e"}; margin: 0;">
+                      ${client.status === "active" ? "Active" : "Inactive"}
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; font-size: 13px; color: #64748b;">
+                    <div style="margin: 0;"><strong>Email:</strong> ${sanitize(client.email || "N/A")}</div>
+                    <div style="margin: 0;"><strong>Phone:</strong> ${sanitize(client.phone || "N/A")}</div>
+                    <div style="grid-column: span 2; margin: 0;"><strong>Address:</strong> ${sanitize(client.address || "N/A")}</div>
+                    ${client.website ? `<div style="grid-column: span 2; margin: 0;"><strong>Website:</strong> <a href="${sanitize(client.website)}" style="color: ${paletteA}; text-decoration: none;">${sanitize(client.website)}</a></div>` : ""}
+                  </div>
+                  ${client.labels.length ? `
+                    <div style="margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px;">
+                      ${client.labels
+                        .map(
+                          (label) => `
+                        <span style="padding: 2px 6px; background: ${paletteA}15; color: ${paletteA}; border-radius: 4px; font-size: 11px; font-weight: 500; margin: 0;">
+                          ${sanitize(label)}
+                        </span>
+                      `
+                        )
+                        .join("")}
+                    </div>
+                  ` : ""}
+                </div>
+              `
+                )
                 .join("")}
             </div>
           </div>
 
           <div style="margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align:center; color:#64748b; font-size: 11px;">
-            © ${new Date().getFullYear()} ${sanitize(pdfConfig.companyName)}
+            <p style="margin: 0;">© ${new Date().getFullYear()} ${sanitize(pdfConfig.companyName)}</p>
           </div>
         </div>
       `;
 
       document.body.appendChild(el);
+      
+      // Wait for DOM to render
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const file = `portfolio_${String(pdfConfig.companyName || "company").replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      
       await html2pdf()
         .set({
           filename: file,
-          margin: [0.4, 0.4, 0.4, 0.4],
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-          jsPDF: { unit: "in", format: "a4", orientation: "portrait" },
+          margin: [0.5, 0.5, 0.5, 0.5],
+          html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
+            backgroundColor: "#ffffff",
+            allowTaint: true,
+            foreignObjectRendering: false
+          },
+          jsPDF: { 
+            unit: "in", 
+            format: "a4", 
+            orientation: "portrait" 
+          }
         })
         .from(el)
         .save();
@@ -461,20 +456,10 @@ This client has been successfully served and we are proud to have them in our po
       toast.success("Portfolio PDF generated successfully");
       setOpenPdfExport(false);
     } catch (e: any) {
+      console.error('PDF generation error:', e);
       toast.error(e?.message || "Failed to generate PDF");
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading portfolio...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900">

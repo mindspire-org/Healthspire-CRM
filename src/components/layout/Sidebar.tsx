@@ -55,6 +55,7 @@ const navigation: NavItem[] = [
     href: "/crm",
     icon: Target,
     children: [
+      { title: "Dashboard", href: "/crm" },
       { title: "Leads", href: "/crm/leads" },
     ],
   },
@@ -79,6 +80,7 @@ const navigation: NavItem[] = [
     children: [
       { title: "Overview", href: "/projects" },
       { title: "Timeline", href: "/projects/timeline" },
+      { title: "Tasks", href: "/tasks" },
     ],
   },
 
@@ -104,6 +106,8 @@ const navigation: NavItem[] = [
       { title: "Invoices", href: "/invoices" },
       { title: "Orders list", href: "/sales/orders" },
       { title: "Store", href: "/sales/store" },
+      { title: "Subscriptions", href: "/sales/subscriptions" },
+      { title: "Recurring Revenue", href: "/sales/recurring" },
       { title: "Payments", href: "/sales/payments" },
       { title: "Expenses", href: "/sales/expenses" },
       { title: "Items", href: "/sales/items" },
@@ -160,15 +164,6 @@ const navigation: NavItem[] = [
       { title: "Integration", href: "/settings/integration" },
       { title: "System", href: "/settings/system" },
       { title: "Updates", href: "/settings/updates" },
-    ],
-  },
-  {
-    title: "Access Permission",
-    href: "/user-management/users",
-    icon: Shield,
-    children: [
-      { title: "Roles & Permissions", href: "/user-management/roles" },
-      { title: "Manage Users", href: "/user-management/users" },
     ],
   },
   {
