@@ -1,6 +1,7 @@
 import { Router } from "express";
 import Client from "../models/Client.js";
 import { ensureLinkedAccount } from "../services/accounting.js";
+import { authenticate } from "../middleware/auth.js";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -20,9 +21,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+const canReadClients = (role) => {
+  const r = String(role || "").toLowerCase();
+  return r === "admin" || r === "staff" || r === "marketer";
+};
+
+const canWriteClients = (role) => {
+  const r = String(role || "").toLowerCase();
+  return r === "admin" || r === "marketer";
+};
+
 // List clients with optional search
-router.get("/", async (req, res) => {
+router.get("/", authenticate, async (req, res) => {
   try {
+    if (!canReadClients(req.user?.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const q = req.query.q?.toString().trim();
     const filter = q
       ? {
@@ -42,8 +56,11 @@ router.get("/", async (req, res) => {
 });
 
 // Create client
-router.post("/", async (req, res) => {
+router.post("/", authenticate, async (req, res) => {
   try {
+    if (!canWriteClients(req.user?.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const doc = await Client.create(req.body);
     try {
       const displayName = doc.company || doc.person || doc.firstName || doc.lastName || "Client";
@@ -56,8 +73,11 @@ router.post("/", async (req, res) => {
 });
 
 // Get single client
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticate, async (req, res) => {
   try {
+    if (!canReadClients(req.user?.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const doc = await Client.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ error: "Not found" });
     res.json(doc);
@@ -67,8 +87,11 @@ router.get("/:id", async (req, res) => {
 });
 
 // Update client
-router.put("/:id", async (req, res) => {
+router.put("/:id", authenticate, async (req, res) => {
   try {
+    if (!canWriteClients(req.user?.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     const doc = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) return res.status(404).json({ error: "Not found" });
     try {
@@ -82,8 +105,11 @@ router.put("/:id", async (req, res) => {
 });
 
 // Upload & set client avatar
-router.post("/:id/avatar", upload.single("file"), async (req, res) => {
+router.post("/:id/avatar", authenticate, upload.single("file"), async (req, res) => {
   try {
+    if (!canWriteClients(req.user?.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const avatarPath = `/uploads/${req.file.filename}`;
     const doc = await Client.findByIdAndUpdate(req.params.id, { avatar: avatarPath }, { new: true });
@@ -95,8 +121,11 @@ router.post("/:id/avatar", upload.single("file"), async (req, res) => {
 });
 
 // Delete client
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authenticate, async (req, res) => {
   try {
+    if (String(req.user?.role || "").toLowerCase() !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
     const r = await Client.findByIdAndDelete(req.params.id);
     if (!r) return res.status(404).json({ error: "Not found" });
     res.json({ ok: true });

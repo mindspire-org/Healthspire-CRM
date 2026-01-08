@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 type AnnouncementDoc = {
   _id: string;

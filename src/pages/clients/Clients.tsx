@@ -15,10 +15,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
+import { canViewFinancialData, getCurrentUser } from "@/utils/roleAccess";
 
 interface ContactRow {
   id: string;
@@ -133,7 +131,7 @@ function ImportClientsDialog({ onImported }: { onImported: (created:any[])=>void
           phone: r.phone || undefined,
           labels: (r.labels||"").split(/[,;]/).map((s:string)=>s.trim()).filter(Boolean),
         };
-        const res = await fetch(`${API_BASE}/api/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        const res = await fetch(`${API_BASE}/api/clients`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
         if (res.ok) { created.push(await res.json()); }
       }
       onImported(created);
@@ -173,6 +171,11 @@ function ImportClientsDialog({ onImported }: { onImported: (created:any[])=>void
 }
 
 export default function Clients() {
+  const canViewPricing = useMemo(() => {
+    const u = getCurrentUser();
+    return u ? canViewFinancialData(u as any) : false;
+  }, []);
+
   const [openAdd, setOpenAdd] = useState(false);
   const [openLabels, setOpenLabels] = useState(false);
   const [openImport, setOpenImport] = useState(false);
@@ -297,7 +300,7 @@ export default function Clients() {
                   labels: c.labels?.filter(Boolean) || [],
                   disableOnlinePayment: Boolean(c.disableOnlinePayment),
                 };
-                const res = await fetch(`${API_BASE}/api/clients`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                const res = await fetch(`${API_BASE}/api/clients`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
                 if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Failed to add client"); return; }
                 const d = await res.json();
                 const row: ContactRow = { id: String(d._id||""), name: d.company || d.person || "New Client", client: d.company || d.person || "-", email: d.email || c.email, phone: d.phone || c.phone };
@@ -478,6 +481,11 @@ function ContactsTable({ rows }: { rows: ContactRow[] }) {
 }
 
 function ClientsMainTable({ clients, onClientUpdated, onClientDeleted }: { clients: any[]; onClientUpdated?: (updated:any)=>void; onClientDeleted?: (id: string)=>void }) {
+  const canViewPricing = useMemo(() => {
+    const u = getCurrentUser();
+    return u ? canViewFinancialData(u as any) : false;
+  }, []);
+
   const [editing, setEditing] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -550,7 +558,7 @@ function ClientsMainTable({ clients, onClientUpdated, onClientDeleted }: { clien
         labels: labelsText.split(",").map(s=>s.trim()).filter(Boolean),
         disableOnlinePayment,
       };
-      const res = await fetch(`${API_BASE}/api/clients/${editing._id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/api/clients/${editing._id}`, { method: "PUT", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Failed to update client"); return; }
       const updated = await res.json();
       onClientUpdated?.(updated);
@@ -565,7 +573,7 @@ function ClientsMainTable({ clients, onClientUpdated, onClientDeleted }: { clien
     if (!ok) return;
     try {
       setDeletingId(clientId);
-      const res = await fetch(`${API_BASE}/api/clients/${clientId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/clients/${clientId}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to delete client");
       toast.success("Client deleted");
@@ -590,9 +598,9 @@ function ClientsMainTable({ clients, onClientUpdated, onClientDeleted }: { clien
             <TableHead>Client groups</TableHead>
             <TableHead>Labels</TableHead>
             <TableHead>Projects</TableHead>
-            <TableHead>Total invoiced</TableHead>
-            <TableHead>Payment Received</TableHead>
-            <TableHead>Due</TableHead>
+            {canViewPricing && <TableHead>Total invoiced</TableHead>}
+            {canViewPricing && <TableHead>Payment Received</TableHead>}
+            {canViewPricing && <TableHead>Due</TableHead>}
             <TableHead className="w-24 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -623,9 +631,15 @@ function ClientsMainTable({ clients, onClientUpdated, onClientDeleted }: { clien
               <TableCell className="whitespace-nowrap">{(c.clientGroups||[]).join(", ") || "-"}</TableCell>
               <TableCell className="whitespace-nowrap">{(c.labels||[]).join(", ") || "-"}</TableCell>
               <TableCell className="whitespace-nowrap">{c.projectsCount ?? 0}</TableCell>
-              <TableCell className="whitespace-nowrap">{c.totalInvoiced ? `Rs.${c.totalInvoiced}` : "Rs.0"}</TableCell>
-              <TableCell className="whitespace-nowrap">{c.paymentReceived ? `Rs.${c.paymentReceived}` : "Rs.0"}</TableCell>
-              <TableCell className="whitespace-nowrap">{c.due ? `Rs.${c.due}` : "Rs.0"}</TableCell>
+              {canViewPricing && (
+                <TableCell className="whitespace-nowrap">{c.totalInvoiced ? `Rs.${c.totalInvoiced}` : "Rs.0"}</TableCell>
+              )}
+              {canViewPricing && (
+                <TableCell className="whitespace-nowrap">{c.paymentReceived ? `Rs.${c.paymentReceived}` : "Rs.0"}</TableCell>
+              )}
+              {canViewPricing && (
+                <TableCell className="whitespace-nowrap">{c.due ? `Rs.${c.due}` : "Rs.0"}</TableCell>
+              )}
               <TableCell className="text-right">
                 <div className="inline-flex items-center gap-3">
                   <Button variant="link" className="px-0 text-primary inline-flex items-center gap-1" onClick={()=>openEdit(c)}>

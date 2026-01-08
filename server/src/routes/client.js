@@ -9,6 +9,10 @@ import Announcement from "../models/Announcement.js";
 import ProjectRequest from "../models/ProjectRequest.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import Invoice from "../models/Invoice.js";
+import Estimate from "../models/Estimate.js";
+import Proposal from "../models/Proposal.js";
+import Contract from "../models/Contract.js";
 
 const router = Router();
 
@@ -20,6 +24,21 @@ const requireClient = (req, res, next) => {
     return res.status(403).json({ error: "Client is not linked to a clientId" });
   }
   next();
+};
+
+const buildClientMatch = async (clientId) => {
+  const cid = String(clientId || "").trim();
+  const base = { clientId: cid };
+  try {
+    const client = await Client.findById(cid).select("company person").lean();
+    const names = [client?.company, client?.person]
+      .map((s) => String(s || "").trim())
+      .filter(Boolean);
+    if (names.length === 0) return base;
+    return { $or: [base, { client: { $in: names } }] };
+  } catch {
+    return base;
+  }
 };
 
 const ensureCounterAtLeast = async (minSeq) => {
@@ -59,6 +78,46 @@ router.get("/me", authenticate, requireClient, async (req, res) => {
 router.get("/projects", authenticate, requireClient, async (req, res) => {
   try {
     const items = await Project.find({ clientId: req.user.clientId }).sort({ createdAt: -1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/invoices", authenticate, requireClient, async (req, res) => {
+  try {
+    const match = await buildClientMatch(req.user.clientId);
+    const items = await Invoice.find(match).sort({ createdAt: -1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/estimates", authenticate, requireClient, async (req, res) => {
+  try {
+    const match = await buildClientMatch(req.user.clientId);
+    const items = await Estimate.find(match).sort({ createdAt: -1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/proposals", authenticate, requireClient, async (req, res) => {
+  try {
+    const match = await buildClientMatch(req.user.clientId);
+    const items = await Proposal.find(match).sort({ createdAt: -1 }).lean();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/contracts", authenticate, requireClient, async (req, res) => {
+  try {
+    const match = await buildClientMatch(req.user.clientId);
+    const items = await Contract.find(match).sort({ createdAt: -1 }).lean();
     res.json(items);
   } catch (e) {
     res.status(500).json({ error: e.message });

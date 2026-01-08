@@ -46,6 +46,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
+import { canViewFinancialData, getCurrentUser, maskFinancialData } from "@/utils/roleAccess";
+
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 
 type ListInvoice = {
   id: string;
@@ -61,17 +73,22 @@ type ListInvoice = {
   advancedAmount?: string;
 };
 
-const API_BASE = "http://localhost:5000";
-
 export default function InvoiceList() {
   const [tab, setTab] = useState("list");
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const [rows, setRows] = useState<ListInvoice[]>([]);
+  const [allPayments, setAllPayments] = useState<any[]>([]);
+
+  const canViewPricing = useMemo(() => {
+    const u = getCurrentUser();
+    return u ? canViewFinancialData(u as any) : false;
+  }, []);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCurrency, setFilterCurrency] = useState<string>("all");
   const [datePreset, setDatePreset] = useState<string>("all");
+  const [quickView, setQuickView] = useState<string>("__all__");
   const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
   const [projectOptions, setProjectOptions] = useState<{ id: string; title: string; clientId?: string }[]>([]);
   const [clientSel, setClientSel] = useState("");
@@ -135,13 +152,13 @@ export default function InvoiceList() {
       setPaymentEditingId("");
       setPayAmount(""); setPayMethod("Bank Transfer"); setPayNote(""); setPayDate(new Date().toISOString().slice(0,10));
       if (!num) { setOpenPay(true); return; }
-      const invRes = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`);
+      const invRes = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { headers: getAuthHeaders() });
       if (!invRes.ok) { setOpenPay(true); return; }
       const inv = await invRes.json();
       setProjectInvoice(inv);
       const invId = inv._id || "";
       setPayInvoiceId(invId);
-      const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invId)}`);
+      const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(invId)}`, { headers: getAuthHeaders() });
       if (pRes.ok) {
         const list = await pRes.json();
         setPayments(Array.isArray(list) ? list : []);
@@ -181,7 +198,7 @@ export default function InvoiceList() {
         title,
         client: formatClient(inv?.client),
         clientId: inv?.clientId ? String(inv.clientId) : undefined,
-        price: projectDraftPrice ? Number(projectDraftPrice) : 0,
+        price: canViewPricing && projectDraftPrice ? Number(projectDraftPrice) : 0,
         start: projectDraftStart ? new Date(projectDraftStart) : undefined,
         deadline: projectDraftDeadline ? new Date(projectDraftDeadline) : undefined,
         status: "Open",
@@ -211,7 +228,7 @@ export default function InvoiceList() {
     try {
       const num = invoiceIdText.split('#')[1]?.trim() || "";
       if (!num) return;
-      const r = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`);
+      const r = await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { headers: getAuthHeaders() });
       if (!r.ok) return;
       const inv = await r.json();
       setEditingInvoiceId(inv._id || "");
@@ -240,9 +257,23 @@ export default function InvoiceList() {
   const loadInvoices = async () => {
     try {
       const url = `${API_BASE}/api/invoices${query ? `?q=${encodeURIComponent(query)}` : ""}`;
-      const res = await fetch(url);
+      const [res, payRes] = await Promise.all([
+        fetch(url, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/payments`, { headers: getAuthHeaders() }).catch(() => null as any),
+      ]);
       if (!res.ok) return;
       const data = await res.json();
+
+      const payList = payRes?.ok ? await payRes.json().catch(() => []) : [];
+      const paymentsList: any[] = Array.isArray(payList) ? payList : [];
+      setAllPayments(paymentsList);
+      const receivedByInvoiceId = paymentsList.reduce((acc: Record<string, number>, p: any) => {
+        const id = String(p?.invoiceId || p?.invoice || "");
+        if (!id) return acc;
+        acc[id] = (acc[id] || 0) + (Number(p.amount) || 0);
+        return acc;
+      }, {});
+
       const mapped: ListInvoice[] = (Array.isArray(data) ? data : []).map((d: any) => {
         const c = d.client;
         const p = d.project;
@@ -250,6 +281,12 @@ export default function InvoiceList() {
         const clientName = c && typeof c === 'object' ? (c.name || c.company || c.person || '-') : (c || '-');
         const projectId = p && typeof p === 'object' ? String(p._id || p.id || '') : '';
         const projectTitle = p && typeof p === 'object' ? (p.title || '-') : (p || '-');
+        const invoiceId = String(d._id || "");
+        const amount = Number(d.amount) || 0;
+        const received = Number(receivedByInvoiceId[invoiceId] || 0);
+        const dueAmt = Math.max(0, amount - received);
+        const computedStatus: ListInvoice["status"] =
+          dueAmt <= 0 ? "Paid" : received > 0 ? "Partially paid" : "Unpaid";
         return {
           id: `INVOICE #${d.number || '-'}`,
           dbId: String(d._id || ''),
@@ -257,10 +294,10 @@ export default function InvoiceList() {
           project: projectId || projectTitle,
           billDate: d.issueDate ? new Date(d.issueDate).toISOString().slice(0,10) : '-',
           dueDate: d.dueDate ? new Date(d.dueDate).toISOString().slice(0,10) : '-',
-          totalInvoiced: d.amount != null ? `Rs.${d.amount}` : 'Rs.0',
-          paymentReceived: 'Rs.0',
-          due: d.amount != null ? `Rs.${d.amount}` : 'Rs.0',
-          status: (d.status as any) || 'Unpaid',
+          totalInvoiced: amount ? `Rs.${amount}` : 'Rs.0',
+          paymentReceived: received ? `Rs.${received}` : 'Rs.0',
+          due: dueAmt ? `Rs.${dueAmt}` : 'Rs.0',
+          status: (d.status as any) || computedStatus,
           advancedAmount: d.advanceAmount != null ? String(d.advanceAmount) : undefined,
         };
       });
@@ -269,6 +306,32 @@ export default function InvoiceList() {
   };
 
   useEffect(() => { loadInvoices(); }, [query]);
+
+  const applyQuickView = (next: string) => {
+    setTab("list");
+    setQuickView(next);
+    // Reset high-level filters for predictable results
+    setFilterType("all");
+    setFilterCurrency("all");
+    setClientSel("");
+    setProjectSel("");
+    setQuery("");
+
+    if (next === "this_month") {
+      setDatePreset("monthly");
+      setFilterStatus("all");
+      return;
+    }
+
+    setDatePreset("all");
+    if (next === "paid") {
+      setFilterStatus("Paid");
+      return;
+    }
+    if (next === "due" || next === "overdue" || next === "received") {
+      setFilterStatus("all");
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -307,7 +370,9 @@ export default function InvoiceList() {
       const t = Date.parse(String(s || ""));
       return Number.isFinite(t) ? new Date(t) : null;
     };
+    const parseMoney = (s: string) => Number(String(s || "0").replace(/[^0-9.-]/g, "")) || 0;
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
@@ -340,9 +405,32 @@ export default function InvoiceList() {
         if (start && d < start) return false;
         if (end && d >= end) return false;
       }
+
+      if (quickView && quickView !== "__all__") {
+        if (quickView === "due") {
+          const st = String(r.status || "");
+          return st !== "Paid";
+        }
+        if (quickView === "received") {
+          return parseMoney(r.paymentReceived) > 0;
+        }
+        if (quickView === "overdue") {
+          const st = String(r.status || "");
+          if (st === "Paid") return false;
+          const due = parseISO(r.dueDate);
+          if (!due) return false;
+          return due.getTime() < startOfToday;
+        }
+        if (quickView === "this_month") {
+          // Date preset already handles this; keep safe fallback
+          const d = parseISO(r.billDate);
+          if (!d) return false;
+          return d >= startOfMonth;
+        }
+      }
       return true;
     });
-  }, [rows, filterType, filterStatus, filterCurrency, datePreset]);
+  }, [rows, filterType, filterStatus, filterCurrency, datePreset, quickView]);
 
   const totals = useMemo(() => {
     const parse = (s: string) => Number(String(s || "0").replace(/[^0-9.-]/g, "")) || 0;
@@ -351,6 +439,69 @@ export default function InvoiceList() {
     const due = displayRows.reduce((sum, r) => sum + parse(r.due), 0);
     return { invoiced, received, due };
   }, [displayRows]);
+
+  const invoiceDashboard = useMemo(() => {
+    const parse = (s: string) => Number(String(s || "0").replace(/[^0-9.-]/g, "")) || 0;
+    const now = new Date();
+    const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const thisMonthKey = monthKey(now);
+
+    const rowsAll = Array.isArray(rows) ? rows : [];
+
+    const withDates = rowsAll.map((r) => {
+      const bill = r.billDate && r.billDate !== "-" ? new Date(r.billDate) : null;
+      const due = r.dueDate && r.dueDate !== "-" ? new Date(r.dueDate) : null;
+      return { r, bill, due };
+    });
+
+    const overdue = withDates
+      .filter(({ r, due }) => {
+        if (!due || Number.isNaN(due.getTime())) return false;
+        if (String(r.status).toLowerCase() === "paid") return false;
+        return due < now;
+      })
+      .map(({ r }) => r);
+
+    const overdueAmount = overdue.reduce((acc, r) => acc + parse(r.due), 0);
+
+    const thisMonth = withDates
+      .filter(({ bill }) => {
+        if (!bill || Number.isNaN(bill.getTime())) return false;
+        return monthKey(bill) === thisMonthKey;
+      })
+      .map(({ r }) => r);
+    const thisMonthInvoiced = thisMonth.reduce((acc, r) => acc + parse(r.totalInvoiced), 0);
+    const thisMonthReceived = thisMonth.reduce((acc, r) => acc + parse(r.paymentReceived), 0);
+
+    const recent = rowsAll
+      .slice()
+      .sort((a, b) => (a.billDate < b.billDate ? 1 : -1))
+      .slice(0, 6);
+
+    const trend: Array<{ month: string; invoiced: number; received: number; due: number }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = monthKey(d);
+      const monthRows = withDates
+        .filter(({ bill }) => bill && !Number.isNaN(bill.getTime()) && monthKey(bill) === key)
+        .map(({ r }) => r);
+      trend.push({
+        month: d.toLocaleString(undefined, { month: "short" }),
+        invoiced: monthRows.reduce((acc, r) => acc + parse(r.totalInvoiced), 0),
+        received: monthRows.reduce((acc, r) => acc + parse(r.paymentReceived), 0),
+        due: monthRows.reduce((acc, r) => acc + parse(r.due), 0),
+      });
+    }
+
+    return {
+      overdue,
+      overdueAmount,
+      thisMonthInvoiced,
+      thisMonthReceived,
+      recent,
+      trend,
+    };
+  }, [rows]);
 
   const getClientName = (val: any) => {
     if (!val) return "-";
@@ -371,32 +522,34 @@ export default function InvoiceList() {
 
   // Export all invoices to CSV (opens a download)
   const handleExportCSV = () => {
-    const csv = [
-      [
-        "Invoice ID",
-        "Client",
-        "Project",
-        "Bill date",
-        "Due date",
-        "Total Invoiced",
-        "Payment Received",
-        "Due",
-        "Status",
-        "Advanced Amount",
-      ].join(","),
-      ...rows.map((r) => [
-        r.id,
-        getClientName(r.client),
-        getProjectTitle(r.project),
-        r.billDate,
-        r.dueDate,
-        r.totalInvoiced,
-        r.paymentReceived,
-        r.due,
-        r.status,
-        r.advancedAmount || "",
-      ].join(",")),
-    ].join("\n");
+    const head = canViewPricing
+      ? ["Invoice ID", "Client", "Project", "Bill date", "Due date", "Total Invoiced", "Payment Received", "Due", "Status", "Advanced Amount"]
+      : ["Invoice ID", "Client", "Project", "Bill date", "Due date", "Status", "Advanced Amount"];
+    const lines = rows.map((r) =>
+      canViewPricing
+        ? [
+            r.id,
+            getClientName(r.client),
+            getProjectTitle(r.project),
+            r.billDate,
+            r.dueDate,
+            r.totalInvoiced,
+            r.paymentReceived,
+            r.due,
+            r.status,
+            r.advancedAmount || "",
+          ]
+        : [
+            r.id,
+            getClientName(r.client),
+            getProjectTitle(r.project),
+            r.billDate,
+            r.dueDate,
+            r.status,
+            r.advancedAmount || "",
+          ]
+    );
+    const csv = [head.join(","), ...lines.map((row) => row.join(","))].join("\n");
     const encoded = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
     const a = document.createElement("a");
     a.href = encoded;
@@ -432,9 +585,7 @@ export default function InvoiceList() {
           <th>Client</th>
           <th>Project</th>
           <th>Due date</th>
-          <th>Total invoiced</th>
-          <th>Payment Received</th>
-          <th>Due</th>
+          ${canViewPricing ? "<th>Total invoiced</th><th>Payment Received</th><th>Due</th>" : ""}
           <th>Status</th>
           <th>Advanced Amount</th>
         </tr>
@@ -446,9 +597,7 @@ export default function InvoiceList() {
             <td>${getClientName(r.client)}</td>
             <td>${getProjectTitle(r.project)}</td>
             <td>${r.dueDate}</td>
-            <td>${r.totalInvoiced}</td>
-            <td>${r.paymentReceived}</td>
-            <td>${r.due}</td>
+            ${canViewPricing ? `<td>${r.totalInvoiced}</td><td>${r.paymentReceived}</td><td>${r.due}</td>` : ""}
             <td>${r.status}</td>
             <td>${r.advancedAmount || ''}</td>
           </tr>`).join("")}
@@ -471,6 +620,7 @@ export default function InvoiceList() {
           <h1 className="text-sm text-muted-foreground">Invoices</h1>
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="bg-muted/40">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="list">List</TabsTrigger>
               <TabsTrigger value="recurring">Recurring</TabsTrigger>
             </TabsList>
@@ -652,13 +802,13 @@ export default function InvoiceList() {
                     };
                     const method = paymentEditingId ? 'PUT' : 'POST';
                     const url = paymentEditingId ? `${API_BASE}/api/payments/${encodeURIComponent(paymentEditingId)}` : `${API_BASE}/api/payments`;
-                    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const r = await fetch(url, { method, headers: { ...getAuthHeaders({ 'Content-Type': 'application/json' }) }, body: JSON.stringify(payload) });
                     if (r.ok) {
                       setPayAmount(""); setPayMethod("Bank Transfer"); setPayNote(""); setPayDate(new Date().toISOString().slice(0,10));
                       setPaymentEditingId("");
                       // reload payments list
                       if (payInvoiceId) {
-                        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`);
+                        const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`, { headers: getAuthHeaders() });
                         if (pRes.ok) {
                           const list = await pRes.json();
                           setPayments(Array.isArray(list) ? list : []);
@@ -692,9 +842,9 @@ export default function InvoiceList() {
                             }}>Edit</Button>
                             <Button size="sm" variant="destructive" onClick={async () => {
                               if (!confirm("Delete this payment?")) return;
-                              await fetch(`${API_BASE}/api/payments/${encodeURIComponent(p._id)}`, { method: 'DELETE' });
+                              await fetch(`${API_BASE}/api/payments/${encodeURIComponent(p._id)}`, { method: 'DELETE', headers: getAuthHeaders() });
                               if (payInvoiceId) {
-                                const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`);
+                                const pRes = await fetch(`${API_BASE}/api/payments?invoiceId=${encodeURIComponent(payInvoiceId)}`, { headers: getAuthHeaders() });
                                 if (pRes.ok) {
                                   const list = await pRes.json();
                                   setPayments(Array.isArray(list) ? list : []);
@@ -726,7 +876,11 @@ export default function InvoiceList() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label>Price</Label>
-                      <Input type="number" value={projectDraftPrice} onChange={(e)=>setProjectDraftPrice(e.target.value)} />
+                      {canViewPricing ? (
+                        <Input type="number" value={projectDraftPrice} onChange={(e)=>setProjectDraftPrice(e.target.value)} />
+                      ) : (
+                        <Input type="text" value={maskFinancialData(Number(projectDraftPrice || 0))} readOnly />
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label>Start</Label>
@@ -795,6 +949,220 @@ export default function InvoiceList() {
           </div>
 
           <Tabs value={tab} onValueChange={setTab} className="mt-4">
+            <TabsContent value="dashboard" className="space-y-4">
+              <div className="rounded-2xl border bg-white/70 backdrop-blur-sm shadow-sm dark:bg-slate-900/50">
+                <div className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">Invoice Dashboard</div>
+                    <div className="mt-1 text-lg sm:text-xl font-semibold">Quick financial overview</div>
+                    <div className="mt-1 text-sm text-muted-foreground">KPIs, trends, and overdue insights.</div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={loadInvoices}>Refresh</Button>
+                    <Button variant="outline" size="sm" onClick={handlePrintInvoices}>Print</Button>
+                    <Button variant="outline" size="sm" onClick={handleExportCSV}>Export</Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <Card
+                  className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-white dark:from-slate-950/60 dark:to-slate-900/40 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => applyQuickView("__all__")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Total invoiced</div>
+                        <div className="mt-2 text-2xl font-bold tracking-tight">{canViewPricing ? `Rs.${totals.invoiced.toLocaleString()}` : maskFinancialData(totals.invoiced)}</div>
+                      </div>
+                      <div className="rounded-2xl bg-slate-900/5 dark:bg-white/10 p-3">
+                        <FileText className="w-5 h-5 text-slate-700 dark:text-slate-200" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900/40 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => applyQuickView("received")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Payment received</div>
+                        <div className="mt-2 text-2xl font-bold tracking-tight">{canViewPricing ? `Rs.${totals.received.toLocaleString()}` : maskFinancialData(totals.received)}</div>
+                      </div>
+                      <div className="rounded-2xl bg-emerald-600/10 dark:bg-white/10 p-3">
+                        <Download className="w-5 h-5 text-emerald-700 dark:text-emerald-200" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-0 shadow-sm bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/40 dark:to-slate-900/40 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => applyQuickView("due")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Due</div>
+                        <div className="mt-2 text-2xl font-bold tracking-tight">{canViewPricing ? `Rs.${totals.due.toLocaleString()}` : maskFinancialData(totals.due)}</div>
+                      </div>
+                      <div className="rounded-2xl bg-indigo-600/10 dark:bg-white/10 p-3">
+                        <Mail className="w-5 h-5 text-indigo-700 dark:text-indigo-200" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-0 shadow-sm bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 dark:to-slate-900/40 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => applyQuickView("overdue")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Overdue</div>
+                        <div className="mt-2 text-2xl font-bold tracking-tight text-rose-600">{canViewPricing ? `Rs.${invoiceDashboard.overdueAmount.toLocaleString()}` : maskFinancialData(invoiceDashboard.overdueAmount)}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{invoiceDashboard.overdue.length} invoices</div>
+                      </div>
+                      <div className="rounded-2xl bg-rose-600/10 dark:bg-white/10 p-3">
+                        <Eye className="w-5 h-5 text-rose-700 dark:text-rose-200" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card
+                  className="border-0 shadow-sm bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 dark:to-slate-900/40 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => applyQuickView("this_month")}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">This month</div>
+                        <div className="mt-2 text-2xl font-bold tracking-tight">{canViewPricing ? `Rs.${invoiceDashboard.thisMonthInvoiced.toLocaleString()}` : maskFinancialData(invoiceDashboard.thisMonthInvoiced)}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">Received: {canViewPricing ? `Rs.${invoiceDashboard.thisMonthReceived.toLocaleString()}` : maskFinancialData(invoiceDashboard.thisMonthReceived)}</div>
+                      </div>
+                      <div className="rounded-2xl bg-amber-600/10 dark:bg-white/10 p-3">
+                        <Printer className="w-5 h-5 text-amber-700 dark:text-amber-200" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-12">
+                <Card className="lg:col-span-7 border-0 shadow-sm bg-white/80 dark:bg-slate-900/60 overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="p-4 sm:p-5 flex items-center justify-between border-b bg-white/60 dark:bg-slate-900/40">
+                      <div>
+                        <div className="text-sm font-semibold">Last 6 months</div>
+                        <div className="text-xs text-muted-foreground">Invoiced vs received</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">{canViewPricing ? "Amounts" : "Hidden"}</div>
+                    </div>
+                    <div className="mt-3 h-[240px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={invoiceDashboard.trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.25} />
+                          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} width={48} hide={!canViewPricing} />
+                          <Tooltip />
+                          <Bar dataKey={canViewPricing ? "invoiced" : "due"} fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                          {canViewPricing && <Bar dataKey="received" fill="#22c55e" radius={[6, 6, 0, 0]} />}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-5 border-0 shadow-sm bg-white/80 dark:bg-slate-900/60 overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="p-4 sm:p-5 flex items-center justify-between border-b bg-white/60 dark:bg-slate-900/40">
+                      <div>
+                        <div className="text-sm font-semibold">Overdue invoices</div>
+                        <div className="text-xs text-muted-foreground">Needs attention</div>
+                      </div>
+                      <Badge variant={invoiceDashboard.overdue.length ? "destructive" : "secondary"}>{invoiceDashboard.overdue.length}</Badge>
+                    </div>
+                    <div className="mt-3 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/40">
+                            <TableHead>Invoice</TableHead>
+                            <TableHead>Client</TableHead>
+                            <TableHead>Due date</TableHead>
+                            {canViewPricing && <TableHead className="text-right">Due</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(invoiceDashboard.overdue || []).slice(0, 6).map((r) => (
+                            <TableRow key={r.id}>
+                              <TableCell className="text-primary underline cursor-pointer" onClick={() => navigate(`/invoices/${encodeURIComponent(r.id.split('#')[1] || '1')}`)}>{r.id}</TableCell>
+                              <TableCell>{getClientName(r.client)}</TableCell>
+                              <TableCell>{r.dueDate}</TableCell>
+                              {canViewPricing && <TableCell className="text-right font-medium">{r.due}</TableCell>}
+                            </TableRow>
+                          ))}
+                          {invoiceDashboard.overdue.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={canViewPricing ? 4 : 3} className="text-center text-muted-foreground">No overdue invoices</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-0 shadow-sm bg-white/80 dark:bg-slate-900/60 overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="p-4 sm:p-5 flex items-center justify-between border-b bg-white/60 dark:bg-slate-900/40">
+                    <div>
+                      <div className="text-sm font-semibold">Recent invoices</div>
+                      <div className="text-xs text-muted-foreground">Latest activity</div>
+                    </div>
+                    <Badge variant="secondary">{invoiceDashboard.recent.length}</Badge>
+                  </div>
+                  <div className="mt-3 overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/40">
+                          <TableHead>Invoice</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Bill date</TableHead>
+                          <TableHead>Status</TableHead>
+                          {canViewPricing && <TableHead className="text-right">Total</TableHead>}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(invoiceDashboard.recent || []).map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell className="text-primary underline cursor-pointer" onClick={() => navigate(`/invoices/${encodeURIComponent(r.id.split('#')[1] || '1')}`)}>{r.id}</TableCell>
+                            <TableCell>{getClientName(r.client)}</TableCell>
+                            <TableCell>{r.billDate}</TableCell>
+                            <TableCell>
+                              <Badge variant={r.status === 'Paid' ? 'success' : r.status === 'Partially paid' ? 'secondary' : 'destructive'}>{r.status}</Badge>
+                            </TableCell>
+                            {canViewPricing && <TableCell className="text-right font-medium">{r.totalInvoiced}</TableCell>}
+                          </TableRow>
+                        ))}
+                        {invoiceDashboard.recent.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={canViewPricing ? 5 : 4} className="text-center text-muted-foreground">No invoices</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="list">
               <Card>
                 <CardContent className="p-0">
@@ -807,9 +1175,9 @@ export default function InvoiceList() {
                         <TableHead>Project</TableHead>
                         <TableHead>Bill date</TableHead>
                         <TableHead>Due date</TableHead>
-                        <TableHead>Total invoiced</TableHead>
-                        <TableHead>Payment Received</TableHead>
-                        <TableHead>Due</TableHead>
+                        {canViewPricing && <TableHead>Total invoiced</TableHead>}
+                        {canViewPricing && <TableHead>Payment Received</TableHead>}
+                        {canViewPricing && <TableHead>Due</TableHead>}
                         <TableHead>Status</TableHead>
                         <TableHead>Advanced Amount</TableHead>
                         <TableHead className="w-8"></TableHead>
@@ -823,9 +1191,9 @@ export default function InvoiceList() {
                           <TableCell>{getProjectTitle(r.project)}</TableCell>
                           <TableCell>{r.billDate}</TableCell>
                           <TableCell>{r.dueDate}</TableCell>
-                          <TableCell>{r.totalInvoiced}</TableCell>
-                          <TableCell>{r.paymentReceived}</TableCell>
-                          <TableCell>{r.due}</TableCell>
+                          {canViewPricing && <TableCell>{r.totalInvoiced}</TableCell>}
+                          {canViewPricing && <TableCell>{r.paymentReceived}</TableCell>}
+                          {canViewPricing && <TableCell>{r.due}</TableCell>}
                           <TableCell>
                             <Badge variant={r.status === 'Paid' ? 'success' : r.status === 'Partially paid' ? 'secondary' : 'destructive'}>{r.status}</Badge>
                           </TableCell>
@@ -841,7 +1209,7 @@ export default function InvoiceList() {
                                 <DropdownMenuItem onClick={async ()=>{
                                   const num = r.id.split('#')[1] || '';
                                   if (!num) return;
-                                  await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { method: 'DELETE' });
+                                  await fetch(`${API_BASE}/api/invoices/${encodeURIComponent(num)}`, { method: 'DELETE', headers: getAuthHeaders() });
                                   await loadInvoices();
                                 }}>Delete</DropdownMenuItem>
                                 <DropdownMenuItem onClick={()=>openPaymentFor(r.id)}>Add payment</DropdownMenuItem>
@@ -853,9 +1221,9 @@ export default function InvoiceList() {
                       <TableRow>
                         <TableCell className="font-medium">Total</TableCell>
                         <TableCell colSpan={4}></TableCell>
-                        <TableCell className="font-semibold">{`Rs.${totals.invoiced.toLocaleString()}`}</TableCell>
-                        <TableCell className="font-semibold">{`Rs.${totals.received.toLocaleString()}`}</TableCell>
-                        <TableCell className="font-semibold">{`Rs.${totals.due.toLocaleString()}`}</TableCell>
+                        {canViewPricing && <TableCell className="font-semibold">{`Rs.${totals.invoiced.toLocaleString()}`}</TableCell>}
+                        {canViewPricing && <TableCell className="font-semibold">{`Rs.${totals.received.toLocaleString()}`}</TableCell>}
+                        {canViewPricing && <TableCell className="font-semibold">{`Rs.${totals.due.toLocaleString()}`}</TableCell>}
                         <TableCell></TableCell>
                         <TableCell></TableCell>
                         <TableCell></TableCell>

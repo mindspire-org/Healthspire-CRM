@@ -10,8 +10,8 @@ import { toast } from "@/components/ui/sonner";
 import { Search, Plus, RefreshCw, ChevronLeft, ChevronRight, Trash2, MoreVertical, Pencil, Eye } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Row = {
   id: string;
@@ -56,7 +56,7 @@ export default function Proposals() {
     try {
       const params = new URLSearchParams();
       if (query.trim()) params.set("q", query.trim());
-      const res = await fetch(`${API_BASE}/api/proposals?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/proposals?${params.toString()}`, { headers: getAuthHeaders() });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || "Failed to load proposals");
       const mapped: Row[] = (Array.isArray(data) ? data : []).map((d: any) => ({
@@ -85,7 +85,7 @@ export default function Proposals() {
     (async () => {
       if (!openAdd) return;
       try {
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
         const data = await res.json().catch(() => []);
         setClients(Array.isArray(data) ? data : []);
       } catch { setClients([]); }
@@ -135,7 +135,7 @@ export default function Proposals() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/proposals/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: newStatus }) });
+      const res = await fetch(`${API_BASE}/api/proposals/${id}`, { method: "PUT", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ status: newStatus }) });
       if (res.ok) {
         setRows((p) => p.map((x) => (x.id === id ? { ...x, status: newStatus } : x)));
         toast.success("Status updated");
@@ -194,7 +194,7 @@ export default function Proposals() {
       const method = editingId ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       const d = await res.json().catch(() => null);
@@ -212,7 +212,7 @@ export default function Proposals() {
 
   const deleteRow = async (id: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/proposals/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/proposals/${id}`, { method: "DELETE", headers: getAuthHeaders() });
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.error || "Failed");
       toast.success("Proposal deleted");

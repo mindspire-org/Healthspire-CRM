@@ -28,6 +28,15 @@ if (typeof window !== "undefined" && typeof window.fetch === "function" && !IS_L
   };
 }
 
+// Avoid stale cached bundles during local development
+if (typeof window !== "undefined" && "serviceWorker" in navigator && !IS_LOCALHOST && Boolean(import.meta.env.PROD)) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // ignore
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <App />

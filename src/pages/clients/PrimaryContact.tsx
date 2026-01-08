@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function PrimaryContact() {
   const { id } = useParams();
@@ -24,7 +24,7 @@ export default function PrimaryContact() {
       if (!id) return;
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
         const list = await res.json();
         const row = (Array.isArray(list) ? list : []).find((x: any) => String(x._id) === String(id));
         if (row) {
@@ -46,7 +46,7 @@ export default function PrimaryContact() {
       delete payload._id; delete payload.createdAt; delete payload.updatedAt; delete payload.__v;
       const res = await fetch(`${API_BASE}/api/clients/${client._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Save failed"); return; }
@@ -64,7 +64,7 @@ export default function PrimaryContact() {
     try {
       const fd = new FormData();
       fd.append("file", f);
-      const res = await fetch(`${API_BASE}/api/clients/${client._id}/avatar`, { method: "POST", body: fd });
+      const res = await fetch(`${API_BASE}/api/clients/${client._id}/avatar`, { method: "POST", headers: getAuthHeaders(), body: fd });
       if (!res.ok) { const err = await res.json().catch(()=>null); toast.error(err?.error || "Upload failed"); return; }
       const updated = await res.json();
       setClient(updated);

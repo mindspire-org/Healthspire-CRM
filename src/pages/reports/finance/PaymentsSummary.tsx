@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { toast } from "@/components/ui/sonner";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Payment = { _id: string; clientId?: string; client?: string; invoiceId?: string; amount?: number; date?: string; method?: string };
 type Invoice = { _id: string; clientId?: string; client?: string };
@@ -28,9 +28,9 @@ export default function PaymentsSummary() {
     try {
       setLoading(true);
       const [payRes, invRes, cliRes] = await Promise.all([
-        fetch(`${API_BASE}/api/payments`),
-        fetch(`${API_BASE}/api/invoices`),
-        fetch(`${API_BASE}/api/clients`),
+        fetch(`${API_BASE}/api/payments`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/invoices`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() }),
       ]);
       const payData = payRes.ok ? await payRes.json() : [];
       const invData = invRes.ok ? await invRes.json() : [];

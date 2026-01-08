@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Row = {
   id: string;
@@ -43,7 +43,7 @@ export default function EstimateList() {
     (async () => {
       try {
         const url = `${API_BASE}/api/estimates${query ? `?q=${encodeURIComponent(query)}` : ""}${status && status !== "-" ? `${query ? "&" : "?"}status=${encodeURIComponent(status)}` : ""}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const data = await res.json();
         const mapped: Row[] = (Array.isArray(data) ? data : []).map((d:any)=> ({
@@ -63,7 +63,7 @@ export default function EstimateList() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const data = await res.json();
         const names: string[] = (Array.isArray(data) ? data : []).map((c:any)=> c.company || c.person).filter(Boolean);
@@ -85,7 +85,7 @@ export default function EstimateList() {
         advancedAmount: advancedAmount ? Number(advancedAmount) : 0,
         items: [],
       };
-      const res = await fetch(`${API_BASE}/api/estimates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/api/estimates`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Failed to add estimate"); return; }
       const d = await res.json();
       const row: Row = { id: String(d._id||""), number: d.number || "-", client: d.client || client || "-", estimateDate: d.estimateDate ? new Date(d.estimateDate).toISOString().slice(0,10) : (estimateDate || "-"), amount: Number(d.amount||0), status: (d.status as any) || "Draft", advancedAmount: Number(d.advancedAmount||0) };
@@ -98,7 +98,7 @@ export default function EstimateList() {
   const deleteEstimate = async (estimateId: string) => {
     if (!confirm("Delete this estimate?")) return;
     try {
-      const res = await fetch(`${API_BASE}/api/estimates/${estimateId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/estimates/${estimateId}`, { method: "DELETE", headers: getAuthHeaders() });
       if (!res.ok) return toast.error("Failed to delete estimate");
       setRows((prev) => prev.filter((r) => r.id !== estimateId));
       toast.success("Estimate deleted");

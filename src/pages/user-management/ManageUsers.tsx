@@ -58,6 +58,8 @@ export default function ManageUsers() {
   const [editRole, setEditRole] = useState<UserRow["role"]>("staff");
   const [editStatus, setEditStatus] = useState<UserRow["status"]>("active");
   const [editPerms, setEditPerms] = useState<Set<string>>(new Set());
+  const [editPassword, setEditPassword] = useState("");
+  const [editPin, setEditPin] = useState("");
 
   const [addName, setAddName] = useState("");
   const [addEmail, setAddEmail] = useState("");
@@ -100,6 +102,8 @@ export default function ManageUsers() {
     setEditRole(u.role);
     setEditStatus(u.status);
     setEditPerms(new Set(Array.isArray(u.permissions) ? u.permissions : []));
+    setEditPassword("");
+    setEditPin("");
     setOpenEdit(true);
   };
 
@@ -295,7 +299,7 @@ export default function ManageUsers() {
 
           <Dialog open={openEdit} onOpenChange={setOpenEdit}>
             <DialogContent className="bg-card">
-              <DialogHeader><DialogTitle>Edit user access</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Edit user access & credentials</DialogTitle></DialogHeader>
               <div className="grid gap-3">
                 <div className="text-sm text-muted-foreground">{editing?.email || ""}</div>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -322,8 +326,14 @@ export default function ManageUsers() {
                   </div>
                 </div>
 
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="text-xs font-medium text-muted-foreground">Reset credentials (optional)</div>
+                  <Input placeholder="New password (leave empty to keep)" type="password" value={editPassword} onChange={(e)=>setEditPassword(e.target.value)} />
+                  <Input placeholder="New PIN (4-8 digits, leave empty to keep)" type="password" value={editPin} onChange={(e)=>setEditPin(e.target.value)} />
+                </div>
+
                 {editRole === "staff" && (
-                  <div className="grid sm:grid-cols-2 gap-2">
+                  <div className="grid sm:grid-cols-2 gap-2 pt-2 border-t">
                     {ALL_PERMS.map((p) => (
                       <label key={p.key} className="flex items-center gap-2 text-sm">
                         <Checkbox checked={editPerms.has(p.key)} onCheckedChange={() => togglePerm(p.key)} />

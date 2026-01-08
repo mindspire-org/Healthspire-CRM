@@ -145,7 +145,7 @@ export default function ClientDetails() {
   // creators
   const reloadProjects = async (name: string) => {
     try {
-      const resP = await fetch(`${API_BASE}/api/projects?q=${encodeURIComponent(name)}`);
+      const resP = await fetch(`${API_BASE}/api/projects?q=${encodeURIComponent(name)}`, { headers: getAuthHeaders() });
       const pj = await resP.json().catch(() => []);
       const arr = Array.isArray(pj) ? pj : (Array.isArray((pj as any)?.data) ? (pj as any).data : (Array.isArray((pj as any)?.items) ? (pj as any).items : []));
       setProjects(arr);
@@ -169,7 +169,7 @@ export default function ClientDetails() {
       };
       const r = await fetch(`${API_BASE}/api/licenses`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       if (!r.ok) {
@@ -180,7 +180,7 @@ export default function ClientDetails() {
       setOpenAddLicense(false);
       setLicenseForm({ product: "", licenseKey: "", status: "active", issuedAt: "", expiresAt: "", note: "" });
       try {
-        const rr = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(client._id))}`);
+        const rr = await fetch(`${API_BASE}/api/licenses?clientId=${encodeURIComponent(String(client._id))}`, { headers: getAuthHeaders() });
         setLicenses(await rr.json().catch(() => []));
       } catch {}
     } catch {
@@ -204,7 +204,7 @@ export default function ClientDetails() {
         labels: projectForm.labels || undefined,
         description: projectForm.description || undefined,
       };
-      const r = await fetch(`${API_BASE}/api/projects`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/projects`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         setOpenAddProject(false);
         setProjectForm({ title: "", price: "", start: "", deadline: "", labels: "", description: "" });
@@ -227,12 +227,12 @@ export default function ClientDetails() {
       items: [],
     };
     try {
-      const r = await fetch(`${API_BASE}/api/estimates`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/estimates`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         setOpenAddEstimate(false);
         setEstimateForm({ estimateDate: "", validUntil: "", tax: "-", tax2: "-", note: "", advancedAmount: "" });
         // reload
-        const resE = await fetch(`${API_BASE}/api/estimates?q=${encodeURIComponent(payload.client)}`);
+        const resE = await fetch(`${API_BASE}/api/estimates?q=${encodeURIComponent(payload.client)}`, { headers: getAuthHeaders() });
         setEstimates(await resE.json().catch(() => []));
       } else {
         toast.error("Failed to add estimate");
@@ -255,12 +255,12 @@ export default function ClientDetails() {
         type: eventForm.type || undefined,
         clientId: client?._id ? String(client._id) : undefined,
       };
-      const r = await fetch(`${API_BASE}/api/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const r = await fetch(`${API_BASE}/api/events`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (r.ok) {
         setOpenAddEvent(false);
         setEventForm({ title: "", description: "", date: "", startTime: "", endDate: "", endTime: "", location: "", type: "" });
         // reload events
-        try { const re = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(client._id || ""))}`); setEvents(await re.json().catch(()=>[])); } catch {}
+        try { const re = await fetch(`${API_BASE}/api/events?clientId=${encodeURIComponent(String(client._id || ""))}`, { headers: getAuthHeaders() }); setEvents(await re.json().catch(()=>[])); } catch {}
       } else {
         toast.error("Failed to add event");
       }
@@ -274,7 +274,7 @@ export default function ClientDetails() {
       delete payload._id; delete payload.createdAt; delete payload.updatedAt; delete payload.__v;
       const res = await fetch(`${API_BASE}/api/clients/${client._id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       if (!res.ok) { const e = await res.json().catch(()=>null); toast.error(e?.error || "Save failed"); return; }

@@ -9,8 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Briefcase, Calendar, DollarSign, Clock } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 type ProjectRequest = {
   _id: string;

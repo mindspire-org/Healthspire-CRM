@@ -57,8 +57,10 @@ import helpArticlesRouter from "./routes/helpArticles.js";
 import helpCategoriesRouter from "./routes/helpCategories.js";
 import notificationsRouter from "./routes/notifications.js";
 import settingsRouter from "./routes/settings.js";
+import rolesRouter from "./routes/roles.js";
 import bcrypt from "bcryptjs";
 import User from "./models/User.js";
+import Role from "./models/Role.js";
 import accountsRouter from "./routes/accounts.js";
 import journalsRouter from "./routes/journals.js";
 import ledgersRouter from "./routes/ledgers.js";
@@ -118,6 +120,66 @@ const corsOptions = {
   ],
   exposedHeaders: ["Content-Length", "Content-Type"],
 };
+
+async function seedDefaultRoles() {
+  try {
+    const defaults = [
+      {
+        name: "Admin",
+        description: "Full system access",
+        permissions: [
+          "crm",
+          "hrm",
+          "projects",
+          "prospects",
+          "sales",
+          "reports",
+          "clients",
+          "tasks",
+          "messages",
+          "tickets",
+          "announcements",
+          "calendar",
+          "events",
+          "subscriptions",
+          "notes",
+          "files",
+        ],
+      },
+      {
+        name: "Client",
+        description: "Client portal access",
+        permissions: ["clients", "tickets", "messages", "files"],
+      },
+      {
+        name: "Sales Representative",
+        description: "Sales & CRM access",
+        permissions: ["crm", "prospects", "sales", "clients", "projects", "tasks"],
+      },
+      {
+        name: "Finance",
+        description: "Finance & reporting access",
+        permissions: ["reports", "sales", "clients"],
+      },
+      {
+        name: "Developer / Team Mate / Staff",
+        description: "Team member access",
+        permissions: ["crm", "projects", "tasks", "messages", "tickets", "calendar", "events"],
+      },
+    ];
+
+    for (const r of defaults) {
+      // eslint-disable-next-line no-await-in-loop
+      await Role.updateOne(
+        { name: r.name },
+        { $setOnInsert: { name: r.name }, $set: { description: r.description, permissions: r.permissions } },
+        { upsert: true }
+      );
+    }
+  } catch (e) {
+    console.error("Role seed error:", e?.message || e);
+  }
+}
 app.use(cors(corsOptions));
 // Enable CORS preflight for all routes
 app.options("*", cors(corsOptions));
@@ -227,6 +289,7 @@ app.use("/api/licenses", licensesRouter);
 // Backward/alternative path alias to avoid 404s from different frontends
 app.use("/api/subscriptionlabels", subscriptionLabelsRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/roles", rolesRouter);
 app.use("/api/announcements", announcementsRouter);
 app.use("/api/client", clientPortalRouter);
 app.use("/api/project-requests", projectRequestsRouter);
@@ -299,6 +362,7 @@ mongoose
     console.log("MongoDB connected");
     (async () => {
       await seedAdmin();
+      await seedDefaultRoles();
       const isDev = (process.env.NODE_ENV || "development") !== "production";
 
       const freePort = async (port) => {

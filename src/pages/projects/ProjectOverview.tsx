@@ -1917,28 +1917,13 @@ export default function ProjectOverviewPage() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  <div className="text-sm font-semibold text-white">Countdown</div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm lg:col-span-2">
+                  <div className="text-sm font-semibold text-white">Deadline</div>
                   <div className="mt-2 text-xs text-white/70">Set / update deadline date & time</div>
                   <div className="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
                     <Input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} />
                     <Button onClick={updateProjectDeadline} className="bg-white text-indigo-700 hover:bg-white/90">Update</Button>
                   </div>
-                </div>
-
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
-                  {!countdownTarget || !countdown ? (
-                    <div className="text-sm text-white/70">No deadline/start date found.</div>
-                  ) : (
-                    <>
-                      <div className="text-xs text-white/70">Target</div>
-                      <div className="mt-1 font-semibold text-white">{countdownTarget.toLocaleString()}</div>
-                      <div className="mt-2 text-xs text-white/70">{countdown.diff >= 0 ? "Time remaining" : "Overdue by"}</div>
-                      <div className="mt-1 text-2xl font-extrabold tracking-tight text-white">
-                        {countdown.days}d {pad2(countdown.hours)}h {pad2(countdown.minutes)}m {pad2(countdown.seconds)}s
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             </div>
@@ -2065,36 +2050,17 @@ export default function ProjectOverviewPage() {
                     No deadline/start date found. Use the "Set / update countdown" section above to set a deadline.
                   </div>
                 ) : (
-                  <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div className="md:col-span-1 rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3">
-                      <div className="text-[11px] text-muted-foreground">Target</div>
-                      <div className="text-sm font-medium">{countdownTarget.toLocaleString()}</div>
-                      <div className={"mt-1 text-xs " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
-                        {countdown.diff >= 0 ? "Remaining" : "Overdue"}
+                  <div className="mt-3 rounded-lg bg-white/70 dark:bg-slate-900/40 border p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div>
+                        <div className="text-[11px] text-muted-foreground">Target</div>
+                        <div className="text-sm font-medium">{countdownTarget.toLocaleString()}</div>
+                        <div className={"mt-1 text-xs " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                          {countdown.diff >= 0 ? "Remaining" : "Overdue"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">Days</div>
-                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
-                        {countdown.days}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">Hours</div>
-                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
-                        {pad2(countdown.hours)}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">Minutes</div>
-                      <div className={"text-xl font-semibold " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
-                        {pad2(countdown.minutes)}
-                      </div>
-                    </div>
-                    <div className="rounded-lg bg-white/70 dark:bg-slate-900/40 border p-3 text-center">
-                      <div className="text-[11px] text-muted-foreground">Seconds</div>
-                      <div className={"text-xl font-semibold tabular-nums " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
-                        {pad2(countdown.seconds)}
+                      <div className={"text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums " + (countdown.diff >= 0 ? "text-sky-700" : "text-rose-700")}>
+                        {countdown.days}d {pad2(countdown.hours)}h {pad2(countdown.minutes)}m {pad2(countdown.seconds)}s
                       </div>
                     </div>
                   </div>
@@ -2108,7 +2074,7 @@ export default function ProjectOverviewPage() {
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">Tasks</div>
                   <div className="text-sm font-semibold">Status</div>
                 </div>
-                <Badge variant="secondary">{daysLeft}</Badge>
+                <Badge variant="secondary">{tasks.length || 0}</Badge>
               </div>
               <div className="flex items-center gap-4">
                 <DonutChart

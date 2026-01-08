@@ -8,8 +8,9 @@ import { clientLogin } from "@/services/authService";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"password" | "pin">("password");
   const [remember, setRemember] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,13 +20,13 @@ export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
   const onSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setErrors(null);
-    if (!email.trim() || !password) {
+    if (!identifier.trim() || !password) {
       setErrors("Please enter credentials");
       return;
     }
     try {
       setLoading(true);
-      const resp = await clientLogin(email.trim(), password);
+      const resp = await clientLogin(identifier.trim(), password, mode);
       const storage: Storage = remember ? localStorage : sessionStorage;
       storage.setItem("auth_token", resp.token);
       storage.setItem("auth_user", JSON.stringify(resp.user));
@@ -52,25 +53,44 @@ export default function ClientLogin({ onSignUp }: { onSignUp: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-white/80">Email</Label>
+        <Label className="text-white/80">Email or Username</Label>
         <Input
           placeholder="you@company.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           autoComplete="username"
           className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-sky-500/40"
         />
       </div>
 
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant={mode === "password" ? "secondary" : "outline"}
+          onClick={() => setMode("password")}
+          className={mode === "password" ? "bg-white/15 text-white border-white/20 hover:bg-white/20" : "bg-transparent text-white/80 border-white/20 hover:bg-white/10"}
+        >
+          Password
+        </Button>
+        <Button
+          type="button"
+          variant={mode === "pin" ? "secondary" : "outline"}
+          onClick={() => setMode("pin")}
+          className={mode === "pin" ? "bg-white/15 text-white border-white/20 hover:bg-white/20" : "bg-transparent text-white/80 border-white/20 hover:bg-white/10"}
+        >
+          PIN
+        </Button>
+      </div>
+
       <div className="space-y-2">
-        <Label className="text-white/80">Password</Label>
+        <Label className="text-white/80">{mode === "pin" ? "PIN" : "Password"}</Label>
         <div className="relative">
           <Input
             type={showPwd ? "text" : "password"}
-            placeholder="••••••••"
+            placeholder={mode === "pin" ? "••••" : "••••••••"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
+            autoComplete={mode === "pin" ? "one-time-code" : "current-password"}
             className="bg-white/5 border-white/10 text-white placeholder:text-white/40 focus-visible:ring-sky-500/40 pr-10"
           />
           <button

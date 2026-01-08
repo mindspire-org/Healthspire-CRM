@@ -11,8 +11,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, Plus, Tag, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 interface CalendarEvent {
   id: string;
@@ -123,7 +123,7 @@ export default function Events() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
         if (!res.ok) return;
         const data = await res.json();
         setClients(Array.isArray(data) ? data : []);

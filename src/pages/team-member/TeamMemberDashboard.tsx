@@ -216,9 +216,9 @@ export default function TeamMemberDashboard() {
       // Load files, notes, events and payroll scoped to user
       try {
         const [filesRes, notesRes, eventsRes, payrollRes] = await Promise.all([
-          myEmpId ? fetch(`${API_BASE}/api/files?employeeId=${encodeURIComponent(myEmpId)}`) : Promise.resolve({ json: async () => [] } as any),
-          myEmpId ? fetch(`${API_BASE}/api/notes?employeeId=${encodeURIComponent(myEmpId)}`) : Promise.resolve({ json: async () => [] } as any),
-          fetch(`${API_BASE}/api/events`),
+          myEmpId ? fetch(`${API_BASE}/api/files?employeeId=${encodeURIComponent(myEmpId)}`, { headers }) : Promise.resolve({ json: async () => [] } as any),
+          myEmpId ? fetch(`${API_BASE}/api/notes?employeeId=${encodeURIComponent(myEmpId)}`, { headers }) : Promise.resolve({ json: async () => [] } as any),
+          fetch(`${API_BASE}/api/events`, { headers }),
           fetch(`${API_BASE}/api/payroll`, { headers }),
         ]);
         const filesData = await filesRes.json().catch(() => []);

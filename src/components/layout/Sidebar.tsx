@@ -171,6 +171,11 @@ const navigation: NavItem[] = [
     href: "/client",
     icon: Building2,
     children: [
+      { title: "Projects", href: "/client/projects" },
+      { title: "Invoices", href: "/client/invoices" },
+      { title: "Estimates", href: "/client/estimates" },
+      { title: "Proposals", href: "/client/proposals" },
+      { title: "Contracts", href: "/client/contracts" },
       { title: "Ledger", href: "/client/ledger" },
       { title: "Messages", href: "/client/messages" },
       { title: "Announcements", href: "/client/announcements" },

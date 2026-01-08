@@ -117,8 +117,7 @@ router.put("/me", authenticate, async (req, res) => {
     // Password change
     if (newPassword) {
       const np = String(newPassword);
-      const strong = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
-      if (!strong.test(np)) return res.status(400).json({ error: "Weak password" });
+      if (np.length < 4) return res.status(400).json({ error: "Weak password" });
 
       const cp = String(currentPassword || "");
 
@@ -242,18 +241,31 @@ router.post("/me/avatar", authenticate, uploadAvatar.single("avatar"), async (re
   }
 });
 
-router.get("/admin/list", authenticate, isAdmin, async (_req, res) => {
-  try {
-    const users = await User.find({}).sort({ createdAt: -1 }).select("name email role status permissions clientId createdAt updatedAt").lean();
-    res.json(users);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+ router.get("/admin/list", authenticate, isAdmin, async (_req, res) => {
+   try {
+     const users = await User.find({})
+       .sort({ createdAt: -1 })
+       .select("name email username role status permissions access clientId createdAt updatedAt")
+       .lean();
+     res.json(users);
+   } catch (e) {
+     res.status(500).json({ error: e.message });
+   }
+ });
 
 router.post("/admin/create", authenticate, isAdmin, async (req, res) => {
   try {
-    const { name, email, username, role, status, password, pin, permissions } = req.body || {};
+    const {
+      name,
+      email,
+      username,
+      password,
+      pin,
+      role,
+      status,
+      permissions,
+      access,
+    } = req.body || {};
     const emailLc = String(email || "").toLowerCase().trim();
     if (!emailLc) return res.status(400).json({ error: "Email is required" });
 
@@ -261,23 +273,45 @@ router.post("/admin/create", authenticate, isAdmin, async (req, res) => {
     if (exists) return res.status(409).json({ error: "Email already in use" });
 
     const nextUsername = String(username || "").trim() || emailLc;
+    const nextUsernameLc = String(nextUsername).toLowerCase().trim();
+    const usernameExists = await User.findOne({ username: nextUsernameLc }).lean();
+    if (usernameExists) return res.status(409).json({ error: "Username already in use" });
     const nextRole = String(role || "staff");
     const nextStatus = String(status || "active");
+
+    const accessDefaults = (() => {
+      if (String(nextRole).toLowerCase() === "admin") {
+        return { canView: true, canEdit: true, canDelete: true, dataScope: "all", canSeePrices: true, canSeeFinance: true };
+      }
+      return { canView: true, canEdit: false, canDelete: false, dataScope: "assigned", canSeePrices: false, canSeeFinance: false };
+    })();
+
+    const nextAccessRaw = access && typeof access === "object" ? access : {};
+    const nextAccess = {
+      canView: nextAccessRaw.canView !== undefined ? Boolean(nextAccessRaw.canView) : accessDefaults.canView,
+      canEdit: nextAccessRaw.canEdit !== undefined ? Boolean(nextAccessRaw.canEdit) : accessDefaults.canEdit,
+      canDelete: nextAccessRaw.canDelete !== undefined ? Boolean(nextAccessRaw.canDelete) : accessDefaults.canDelete,
+      dataScope: ["assigned", "all"].includes(String(nextAccessRaw.dataScope || ""))
+        ? String(nextAccessRaw.dataScope)
+        : accessDefaults.dataScope,
+      canSeePrices: nextAccessRaw.canSeePrices !== undefined ? Boolean(nextAccessRaw.canSeePrices) : accessDefaults.canSeePrices,
+      canSeeFinance: nextAccessRaw.canSeeFinance !== undefined ? Boolean(nextAccessRaw.canSeeFinance) : accessDefaults.canSeeFinance,
+    };
 
     const doc = {
       name: String(name || "").trim(),
       email: emailLc,
-      username: nextUsername,
+      username: nextUsernameLc,
       role: nextRole,
       status: nextStatus,
       permissions: Array.isArray(permissions) ? permissions.map((x) => String(x)) : [],
+      access: nextAccess,
       createdBy: "admin",
     };
 
     if (password) {
       const np = String(password);
-      const strong = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
-      if (!strong.test(np)) return res.status(400).json({ error: "Weak password" });
+      if (np.length < 4) return res.status(400).json({ error: "Weak password" });
       doc.passwordHash = await bcrypt.hash(np, 10);
     }
 
@@ -288,7 +322,7 @@ router.post("/admin/create", authenticate, isAdmin, async (req, res) => {
     }
 
     const created = await User.create(doc);
-    const out = await User.findById(created._id).select("name email username role status permissions clientId createdAt updatedAt").lean();
+    const out = await User.findById(created._id).select("name email username role status permissions access clientId createdAt updatedAt").lean();
     res.status(201).json(out);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -297,14 +331,112 @@ router.post("/admin/create", authenticate, isAdmin, async (req, res) => {
 
 router.put("/admin/:id", authenticate, isAdmin, async (req, res) => {
   try {
-    const { role, status, permissions } = req.body || {};
+    const { name, email, username, role, status, permissions, access } = req.body || {};
     const update = {};
+
+    if (name !== undefined) update.name = String(name || "").trim();
+
+    if (email !== undefined) {
+      const nextEmail = String(email || "").toLowerCase().trim();
+      if (!nextEmail) return res.status(400).json({ error: "Email is required" });
+      const emailExists = await User.findOne({ email: nextEmail, _id: { $ne: req.params.id } }).lean();
+      if (emailExists) return res.status(409).json({ error: "Email already in use" });
+      update.email = nextEmail;
+    }
+
+    if (username !== undefined) {
+      const nextUsername = String(username || "").toLowerCase().trim();
+      if (!nextUsername) return res.status(400).json({ error: "Username is required" });
+      const usernameExists = await User.findOne({ username: nextUsername, _id: { $ne: req.params.id } }).lean();
+      if (usernameExists) return res.status(409).json({ error: "Username already in use" });
+      update.username = nextUsername;
+    }
+
     if (role) update.role = role;
     if (status) update.status = status;
     if (Array.isArray(permissions)) update.permissions = permissions.map((x) => String(x));
-    const doc = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("name email role status permissions clientId");
+
+    if (access !== undefined) {
+      const a = access && typeof access === "object" ? access : {};
+      const ds = String(a.dataScope || "");
+      update.access = {
+        canView: a.canView !== undefined ? Boolean(a.canView) : true,
+        canEdit: a.canEdit !== undefined ? Boolean(a.canEdit) : false,
+        canDelete: a.canDelete !== undefined ? Boolean(a.canDelete) : false,
+        dataScope: ["assigned", "all"].includes(ds) ? ds : "assigned",
+        canSeePrices: a.canSeePrices !== undefined ? Boolean(a.canSeePrices) : false,
+        canSeeFinance: a.canSeeFinance !== undefined ? Boolean(a.canSeeFinance) : false,
+      };
+    }
+
+    const doc = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select("name email username role status permissions access clientId");
     if (!doc) return res.status(404).json({ error: "Not found" });
     res.json(doc);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Admin can reset/update password and PIN for any user
+router.put("/admin/:id/credentials", authenticate, isAdmin, async (req, res) => {
+  try {
+    const { password, pin } = req.body || {};
+    const user = await User.findById(req.params.id).lean(false);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const update = {};
+    if (password) {
+      const np = String(password);
+      if (np.length < 4) return res.status(400).json({ error: "Weak password" });
+      update.passwordHash = await bcrypt.hash(np, 10);
+    }
+
+    if (pin) {
+      const p = String(pin).trim();
+      if (!/^\d{4,8}$/.test(p)) return res.status(400).json({ error: "PIN must be 4-8 digits" });
+      update.pinHash = await bcrypt.hash(p, 10);
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: "Nothing to update" });
+    }
+
+    Object.assign(user, update);
+    await user.save();
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Admin can delete any user
+router.delete("/admin/:id", authenticate, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Prevent deleting yourself
+    if (String(user._id) === String(req.user._id)) {
+      return res.status(400).json({ error: "Cannot delete your own account" });
+    }
+
+    // Remove avatar file if it exists
+    if (user.avatar && user.avatar.startsWith("/uploads/")) {
+      try {
+        const filePath = path.join(uploadDir, path.basename(user.avatar));
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error("Failed to delete avatar file:", err);
+      }
+    }
+
+    // Delete the user
+    await User.findByIdAndDelete(req.params.id);
+
+    res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

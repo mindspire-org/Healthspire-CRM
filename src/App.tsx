@@ -13,6 +13,11 @@ import ClientTickets from "./pages/client/ClientTickets";
 import ClientTicketDetails from "./pages/client/ClientTicketDetails";
 import ClientAnnouncements from "./pages/client/ClientAnnouncements";
 import ClientMessages from "./pages/client/ClientMessages.tsx";
+import ClientProjects from "./pages/client/ClientProjects";
+import ClientInvoices from "./pages/client/ClientInvoices";
+import ClientEstimates from "./pages/client/ClientEstimates";
+import ClientProposals from "./pages/client/ClientProposals";
+import ClientContracts from "./pages/client/ClientContracts";
 import Events from "./pages/events/Events";
 import Clients from "./pages/clients/Clients";
 import ClientDetails from "./pages/clients/ClientDetails";
@@ -401,6 +406,26 @@ const App = () => (
             />
             {/* Portals */}
             <Route path="/client" element={<ClientDashboard />} />
+            <Route
+              path="/client/projects"
+              element={getStoredAuthUser()?.role === "client" ? <ClientProjects /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/client/invoices"
+              element={getStoredAuthUser()?.role === "client" ? <ClientInvoices /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/client/estimates"
+              element={getStoredAuthUser()?.role === "client" ? <ClientEstimates /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/client/proposals"
+              element={getStoredAuthUser()?.role === "client" ? <ClientProposals /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/client/contracts"
+              element={getStoredAuthUser()?.role === "client" ? <ClientContracts /> : <Navigate to="/" replace />}
+            />
             <Route
               path="/client/ledger"
               element={getStoredAuthUser()?.role === "client" ? <ClientLedger /> : <Navigate to="/" replace />}

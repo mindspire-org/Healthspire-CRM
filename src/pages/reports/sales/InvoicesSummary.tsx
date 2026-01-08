@@ -9,8 +9,8 @@ import { ChevronLeft, ChevronRight, RefreshCw, Search, FileDown, Printer, Trendi
 import ReportsNav from "../ReportsNav";
 import { Link } from "react-router-dom";
 import { toast } from "@/components/ui/sonner";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Invoice = {
   _id: string;
@@ -50,12 +50,12 @@ export default function InvoicesSummary() {
     try {
       setLoading(true);
       const [invRes, payRes, cliRes, ordRes, conRes, expRes] = await Promise.all([
-        fetch(`${API_BASE}/api/invoices`),
-        fetch(`${API_BASE}/api/payments`),
-        fetch(`${API_BASE}/api/clients`),
-        fetch(`${API_BASE}/api/orders`),
-        fetch(`${API_BASE}/api/contracts`),
-        fetch(`${API_BASE}/api/expenses`),
+        fetch(`${API_BASE}/api/invoices`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/payments`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/orders`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/contracts`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/expenses`, { headers: getAuthHeaders() }),
       ]);
       const invData = invRes.ok ? await invRes.json() : [];
       const payData = payRes.ok ? await payRes.json() : [];

@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { API_BASE } from "@/lib/api/base";
+import { canViewFinancialData, getCurrentUser, maskFinancialData } from "@/utils/roleAccess";
 
 type ProjectRow = { id: string; name: string; estimate: string };
 type TaskRow = { id: string; title: string; startDate: string; deadline: string; status: string };
@@ -66,9 +67,10 @@ type EventRow = {
   end?: string;
 };
 
-function GlassCard({ className = "", children }: { className?: string; children: React.ReactNode }) {
+function GlassCard({ className = "", children, ...props }: React.ComponentProps<typeof Card>) {
   return (
     <Card
+      {...props}
       className={
         "border border-white/40 bg-white/70 backdrop-blur-xl shadow-[0_12px_30px_rgba(2,6,23,0.08)] dark:border-white/10 dark:bg-slate-900/55 " +
         className
@@ -147,6 +149,10 @@ const FancyTooltip = ({ active, payload, label }: any) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const canViewPricing = useMemo(() => {
+    const u = getCurrentUser();
+    return u ? canViewFinancialData(u as any) : false;
+  }, []);
   const [openTasksCount, setOpenTasksCount] = useState(0);
   const [eventsToday, setEventsToday] = useState(0);
   const [pendingLeaves, setPendingLeaves] = useState(0);
@@ -166,6 +172,11 @@ export default function Dashboard() {
   const [projectsList, setProjectsList] = useState<ProjectRow[]>([]);
   const [tasksTable, setTasksTable] = useState<TaskRow[]>([]);
   const [currencyCode, setCurrencyCode] = useState("PKR");
+
+  const [monthlyCollected, setMonthlyCollected] = useState(0);
+  const [monthlyTarget, setMonthlyTarget] = useState(0);
+  const [ordersThisMonth, setOrdersThisMonth] = useState(0);
+  const [nearDeadlineOrders, setNearDeadlineOrders] = useState<any[]>([]);
 
   const [clockMembers, setClockMembers] = useState<AttendanceMember[]>([]);
   const [expensesTotal, setExpensesTotal] = useState(0);
@@ -197,6 +208,26 @@ export default function Dashboard() {
     }
   }, []);
 
+  useEffect(() => {
+    const readTarget = () => {
+      try {
+        const raw = localStorage.getItem("app_settings_v1");
+        const parsed = raw ? JSON.parse(raw) : null;
+        const v = Number(parsed?.sales?.monthlyTarget ?? parsed?.dashboard?.monthlyTarget ?? localStorage.getItem("dashboard_monthly_target") ?? 0);
+        setMonthlyTarget(Number.isFinite(v) ? v : 0);
+      } catch {
+        const v = Number(localStorage.getItem("dashboard_monthly_target") || 0);
+        setMonthlyTarget(Number.isFinite(v) ? v : 0);
+      }
+    };
+    readTarget();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "app_settings_v1" || e.key === "dashboard_monthly_target") readTarget();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const adminAvatarSrc = useMemo(() => normalizeAvatarSrc(meAvatar), [meAvatar, normalizeAvatarSrc]);
 
   const CURRENCY_SYMBOL = currencyCode || "PKR";
@@ -206,6 +237,13 @@ export default function Dashboard() {
       return `${CURRENCY_SYMBOL} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
     };
   }, [CURRENCY_SYMBOL]);
+
+  const displayMoney = useMemo(() => {
+    return (value: number) => {
+      if (canViewPricing) return formatMoney(value);
+      return maskFinancialData(value);
+    };
+  }, [canViewPricing, formatMoney]);
 
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -282,11 +320,12 @@ export default function Dashboard() {
       try {
         const headers = getAuthHeaders();
 
-        const [leadsRes, ordersRes, invoicesRes, subsRes] = await Promise.all([
+        const [leadsRes, ordersRes, invoicesRes, subsRes, paymentsRes] = await Promise.all([
           fetch(`${API_BASE}/api/leads`, { headers }).catch(() => null as any),
           fetch(`${API_BASE}/api/orders`, { headers }).catch(() => null as any),
           fetch(`${API_BASE}/api/invoices`, { headers }).catch(() => null as any),
           fetch(`${API_BASE}/api/subscriptions`, { headers }).catch(() => null as any),
+          fetch(`${API_BASE}/api/payments`, { headers }).catch(() => null as any),
         ]);
 
         if (leadsRes?.ok) {
@@ -311,6 +350,30 @@ export default function Dashboard() {
           const list = Array.isArray(ordersJson) ? ordersJson : [];
           const sum = list.reduce((acc: number, o: any) => acc + (Number(o.total) || 0), 0);
           setSalesTotal(sum);
+
+          const monthKey = new Date().toISOString().slice(0, 7);
+          const ordersMonthSum = list
+            .filter((o: any) => {
+              const d = o?.orderDate ? new Date(o.orderDate) : o?.createdAt ? new Date(o.createdAt) : null;
+              if (!d || Number.isNaN(d.getTime())) return false;
+              return d.toISOString().slice(0, 7) === monthKey;
+            })
+            .reduce((acc: number, o: any) => acc + (Number(o.total) || 0), 0);
+          setOrdersThisMonth(ordersMonthSum);
+
+          const now = new Date();
+          const soon = new Date(now);
+          soon.setDate(soon.getDate() + 3);
+          const open = list.filter((o: any) => {
+            const status = String(o.status || "").toLowerCase();
+            if (status === "completed" || status === "done" || status === "paid") return false;
+            const base = o?.orderDate ? new Date(o.orderDate) : o?.createdAt ? new Date(o.createdAt) : null;
+            if (!base || Number.isNaN(base.getTime())) return false;
+            const deadline = new Date(base);
+            deadline.setDate(deadline.getDate() + 7);
+            return deadline >= now && deadline <= soon;
+          });
+          setNearDeadlineOrders(open.slice(0, 5));
         }
 
         if (invoicesRes?.ok) {
@@ -318,7 +381,7 @@ export default function Dashboard() {
           const list = Array.isArray(invoicesJson) ? invoicesJson : [];
           const pending = list
             .filter((i: any) => String(i.status || "").toLowerCase() !== "paid")
-            .reduce((acc: number, i: any) => acc + (Number(i.total) || 0), 0);
+            .reduce((acc: number, i: any) => acc + (Number(i.amount ?? i.total ?? 0) || 0), 0);
           setPendingAmount(pending);
         }
 
@@ -334,9 +397,34 @@ export default function Dashboard() {
             }, 0);
           setRecurringMrr(mrr);
         }
+
+        if (paymentsRes?.ok) {
+          const paymentsJson = await paymentsRes.json().catch(() => []);
+          const list = Array.isArray(paymentsJson) ? paymentsJson : [];
+          const monthKey = new Date().toISOString().slice(0, 7);
+          const sum = list
+            .filter((p: any) => {
+              const d = p?.createdAt ? new Date(p.createdAt) : p?.date ? new Date(p.date) : null;
+              if (!d || Number.isNaN(d.getTime())) return false;
+              return d.toISOString().slice(0, 7) === monthKey;
+            })
+            .reduce((acc: number, p: any) => acc + (Number(p.amount) || 0), 0);
+          setMonthlyCollected(sum);
+        }
       } catch {}
     })();
   }, [normalizeToMonthly]);
+
+  const runningProjects = useMemo(() => {
+    return projectCounts.open;
+  }, [projectCounts.open]);
+
+  const targetProgress = useMemo(() => {
+    const t = Number(monthlyTarget || 0);
+    const v = Number(monthlyCollected || 0);
+    if (!(t > 0)) return 0;
+    return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
+  }, [monthlyCollected, monthlyTarget]);
 
   const meInitials = String(meName || meEmail || "Admin")
     .split(" ")
@@ -532,7 +620,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-xs text-white/70">Total Sales</div>
-                <div className="mt-1 text-2xl font-extrabold truncate">{formatMoney(salesTotal)}</div>
+                <div className="mt-1 text-2xl font-extrabold truncate">{displayMoney(salesTotal)}</div>
                 <div className="mt-1 text-xs text-white/60">All time</div>
               </div>
               <Avatar className="h-14 w-14 border-2 border-white/40 bg-white/10 shadow-lg">
@@ -550,9 +638,101 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <GlassCard className="bg-gradient-to-br from-indigo-50/90 to-indigo-100/70 dark:from-indigo-950/40 dark:to-indigo-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/projects")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-indigo-700 dark:text-indigo-200 font-medium">Running projects</p>
+                <p className="text-3xl font-bold text-indigo-900 dark:text-white mt-1">{runningProjects}</p>
+                <p className="text-xs text-indigo-700 mt-1">Open</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Briefcase className="w-6 h-6 text-indigo-700 dark:text-indigo-300" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/70 dark:from-emerald-950/40 dark:to-emerald-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/sales/payments")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-emerald-700 dark:text-emerald-200 font-medium">Collected (this month)</p>
+                <p className="text-2xl font-bold text-emerald-900 dark:text-white mt-1">{displayMoney(monthlyCollected)}</p>
+                <p className="text-xs text-emerald-700 mt-1">Payments</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/settings")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">Target (month)</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{displayMoney(monthlyTarget)}</p>
+                <p className="text-xs text-slate-600 mt-1">{monthlyTarget > 0 ? `${targetProgress}% achieved` : "Set dashboard_monthly_target"}</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Target className="w-6 h-6 text-slate-700 dark:text-slate-200" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        <GlassCard className="bg-gradient-to-br from-sky-50/90 to-sky-100/70 dark:from-sky-950/40 dark:to-sky-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/sales/recurring")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-sky-700 dark:text-sky-200 font-medium">Recurring amount</p>
+                <p className="text-2xl font-bold text-sky-900 dark:text-white mt-1">{displayMoney(recurringMrr)}</p>
+                <p className="text-xs text-sky-700 mt-1">MRR</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <RefreshCw className="w-6 h-6 text-sky-700 dark:text-sky-300" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        <GlassCard className="bg-gradient-to-br from-rose-50/90 to-rose-100/70 dark:from-rose-950/40 dark:to-rose-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/invoices")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-rose-700 dark:text-rose-200 font-medium">Amount pending</p>
+                <p className="text-2xl font-bold text-rose-900 dark:text-white mt-1">{displayMoney(pendingAmount)}</p>
+                <p className="text-xs text-rose-700 mt-1">Unpaid invoices</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <FileText className="w-6 h-6 text-rose-600" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+
+        <GlassCard className="bg-gradient-to-br from-amber-50/90 to-amber-100/70 dark:from-amber-950/40 dark:to-amber-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/sales/orders")}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-amber-700 dark:text-amber-200 font-medium">Orders near deadline</p>
+                <p className="text-3xl font-bold text-amber-900 dark:text-white mt-1">{nearDeadlineOrders.length}</p>
+                <p className="text-xs text-amber-700 mt-1">Next 3 days (est.)</p>
+              </div>
+              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
+                <Clock className="w-6 h-6 text-amber-700 dark:text-amber-300" />
+              </div>
+            </div>
+          </CardContent>
+        </GlassCard>
+      </div>
+
       {/* Sales + CRM KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20">
+        <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/hrm/attendance")}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -571,7 +751,7 @@ export default function Dashboard() {
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/70 dark:from-emerald-950/40 dark:to-emerald-900/20">
+        <GlassCard className="bg-gradient-to-br from-emerald-50/90 to-emerald-100/70 dark:from-emerald-950/40 dark:to-emerald-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/tasks")}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -586,7 +766,7 @@ export default function Dashboard() {
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-indigo-50/90 to-indigo-100/70 dark:from-indigo-950/40 dark:to-indigo-900/20">
+        <GlassCard className="bg-gradient-to-br from-indigo-50/90 to-indigo-100/70 dark:from-indigo-950/40 dark:to-indigo-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/calendar")}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -601,12 +781,12 @@ export default function Dashboard() {
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-rose-50/90 to-rose-100/70 dark:from-rose-950/40 dark:to-rose-900/20">
+        <GlassCard className="bg-gradient-to-br from-rose-50/90 to-rose-100/70 dark:from-rose-950/40 dark:to-rose-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/invoices")}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-rose-700 dark:text-rose-200 font-medium">Due</p>
-                <p className="text-2xl font-bold text-rose-900 dark:text-white mt-1">{formatMoney(pendingAmount)}</p>
+                <p className="text-2xl font-bold text-rose-900 dark:text-white mt-1">{displayMoney(pendingAmount)}</p>
                 <p className="text-xs text-rose-700 mt-1">Invoices unpaid</p>
               </div>
               <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
@@ -701,19 +881,19 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Overdue</span>
-                  <span className="font-semibold text-rose-600">{formatMoney(invoiceOverview.overdue)}</span>
+                  <span className="font-semibold text-rose-600">{displayMoney(invoiceOverview.overdue)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Unpaid</span>
-                  <span className="font-semibold">{formatMoney(invoiceOverview.unpaid)}</span>
+                  <span className="font-semibold">{displayMoney(invoiceOverview.unpaid)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Paid</span>
-                  <span className="font-semibold text-emerald-600">{formatMoney(invoiceOverview.paid)}</span>
+                  <span className="font-semibold text-emerald-600">{displayMoney(invoiceOverview.paid)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Draft</span>
-                  <span className="font-semibold">{formatMoney(invoiceOverview.draft)}</span>
+                  <span className="font-semibold">{displayMoney(invoiceOverview.draft)}</span>
                 </div>
               </div>
               <div className="mt-3 h-[140px] rounded-lg bg-white/80 dark:bg-slate-950/40">
@@ -752,11 +932,11 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                   <div className="text-xs text-muted-foreground">Income</div>
-                  <div className="mt-1 text-sm font-semibold">{formatMoney(salesTotal)}</div>
+                  <div className="mt-1 text-sm font-semibold">{displayMoney(salesTotal)}</div>
                 </div>
                 <div className="rounded-xl border border-white/30 bg-white/50 p-3 backdrop-blur dark:border-white/10 dark:bg-white/5">
                   <div className="text-xs text-muted-foreground">Expenses</div>
-                  <div className="mt-1 text-sm font-semibold">{formatMoney(expensesTotal)}</div>
+                  <div className="mt-1 text-sm font-semibold">{displayMoney(expensesTotal)}</div>
                 </div>
               </div>
               <div className="mt-3 h-[120px] rounded-lg bg-white/80 dark:bg-slate-950/40">

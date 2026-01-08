@@ -47,11 +47,11 @@ export async function teamLogin(
   return (await res.json()) as TeamLoginResponse;
 }
 
-export async function clientLogin(email: string, password: string): Promise<ClientLoginResponse> {
+export async function clientLogin(identifier: string, secret: string, mode: "password" | "pin" = "password"): Promise<ClientLoginResponse> {
   const res = await fetch(`${API_BASE}/api/auth/client/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(mode === "pin" ? { identifier, pin: secret } : { identifier, password: secret }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({ error: "Login failed" }));

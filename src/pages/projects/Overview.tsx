@@ -15,6 +15,245 @@ import { Calendar, Filter, Plus, Search, Upload, Tags, Paperclip, MoreVertical, 
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { API_BASE } from "@/lib/api/base";
+import { canViewFinancialData, getCurrentUser } from "@/utils/roleAccess";
+
+function ImportProjectsDialog({ onImported }: { onImported: (created: any[]) => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const prevent = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const onDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  };
+  const onChoose = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setFile(f);
+  };
+
+  const downloadSample = () => {
+    const csv = [
+      "project_title,institute_name,client_name,phone,requirements,status,assignee,total_amount,advance_payment,pending_payment",
+      "Shifa pharmacy,Shifa Pharmacy,Nasif Khan,0333-5943653,Pharmacy,Install,Mahnoor,50000,10000,40000",
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "projects-import-sample.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const parseCsvLine = (line: string): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (ch === "," && !inQuotes) {
+        out.push(cur.trim());
+        cur = "";
+        continue;
+      }
+      cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  };
+
+  const parseCsv = async (f: File): Promise<any[]> => {
+    const text = await f.text();
+    const lines = text.split(/\r?\n/).filter((l) => String(l || "").trim().length);
+    if (!lines.length) return [];
+    const header = parseCsvLine(lines[0]).map((s) => s.trim().toLowerCase());
+    const out: any[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCsvLine(lines[i]);
+      const row: any = {};
+      header.forEach((h, idx) => (row[h] = cols[idx] || ""));
+      out.push(row);
+    }
+    return out;
+  };
+
+  const norm = (s: any) => String(s || "").trim();
+  const normLower = (s: any) => norm(s).toLowerCase();
+  const parseMoney = (s: any) => {
+    const n = Number(String(s || "0").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+  const mapStatus = (s: any): "Open" | "Completed" | "Hold" => {
+    const t = normLower(s);
+    if (!t) return "Open";
+    if (t.includes("hold")) return "Hold";
+    if (t.includes("complete") || t.includes("done")) return "Completed";
+    return "Open";
+  };
+
+  const importNow = async () => {
+    if (!file) return;
+    try {
+      setLoading(true);
+      const headers = getAuthHeaders({ "Content-Type": "application/json" });
+
+      const [clientsRes, employeesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/api/employees`, { headers: getAuthHeaders() }),
+      ]);
+      const clientsJson = await clientsRes.json().catch(() => []);
+      const employeesJson = await employeesRes.json().catch(() => []);
+
+      const existingClients: any[] = Array.isArray(clientsJson) ? clientsJson : [];
+      const employees: any[] = Array.isArray(employeesJson) ? employeesJson : [];
+
+      const findClientByName = (name: string) => {
+        const q = normLower(name);
+        if (!q) return null;
+        return (
+          existingClients.find((c: any) => normLower(c.company) === q) ||
+          existingClients.find((c: any) => normLower(c.person) === q) ||
+          existingClients.find((c: any) => normLower(c.owner) === q) ||
+          null
+        );
+      };
+      const findEmployeeIdByName = (name: string) => {
+        const q = normLower(name);
+        if (!q) return "";
+        const hit = employees.find((e: any) => normLower(e.name) === q) || employees.find((e: any) => normLower(`${e.firstName || ""} ${e.lastName || ""}`) === q);
+        return hit?._id ? String(hit._id) : "";
+      };
+
+      const rows = await parseCsv(file);
+      const created: any[] = [];
+      for (const r of rows) {
+        const projectTitle = norm(r.project_title || r["project title"] || r.title);
+        const instituteName = norm(r.institute_name || r["institute name"] || r.institute || r.company);
+        const clientName = norm(r.client_name || r["client name"] || r.client || r.owner);
+        const phone = norm(r.phone);
+        const requirements = norm(r.requirements);
+        const status = mapStatus(r.status);
+        const assigneeRaw = norm(r.assignee);
+        const total = parseMoney(r.total_amount || r["total amount"] || r.price);
+        const advance = parseMoney(r.advance_payment || r["advance payment"] || r.advance);
+        const pending = parseMoney(r.pending_payment || r["pending payment"] || r.pending);
+
+        if (!projectTitle) continue;
+
+        // Upsert client (best-effort)
+        let clientDoc = findClientByName(instituteName) || findClientByName(clientName);
+        if (!clientDoc) {
+          const payload: any = {
+            type: "org",
+            company: instituteName || projectTitle,
+            owner: clientName || undefined,
+            phone: phone || undefined,
+          };
+          const res = await fetch(`${API_BASE}/api/clients`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            clientDoc = await res.json().catch(() => null);
+            if (clientDoc) existingClients.unshift(clientDoc);
+          }
+        }
+
+        const employeeId = assigneeRaw ? findEmployeeIdByName(assigneeRaw.split("+")[0]) : "";
+        const descriptionParts = [
+          requirements ? `Requirements: ${requirements}` : "",
+          instituteName ? `Institute: ${instituteName}` : "",
+          clientName ? `Client: ${clientName}` : "",
+          phone ? `Phone: ${phone}` : "",
+          advance ? `Advance: ${advance}` : "",
+          pending ? `Pending: ${pending}` : "",
+        ].filter(Boolean);
+
+        const projectPayload: any = {
+          title: projectTitle,
+          client: clientDoc ? (clientDoc.company || clientDoc.person || instituteName || clientName || "-") : (instituteName || clientName || "-"),
+          clientId: clientDoc?._id ? String(clientDoc._id) : undefined,
+          employeeId: employeeId || undefined,
+          price: Number(total || 0) || 0,
+          status,
+          description: descriptionParts.join("\n"),
+        };
+
+        const pr = await fetch(`${API_BASE}/api/projects`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(projectPayload),
+        });
+        if (pr.ok) {
+          const doc = await pr.json().catch(() => null);
+          if (doc) created.push(doc);
+        }
+      }
+
+      toast.success(`Imported ${created.length} projects`);
+      onImported(created);
+    } catch {
+      toast.error("Import failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <DialogContent className="bg-card">
+      <DialogHeader>
+        <DialogTitle>Import projects (CSV)</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="text-sm text-muted-foreground">
+          Export your Excel file as <span className="font-medium">CSV</span>, then upload here.
+        </div>
+        <div
+          className="border-2 border-dashed rounded-lg p-10 text-center text-sm text-muted-foreground"
+          onDragOver={prevent}
+          onDragEnter={prevent}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+        >
+          Drag-and-drop CSV here
+          <br />
+          (or click to browse...)
+          <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={onChoose} />
+        </div>
+        {file && (
+          <div className="text-xs">
+            Selected: <span className="font-medium">{file.name}</span>
+          </div>
+        )}
+      </div>
+      <DialogFooter>
+        <div className="w-full flex items-center justify-between">
+          <Button variant="outline" type="button" onClick={downloadSample}>Download sample file</Button>
+          <div className="flex items-center gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+            <Button onClick={importNow} disabled={!file || loading}>{loading ? "Importing..." : "Import"}</Button>
+          </div>
+        </div>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
 
 const getStoredAuthUser = () => {
   const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
@@ -39,6 +278,11 @@ interface Row {
 
 export default function Overview() {
   const navigate = useNavigate();
+  const canViewPricing = useMemo(() => {
+    const u = getCurrentUser();
+    return u ? canViewFinancialData(u as any) : false;
+  }, []);
+
   const [meRole, setMeRole] = useState<string>(() => {
     const u: any = getStoredAuthUser();
     return String(u?.role || u?.user?.role || "");
@@ -48,6 +292,7 @@ export default function Overview() {
   const [query, setQuery] = useState("");
   const [openAdd, setOpenAdd] = useState(false);
   const [openLabels, setOpenLabels] = useState(false);
+  const [openImport, setOpenImport] = useState(false);
   const [loading, setLoading] = useState(true);
   // form state
   const [title, setTitle] = useState("");
@@ -332,6 +577,10 @@ export default function Overview() {
     setOpenLabels(true);
   };
 
+  const handleImportedProjects = async () => {
+    await loadProjects(query);
+  };
+
   const saveLabels = () => {
     const arr = labelDraft.map((x) => String(x || "").trim()).filter(Boolean);
     setLabelOptions(arr);
@@ -360,15 +609,19 @@ export default function Overview() {
   };
 
   const exportToCSV = () => {
-    const header = ["ID","Title","Client","Price","Start date","Deadline","Progress","Status","Labels"];
-    const lines = filtered.map((r, idx) => [idx + 1, r.title, r.client, r.price, r.start, r.due, `${r.progress}%`, r.status, r.labels || ""]);
+    const header = canViewPricing
+      ? ["ID", "Title", "Client", "Price", "Start date", "Deadline", "Progress", "Status", "Labels"]
+      : ["ID", "Title", "Client", "Start date", "Deadline", "Progress", "Status", "Labels"];
+    const lines = filtered.map((r, idx) =>
+      canViewPricing
+        ? [idx + 1, r.title, r.client, r.price, r.start, r.due, `${r.progress}%`, r.status, r.labels || ""]
+        : [idx + 1, r.title, r.client, r.start, r.due, `${r.progress}%`, r.status, r.labels || ""]
+    );
     const csv = [header, ...lines].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "projects.csv";
-    a.click();
+    const a = document.createElement('a');
+    a.href = url; a.download = 'projects.csv'; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -379,7 +632,7 @@ export default function Overview() {
       <td>${idx + 1}</td>
       <td>${r.title}</td>
       <td>${r.client}</td>
-      <td>${r.price}</td>
+      ${canViewPricing ? `<td>${r.price}</td>` : ""}
       <td>${r.start}</td>
       <td>${r.due}</td>
       <td>${r.progress}%</td>
@@ -388,7 +641,7 @@ export default function Overview() {
     w.document.write(`<!doctype html><html><head><title>Projects</title></head><body>
       <h3>Projects</h3>
       <table border="1" cellspacing="0" cellpadding="6">
-        <thead><tr><th>#</th><th>Title</th><th>Client</th><th>Price</th><th>Start date</th><th>Deadline</th><th>Progress</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Title</th><th>Client</th>${canViewPricing ? "<th>Price</th>" : ""}<th>Start date</th><th>Deadline</th><th>Progress</th><th>Status</th></tr></thead>
         <tbody>${rowsHtml}</tbody>
       </table>
     </body></html>`);
@@ -574,13 +827,15 @@ export default function Overview() {
                       <Label htmlFor="deadline" className="text-right">Deadline</Label>
                       <Input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="col-span-3" />
                     </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="price" className="text-right">Price</Label>
-                      <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="col-span-3" />
-                    </div>
+                    {canViewPricing && (
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="price" className="text-right">Price</Label>
+                        <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} className="col-span-3" />
+                      </div>
+                    )}
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="labels" className="text-right">Labels</Label>
-                      <Input id="labels" value={labels} onChange={(e) => setLabels(e.target.value)} placeholder="Comma separated" className="col-span-3" />
+                      <Input id="labels" value={labels} onChange={(e) => setLabels(e.target.value)} className="col-span-3" />
                     </div>
                   </div>
                   <DialogFooter>
@@ -767,6 +1022,23 @@ export default function Overview() {
                   </Dialog>
                 )}
 
+                {isAdmin && (
+                  <Dialog open={openImport} onOpenChange={setOpenImport}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Upload className="w-4 h-4 mr-2" />
+                        Import
+                      </Button>
+                    </DialogTrigger>
+                    <ImportProjectsDialog
+                      onImported={async () => {
+                        setOpenImport(false);
+                        await handleImportedProjects();
+                      }}
+                    />
+                  </Dialog>
+                )}
+
                 <Button variant="outline" size="sm" onClick={exportToCSV}>
                   <Upload className="w-4 h-4 mr-2" />
                   Export
@@ -807,7 +1079,7 @@ export default function Overview() {
                     <TableHead className="w-12">ID</TableHead>
                     <TableHead>Title</TableHead>
                     <TableHead>Client</TableHead>
-                    <TableHead>Price</TableHead>
+                    {canViewPricing && <TableHead>Price</TableHead>}
                     <TableHead>Start Date</TableHead>
                     <TableHead>Deadline</TableHead>
                     <TableHead>Progress</TableHead>
@@ -841,7 +1113,7 @@ export default function Overview() {
                           r.client
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{r.price}</TableCell>
+                      {canViewPricing && <TableCell className="font-medium">{r.price}</TableCell>}
                       <TableCell>{r.start}</TableCell>
                       <TableCell
                         className={(() => {

@@ -7,8 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { ArrowLeft, Send } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 type TicketMessage = {
   text?: string;

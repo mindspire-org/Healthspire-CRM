@@ -1,11 +1,30 @@
 // Role-based access control utility for project dashboard
-export type UserRole = 'admin' | 'finance' | 'marketer' | 'developer' | 'manager' | 'staff' | 'core';
+export type UserRole =
+  | 'admin'
+  | 'finance'
+  | 'finance manager'
+  | 'finance_manager'
+  | 'marketer'
+  | 'developer'
+  | 'manager'
+  | 'staff'
+  | 'core'
+  | 'main team member'
+  | 'main_team_member';
 
 export interface User {
   id: string;
   email: string;
   role: UserRole;
   name?: string;
+}
+
+function normalizeRole(input: any): UserRole {
+  const raw = String(input || "").trim().toLowerCase();
+  if (!raw) return 'staff';
+  if (raw === 'finance manager' || raw === 'finance_manager') return 'finance';
+  if (raw === 'main team member' || raw === 'main_team_member') return 'core';
+  return raw as UserRole;
 }
 
 // Permission levels for different data types
@@ -19,7 +38,11 @@ export enum PermissionLevel {
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionLevel> = {
   admin: PermissionLevel.FULL_ACCESS,
   finance: PermissionLevel.FULL_ACCESS,
+  'finance manager': PermissionLevel.FULL_ACCESS,
+  finance_manager: PermissionLevel.FULL_ACCESS,
   core: PermissionLevel.FULL_ACCESS,
+  'main team member': PermissionLevel.FULL_ACCESS,
+  main_team_member: PermissionLevel.FULL_ACCESS,
   marketer: PermissionLevel.LIMITED_ACCESS, // Can see related projects only
   manager: PermissionLevel.LIMITED_ACCESS,
   developer: PermissionLevel.LIMITED_ACCESS,
@@ -93,7 +116,7 @@ export function getCurrentUser(): User | null {
       return {
         id: user.id || user._id,
         email: user.email,
-        role: user.role,
+        role: normalizeRole(user.role || user?.user?.role),
         name: user.name
       };
     }

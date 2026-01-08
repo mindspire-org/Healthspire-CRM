@@ -12,8 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Search, RefreshCw, Eye } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 type ProjectDoc = {
   _id: string;

@@ -6,8 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "http://localhost:5000";
+import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 interface OrderItem { itemId?: string; name: string; description?: string; quantity: number; unit?: string; rate: number; }
 
@@ -23,7 +23,7 @@ export default function Checkout() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/clients`);
+        const res = await fetch(`${API_BASE}/api/clients`, { headers: getAuthHeaders() });
         if (res.ok) setClients(await res.json());
       } catch {}
     })();
@@ -61,7 +61,7 @@ export default function Checkout() {
         note,
         orderDate: new Date(),
       };
-      const res = await fetch(`${API_BASE}/api/orders`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch(`${API_BASE}/api/orders`, { method: "POST", headers: getAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(payload) });
       if (!res.ok) return;
       const created = await res.json();
       try { localStorage.removeItem("order_items"); localStorage.removeItem("store_cart"); } catch {}

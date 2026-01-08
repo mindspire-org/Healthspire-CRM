@@ -43,10 +43,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { toast } from "sonner";
-
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5000";
+import { API_BASE } from "@/lib/api/base";
 
 const invoiceStatusData = [
   { name: "Paid", value: 8, color: "#10b981" },
@@ -232,7 +229,7 @@ export default function ClientDashboard() {
 
   const openMessages = () => navigate("/client/messages");
   const openTicketsPage = () => navigate("/client/tickets");
-  const openInvoices = () => navigate("/invoices");
+  const openInvoices = () => navigate("/client/invoices");
 
   return (
     <div className="space-y-6 animate-fade-in">

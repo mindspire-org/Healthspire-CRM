@@ -404,7 +404,7 @@ export default function LeadDetails() {
     try {
       const r = await fetch(`${API_BASE}/api/tasks`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       if (r.ok) {
@@ -609,7 +609,7 @@ export default function LeadDetails() {
       const params = new URLSearchParams();
       params.set("leadId", id);
       if (contractsQuery.trim()) params.set("q", contractsQuery.trim());
-      const res = await fetch(`${API_BASE}/api/contracts?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/contracts?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       setContracts(Array.isArray(json) ? json : []);
@@ -630,7 +630,7 @@ export default function LeadDetails() {
       const fileIds = contractSelectedFiles.length ? await uploadLeadFiles(contractSelectedFiles) : [];
       const res = await fetch(`${API_BASE}/api/contracts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           leadId: id,
           client: leadClientName,
@@ -660,7 +660,7 @@ export default function LeadDetails() {
 
   const deleteContract = async (contractId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/contracts/${contractId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/contracts/${contractId}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       toast.success("Contract deleted");
@@ -676,7 +676,7 @@ export default function LeadDetails() {
       const params = new URLSearchParams();
       params.set("leadId", id);
       if (proposalsQuery.trim()) params.set("q", proposalsQuery.trim());
-      const res = await fetch(`${API_BASE}/api/proposals?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/proposals?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       setProposals(Array.isArray(json) ? json : []);
@@ -696,7 +696,7 @@ export default function LeadDetails() {
       const fileIds = proposalSelectedFiles.length ? await uploadLeadFiles(proposalSelectedFiles) : [];
       const res = await fetch(`${API_BASE}/api/proposals`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           leadId: id,
           client: leadClientName,
@@ -724,7 +724,7 @@ export default function LeadDetails() {
 
   const deleteProposal = async (proposalId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/proposals/${proposalId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/proposals/${proposalId}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       toast.success("Proposal deleted");
@@ -740,7 +740,7 @@ export default function LeadDetails() {
       const params = new URLSearchParams();
       params.set("leadId", id);
       if (estimatesQuery.trim()) params.set("q", estimatesQuery.trim());
-      const res = await fetch(`${API_BASE}/api/estimates?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/estimates?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       setEstimates(Array.isArray(json) ? json : []);
@@ -760,7 +760,7 @@ export default function LeadDetails() {
       const fileIds = estimateSelectedFiles.length ? await uploadLeadFiles(estimateSelectedFiles) : [];
       const res = await fetch(`${API_BASE}/api/estimates`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           leadId: id,
           client: leadClientName || "-",
@@ -790,7 +790,7 @@ export default function LeadDetails() {
 
   const deleteEstimate = async (estimateId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/estimates/${estimateId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/estimates/${estimateId}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       toast.success("Estimate deleted");
@@ -817,7 +817,7 @@ export default function LeadDetails() {
       setRemindersLoading(true);
       const params = new URLSearchParams();
       params.set("leadId", id);
-      const res = await fetch(`${API_BASE}/api/reminders?${params.toString()}`);
+      const res = await fetch(`${API_BASE}/api/reminders?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         if (res.status === 404) throw new Error("Reminders API not found. Restart backend server.");
@@ -857,7 +857,7 @@ export default function LeadDetails() {
 
       const res = await fetch(`${API_BASE}/api/reminders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           leadId: id,
           title,
@@ -889,14 +889,14 @@ export default function LeadDetails() {
         .map((c) =>
           fetch(`${API_BASE}/api/contacts/${c._id}`, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ isPrimaryContact: false }),
           })
         );
       await Promise.all(updates);
       const res = await fetch(`${API_BASE}/api/contacts/${contactId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ isPrimaryContact: true }),
       });
       const json = await res.json().catch(() => null);
@@ -910,7 +910,7 @@ export default function LeadDetails() {
 
   const deleteReminder = async (rid: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/reminders/${rid}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/reminders/${rid}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       await loadReminders();
@@ -1155,7 +1155,7 @@ export default function LeadDetails() {
             .map((c) =>
               fetch(`${API_BASE}/api/contacts/${c._id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({ isPrimaryContact: false }),
               })
             )
@@ -1164,7 +1164,7 @@ export default function LeadDetails() {
 
       const res = await fetch(`${API_BASE}/api/contacts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           leadId: id,
           name: fullName,
@@ -1191,7 +1191,7 @@ export default function LeadDetails() {
 
   const deleteContact = async (contactId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/contacts/${contactId}`, { method: "DELETE" });
+      const res = await fetch(`${API_BASE}/api/contacts/${contactId}`, { method: "DELETE", headers: getAuthHeaders() });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed");
       toast.success("Contact deleted");
@@ -1606,7 +1606,7 @@ export default function LeadDetails() {
           .map((c) =>
             fetch(`${API_BASE}/api/contacts/${c._id}`, {
               method: "PUT",
-              headers: { "Content-Type": "application/json" },
+              headers: getAuthHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({ isPrimaryContact: false }),
             })
           )
@@ -1615,7 +1615,7 @@ export default function LeadDetails() {
 
     const res = await fetch(`${API_BASE}/api/contacts`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         leadId,
         name: fullName,
@@ -1681,7 +1681,7 @@ export default function LeadDetails() {
 
       const res = await fetch(`${API_BASE}/api/clients`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
       });
       const json = await res.json().catch(() => null);

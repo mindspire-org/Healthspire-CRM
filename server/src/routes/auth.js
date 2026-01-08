@@ -166,19 +166,25 @@ router.post("/team/login", async (req, res) => {
   }
 });
 
-// Client login
+// Client login (supports email or username, password or PIN)
 router.post("/client/login", async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: "Missing credentials" });
+    const { identifier, password, pin } = req.body || {};
+    if (!identifier || (!password && !pin)) return res.status(400).json({ error: "Missing credentials" });
 
-    const emailLc = String(email).toLowerCase().trim();
-    const user = await User.findOne({ email: emailLc, role: "client" }).lean();
+    const identifierLc = String(identifier).toLowerCase().trim();
+    const query = { $or: [{ email: identifierLc }, { username: identifier }], role: "client" };
+    const user = await User.findOne(query).lean();
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
     if (user.status !== "active") return res.status(403).json({ error: "Inactive user" });
-    if (!user.passwordHash) return res.status(401).json({ error: "Account not ready" });
 
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    let ok = false;
+    if (pin) {
+      ok = Boolean(user.pinHash) && (await bcrypt.compare(String(pin), user.pinHash));
+    } else if (password) {
+      ok = Boolean(user.passwordHash) && (await bcrypt.compare(String(password), user.passwordHash));
+    }
+
     if (!ok) {
       await User.updateOne({ _id: user._id }, { $inc: { failedLogins: 1 } }).catch(() => {});
       return res.status(401).json({ error: "Invalid credentials" });
