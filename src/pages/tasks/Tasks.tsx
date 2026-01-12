@@ -30,7 +30,7 @@ import { getAuthHeaders } from "@/lib/api/auth";
 
 const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
   ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5000";
+  : "http://localhost:5050";
 
 type Employee = { _id: string; name?: string; firstName?: string; lastName?: string; avatar?: string; image?: string };
 

@@ -33,11 +33,63 @@ import {
   CartesianGrid,
 } from "recharts";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentProps } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { API_BASE } from "@/lib/api/base";
 import { canViewFinancialData, getCurrentUser, maskFinancialData } from "@/utils/roleAccess";
+
+const revenueData = [
+  { month: "Jan", revenue: 4000, profit: 2400 },
+  { month: "Feb", revenue: 3000, profit: 1398 },
+  { month: "Mar", revenue: 2000, profit: 800 },
+  { month: "Apr", revenue: 2780, profit: 1908 },
+  { month: "May", revenue: 1890, profit: 1200 },
+  { month: "Jun", revenue: 2390, profit: 1500 },
+];
+
+const invoiceData = [
+  { name: "Paid", value: 8, color: "#10b981" },
+  { name: "Not paid", value: 2, color: "#f59e0b" },
+  { name: "Draft", value: 11, color: "#6366f1" },
+];
+
+const incomeData = [
+  { month: "Jan", income: 4000, expense: 2400 },
+  { month: "Feb", income: 3000, expense: 1398 },
+  { month: "Mar", income: 2000, expense: 9800 },
+  { month: "Apr", income: 2780, expense: 3908 },
+  { month: "May", income: 1890, expense: 4800 },
+  { month: "Jun", income: 2390, expense: 3800 },
+];
+
+const projectStatusData = [
+  { name: "Completed", value: 45, color: "#10b981" },
+  { name: "In Progress", value: 28, color: "#3b82f6" },
+  { name: "On Hold", value: 12, color: "#f59e0b" },
+  { name: "Not Started", value: 8, color: "#ef4444" },
+];
+
+const teamPerformanceData = [
+  { name: "Development", completed: 85, total: 100 },
+  { name: "Design", completed: 72, total: 85 },
+  { name: "Marketing", completed: 68, total: 75 },
+  { name: "Sales", completed: 92, total: 110 },
+];
+
+const recentActivities = [
+  { action: "Project completed", detail: "E-commerce Platform", time: "2 hours ago", type: "success" },
+  { action: "New team member", detail: "Sarah Johnson joined", time: "3 hours ago", type: "info" },
+  { action: "Invoice sent", detail: "Client ABC - $5,000", time: "5 hours ago", type: "warning" },
+  { action: "Task deadline", detail: "Mobile App UI Design", time: "1 day ago", type: "danger" },
+];
+
+const topPerformers = [
+  { name: "Alex Chen", avatar: "AC", role: "Frontend Developer", tasks: 45, rating: 4.9 },
+  { name: "Emma Wilson", avatar: "EW", role: "Project Manager", tasks: 38, rating: 4.8 },
+  { name: "Mike Johnson", avatar: "MJ", role: "Backend Developer", tasks: 42, rating: 4.7 },
+  { name: "Sarah Davis", avatar: "SD", role: "UX Designer", tasks: 35, rating: 4.9 },
+];
 
 type ProjectRow = { id: string; name: string; estimate: string };
 type TaskRow = { id: string; title: string; startDate: string; deadline: string; status: string };
@@ -67,7 +119,7 @@ type EventRow = {
   end?: string;
 };
 
-function GlassCard({ className = "", children, ...props }: React.ComponentProps<typeof Card>) {
+function GlassCard({ className = "", children, ...props }: ComponentProps<typeof Card>) {
   return (
     <Card
       {...props}

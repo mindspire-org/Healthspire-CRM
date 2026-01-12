@@ -13,7 +13,7 @@ import { toast } from "@/components/ui/sonner";
 import { ChevronDown, Download, Printer, FileText, Copy, Trash2, RefreshCw, Edit3 } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ProjectDoc = { _id: string; title?: string };
 

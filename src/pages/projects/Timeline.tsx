@@ -17,7 +17,6 @@ interface TaskBar {
   end: string;   // yyyy-mm-dd
   projectId?: string;
 }
-
 export default function Timeline() {
   const navigate = useNavigate();
   const [groupBy, setGroupBy] = useState("none");

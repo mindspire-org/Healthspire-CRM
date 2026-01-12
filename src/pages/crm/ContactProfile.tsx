@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import { Globe, Mail, Phone } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 type ContactDoc = {
   _id: string;

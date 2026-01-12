@@ -26,7 +26,7 @@ const categoryMeta: Record<EventCategory, { name: string; dot: string; chip: str
   design: { name: "Design", dot: "bg-sky-400", chip: "bg-sky-100 text-sky-800" },
 };
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 const sampleEvents: CalendarEvent[] = [
   { title: "Team Events", date: "2025-12-03", category: "team" },
   { title: "Meeting with", date: "2025-12-09", category: "design" },

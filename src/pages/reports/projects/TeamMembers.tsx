@@ -14,7 +14,6 @@ export default function ProjectsTeamMembers() {
   const [tab, setTab] = useState("team");
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
-
   useEffect(() => {
     const load = async () => {
       try {

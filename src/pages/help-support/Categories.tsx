@@ -19,7 +19,7 @@ export default function HelpSupportCategories() {
   const [error, setError] = useState("");
 
   const API_BASE_ENV = (import.meta as any)?.env?.VITE_API_BASE as string | undefined;
-  const LOCAL_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:5000` : "http://localhost:5000";
+  const LOCAL_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:5000` : "http://localhost:5050";
   const API_BASES = Array.from(new Set([API_BASE_ENV || "", LOCAL_BASE]));
 
   const getJson = async (path: string) => {

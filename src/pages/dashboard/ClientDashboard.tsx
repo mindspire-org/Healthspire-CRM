@@ -229,7 +229,7 @@ export default function ClientDashboard() {
 
   const openMessages = () => navigate("/client/messages");
   const openTicketsPage = () => navigate("/client/tickets");
-  const openInvoices = () => navigate("/client/invoices");
+  const openInvoices = () => navigate("/invoices");
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -21,8 +21,9 @@ import {
 import { getAuthHeaders } from "@/lib/api/auth";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5000";
+// API base centralized via Vite env
 
 interface DashboardStats {
   assignedTasks: number;

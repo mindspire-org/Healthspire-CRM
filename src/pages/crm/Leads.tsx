@@ -53,7 +53,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 const getStoredAuthUser = () => {
   const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");

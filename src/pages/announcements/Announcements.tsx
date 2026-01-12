@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Edit, X, Plus } from "lucide-react";
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");

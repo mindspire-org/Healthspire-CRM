@@ -73,6 +73,7 @@ type ListInvoice = {
   advancedAmount?: string;
 };
 
+// API_BASE is centralized in lib/api/base
 export default function InvoiceList() {
   const [tab, setTab] = useState("list");
   const [query, setQuery] = useState("");
@@ -115,7 +116,7 @@ export default function InvoiceList() {
       if (!f) return;
       const fd = new FormData();
       fd.append("file", f);
-      const r = await fetch(`${API_BASE}/api/invoices/upload`, { method: "POST", body: fd });
+      const r = await fetch(`${API_BASE}/api/invoices/upload`, { method: "POST", headers: { ...getAuthHeaders() }, body: fd });
       if (r.ok) {
         const res = await r.json();
         setAttachments((prev) => [...prev, { name: res.name, path: res.path }]);
@@ -747,7 +748,7 @@ export default function InvoiceList() {
                       try {
                         const method = isEditing ? 'PUT' : 'POST';
                         const url = isEditing ? `${API_BASE}/api/invoices/${encodeURIComponent(editingInvoiceId)}` : `${API_BASE}/api/invoices`;
-                        const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+                        const r = await fetch(url, { method, headers:{'Content-Type':'application/json', ...getAuthHeaders()}, body: JSON.stringify(payload)});
                         if (r.ok) {
                           setOpenAdd(false);
                           // reset form

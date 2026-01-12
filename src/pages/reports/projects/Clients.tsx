@@ -12,7 +12,6 @@ export default function ProjectsClients() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
-
   useEffect(() => {
     const load = async () => {
       try {

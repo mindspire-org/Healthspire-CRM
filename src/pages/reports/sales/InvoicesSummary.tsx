@@ -49,6 +49,7 @@ export default function InvoicesSummary() {
   const load = async () => {
     try {
       setLoading(true);
+      const headers = getAuthHeaders();
       const [invRes, payRes, cliRes, ordRes, conRes, expRes] = await Promise.all([
         fetch(`${API_BASE}/api/invoices`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE}/api/payments`, { headers: getAuthHeaders() }),

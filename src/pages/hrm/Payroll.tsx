@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5000";
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
 interface Row {
   id: string;

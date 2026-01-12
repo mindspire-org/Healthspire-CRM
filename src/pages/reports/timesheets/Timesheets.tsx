@@ -7,6 +7,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
+import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 export default function TimesheetsReport() {
   const [member, setMember] = useState("-");
@@ -20,15 +22,14 @@ export default function TimesheetsReport() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
 
-  const API_BASE = "http://localhost:5000";
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         const [tRes, pRes] = await Promise.all([
-          fetch(`${API_BASE}/api/tasks`),
-          fetch(`${API_BASE}/api/projects`),
+          fetch(`${API_BASE}/api/tasks`, { headers: getAuthHeaders() }),
+          fetch(`${API_BASE}/api/projects`, { headers: getAuthHeaders() }),
         ]);
         const tData = tRes.ok ? await tRes.json() : [];
         const pData = pRes.ok ? await pRes.json() : [];

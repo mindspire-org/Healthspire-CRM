@@ -12,7 +12,7 @@ import { Search, Plus, Upload, ChevronLeft, ChevronRight, RefreshCw } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 export default function Expenses() {
   const { toast } = useToast();

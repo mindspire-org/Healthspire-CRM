@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = "http://localhost:5050";
 
 interface Item {
   _id: string;
