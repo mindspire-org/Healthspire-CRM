@@ -7,8 +7,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Edit, X, Plus } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");

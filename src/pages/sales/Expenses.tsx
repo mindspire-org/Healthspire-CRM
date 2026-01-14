@@ -11,8 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Upload, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 export default function Expenses() {
   const { toast } = useToast();

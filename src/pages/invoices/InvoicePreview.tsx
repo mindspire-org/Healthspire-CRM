@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-
-const API_BASE = "http://localhost:5050";
+import { HealthspirePrintTemplate } from "@/components/print/HealthspirePrintTemplate";
+import { API_BASE } from "@/lib/api/base";
 
 // Dynamically load html2pdf when needed to avoid bundler install requirement
 const loadHtml2Pdf = (): Promise<any> => {
@@ -151,6 +149,9 @@ export default function InvoicePreview() {
 
     const t = window.setTimeout(async () => {
       try {
+        try {
+          await (document as any).fonts?.ready;
+        } catch {}
         const html2pdf = await loadHtml2Pdf();
         const filename = `invoice-${inv?.number || id || ""}.pdf`;
         await html2pdf()
@@ -228,14 +229,15 @@ export default function InvoicePreview() {
     if (!list.length) return Number(inv?.amount || 0);
     return list.reduce((sum, it) => sum + (Number(it.quantity ?? it.qty ?? 0) * Number(it.rate ?? 0)), 0);
   }, [inv]);
-  const subTotal = itemsSub;
-  const tax1 = (inv?.tax1 ?? 0) / 100 * subTotal;
-  const tax2 = (inv?.tax2 ?? 0) / 100 * subTotal;
-  const tds = (inv?.tds ?? 0) / 100 * subTotal;
-  const advance = Number(inv?.advanceAmount || 0);
-  const total = subTotal + tax1 + tax2 - tds - advance;
+  const total = useMemo(() => {
+    const subTotal = itemsSub;
+    const tax1 = (Number(inv?.tax1 ?? 0) / 100) * subTotal;
+    const tax2 = (Number(inv?.tax2 ?? 0) / 100) * subTotal;
+    const tds = (Number(inv?.tds ?? 0) / 100) * subTotal;
+    const advance = Number(inv?.advanceAmount || 0);
+    return subTotal + tax1 + tax2 - tds - advance;
+  }, [itemsSub, inv?.advanceAmount, inv?.tax1, inv?.tax2, inv?.tds]);
   const paid = useMemo(() => (Array.isArray(payments) ? payments.reduce((s, p:any)=> s + (Number(p.amount)||0), 0) : 0), [payments]);
-  const balance = total - paid;
 
   const viewBrand = {
     name: inv?.branding?.name || company.name,
@@ -248,274 +250,90 @@ export default function InvoicePreview() {
     website: inv?.branding?.website || company.website,
   };
 
-  const labelsList = useMemo(() => {
-    const raw = inv?.labels;
-    if (!raw) return [] as string[];
-    if (Array.isArray(raw)) return raw.map(String).map((s) => s.trim()).filter(Boolean);
-    if (typeof raw === "string") return raw.split(",").map((s) => s.trim()).filter(Boolean);
-    return [String(raw)].map((s) => s.trim()).filter(Boolean);
-  }, [inv?.labels]);
+  const items = useMemo(() => {
+    const list: any[] = Array.isArray(inv?.items) ? inv!.items : [];
+    const maxRows = 8;
+    const mapped = list
+      .map((it) => {
+        const name = String(it?.name || it?.title || it?.item || "").trim();
+        const desc = String(it?.description || "").trim();
+        const description = [name, desc].filter(Boolean).join("\n");
+        const qty = it?.quantity ?? it?.qty ?? "";
+        const price = it?.rate ?? "";
+        const rowTotal = Number(qty || 0) * Number(price || 0);
+        return {
+          description: description || "-",
+          qty: qty === "" ? "" : String(qty).padStart(2, "0"),
+          price: price === "" ? "" : Number(price).toLocaleString(),
+          total: Number.isFinite(rowTotal) ? rowTotal.toLocaleString() : "",
+        };
+      })
+      .filter((x) => x.description);
+    const sliced = mapped.slice(0, maxRows);
+    const remaining = mapped.length - sliced.length;
+    if (remaining > 0) {
+      sliced.push({
+        description: `Additional items: ${remaining} (see full invoice in system)` ,
+        qty: "",
+        price: "",
+        total: "",
+      });
+    }
+    return sliced;
+  }, [inv]);
+
+  const totalsRows = useMemo(() => {
+    const rows: Array<{ label: string; value: string; bold?: boolean }> = [];
+    const paidStr = paid ? paid.toLocaleString() : "0";
+    const totalStr = total.toLocaleString();
+    rows.push({ label: "Already Paid", value: paidStr });
+    rows.push({ label: "TOTAL AMOUNT", value: `${totalStr} pkr`, bold: true });
+
+    const twilio = (inv as any)?.monthlyTwilioCharges ?? (inv as any)?.twilioCharges ?? (inv as any)?.monthlyCharges;
+    if (twilio !== undefined && twilio !== null && String(twilio).trim() !== "") {
+      rows.push({ label: "MONTHLY TWILIO\nCHARGES", value: `${Number(twilio).toLocaleString()} pkr` });
+    }
+
+    return rows;
+  }, [inv, paid, total]);
 
   return (
     <div className={`invoice-preview p-4 bg-gray-100 min-h-screen ${viewMode.isPdf ? "pdf-mode" : ""}`}>
       <style>{`
-/* PDF generation uses screen CSS, not @media print. */
-.pdf-mode { padding: 0 !important; background: white !important; min-height: auto !important; }
-.pdf-mode .invoice-card { box-shadow: none !important; border: none !important; max-width: none !important; width: 210mm !important; overflow: visible !important; }
-.pdf-mode .invoice-scale { transform: none !important; transform-origin: initial !important; width: 210mm !important; }
-.pdf-mode .invoice-card .p-8 { padding: 12px !important; }
-.pdf-mode .invoice-card .p-6 { padding: 10px !important; }
-.pdf-mode .invoice-card .py-4 { padding-top: 8px !important; padding-bottom: 8px !important; }
-.pdf-mode .invoice-card .pb-8 { padding-bottom: 16px !important; }
-.pdf-mode .invoice-card .mt-4 { margin-top: 10px !important; }
-.pdf-mode .invoice-card .gap-12 { gap: 20px !important; }
-/* Ensure footer stays at bottom for PDF render and fill A4 height */
-.pdf-mode .invoice-page { display: flex; flex-direction: column; min-height: 297mm; }
-.pdf-mode .invoice-footer { margin-top: auto; padding: 10px 12px !important; }
-.pdf-mode .invoice-footer .text-sm { font-size: 11px !important; }
-.pdf-mode .invoice-footer .text-xs { font-size: 10px !important; }
-/* tighten header for PDF mode */
-.pdf-mode .invoice-header { padding-top: 12px !important; padding-bottom: 8px !important; border-bottom-width: 2px !important; }
-.pdf-mode .invoice-title { font-size: 36px !important; line-height: 1.12 !important; padding-top: 6px !important; padding-bottom: 6px !important; border-width: 1px !important; box-shadow: none !important; }
-.pdf-mode .inv-meta { margin-top: 4px !important; }
-
-@media print {
-  @page { size: A4 portrait; margin: 0; }
-  html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .print\:hidden { display: none !important; }
-  .invoice-preview { padding: 0 !important; background: white !important; min-height: auto !important; }
-  .invoice-card { box-shadow: none !important; border: none !important; max-width: none !important; width: 210mm !important; overflow: visible !important; }
-  .invoice-scale { transform: none !important; transform-origin: initial !important; width: 210mm !important; }
-  /* Reduce internal paddings in print */
-  .invoice-card .p-8 { padding: 10px !important; }
-  .invoice-card .p-6 { padding: 8px !important; }
-  .invoice-card .py-4 { padding-top: 6px !important; padding-bottom: 6px !important; }
-  .invoice-card thead th { padding: 8px !important; }
-  .invoice-card th, .invoice-card td { padding: 6px 8px !important; }
-  .invoice-card .pb-8 { padding-bottom: 12px !important; }
-  .invoice-card .mt-4 { margin-top: 8px !important; }
-  .invoice-card .gap-12 { gap: 20px !important; }
-  table, tr, td, th { page-break-inside: avoid !important; break-inside: avoid !important; }
-  /* Ensure footer stays at bottom for print and page fills A4 */
-  .invoice-page { display: flex; flex-direction: column; min-height: 297mm; }
-  .invoice-footer { margin-top: auto; padding: 8px 12px !important; }
-  .invoice-footer .text-sm { font-size: 11px !important; }
-  .invoice-footer .text-xs { font-size: 10px !important; }
-  /* tighten header for print */
-  .invoice-header { padding-top: 12px !important; padding-bottom: 8px !important; border-bottom-width: 2px !important; }
-  .invoice-title { font-size: 34px !important; line-height: 1.12 !important; padding-top: 6px !important; padding-bottom: 6px !important; border-width: 1px !important; box-shadow: none !important; }
-  .inv-meta { margin-top: 4px !important; }
-}
+        .pdf-mode { padding: 0 !important; background: white !important; min-height: auto !important; }
+        @media print {
+          @page { size: A4 portrait; margin: 0; }
+          html, body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .print\\:hidden { display: none !important; }
+          .invoice-preview { padding: 0 !important; background: white !important; min-height: auto !important; }
+        }
       `}</style>
+
       <div className={`flex items-center justify-end mb-3 print:hidden ${viewMode.isPdf ? "hidden" : ""}`}>
         <Button variant="outline" onClick={() => navigate(-1)}>Close</Button>
       </div>
-      <div className="invoice-card bg-white shadow-lg mx-auto max-w-5xl border rounded-lg overflow-hidden">
-        <div className="invoice-scale invoice-page" ref={pdfTargetRef}>
-        {/* HealthSpire Header */}
-        <div className="pt-12 pb-8 px-8 border-b-4 border-sky-600 bg-gradient-to-r from-sky-50 to-blue-50 invoice-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-5">
-              <img src={viewBrand.logo} alt={viewBrand.name} className="h-32 w-32 object-contain drop-shadow-lg" />
-              <div>
-                <div className="text-4xl font-extrabold text-sky-800 leading-tight">{viewBrand.name}</div>
-                <div className="text-sm text-gray-600">{viewBrand.website}</div>
-              </div>
-            </div>
-            <div className="text-sm text-gray-700 text-right">
-              <div className="grid grid-cols-1 gap-1">
-                <div>📞 {viewBrand.phone}</div>
-                <div>✉️ {viewBrand.email}</div>
-                <div>📍 {viewBrand.address}</div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-6">
-            <div className="text-6xl font-black text-sky-900 tracking-widest text-center uppercase bg-white py-4 rounded-lg shadow-lg border-2 border-sky-600 invoice-title">Invoice</div>
-            <div className="mt-4 grid grid-cols-2 gap-4 items-end text-sm text-gray-700 inv-meta">
-              <div className="font-semibold">
-                INVOICE TO: <span className="ml-2 font-normal">{formatClient(inv?.client)}</span>
-              </div>
-              <div className="flex justify-end">
-                <div className="bg-gray-50 border rounded-lg px-4 py-2 grid grid-cols-3 gap-6">
-                  <div>Number: {inv?.number || id}</div>
-                  <div>Date: {inv?.issueDate ? new Date(inv.issueDate).toLocaleDateString() : '-'}</div>
-                  <div>Due: {inv?.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Bill To/From Section */}
-        <div className="p-8 bg-gray-50">
-          <div className="grid grid-cols-2 gap-12">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Bill To:</div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="font-semibold text-gray-900">{formatClient(inv?.client)}</div>
-                {inv?.clientId && (
-                  <div className="text-sm text-gray-500 mt-1">Client ID: {inv.clientId}</div>
-                )}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Bill From:</div>
-              <div className="bg-white p-4 rounded-lg border">
-                <div className="font-semibold text-gray-900">{viewBrand.name}</div>
-                <div className="text-sm text-gray-600 mt-1">{viewBrand.address}</div>
-                <div className="text-sm text-gray-600">{viewBrand.city}</div>
-                <div className="text-sm text-gray-600">{viewBrand.email}</div>
-                <div className="text-sm text-gray-600">{viewBrand.phone}</div>
-                <div className="text-sm text-gray-500 mt-1">TAX ID: {viewBrand.taxId || ""}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Project Information */}
-        {inv?.project && (
-          <div className="px-8 py-4 bg-blue-50 border-b">
-            <div className="text-sm">
-              <span className="font-semibold text-gray-700">Project:</span> 
-              <span className="ml-2 text-gray-900">{inv.project}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Items Table */}
-        <div className="p-8">
-          <Table className="w-full">
-            <TableHeader>
-              <TableRow className="bg-gray-100 border-b-2 border-gray-300">
-                <TableHead className="text-left p-4 font-semibold text-gray-700">Item Description</TableHead>
-                <TableHead className="text-center p-4 w-32 font-semibold text-gray-700">Quantity</TableHead>
-                <TableHead className="text-right p-4 w-32 font-semibold text-gray-700">Price</TableHead>
-                <TableHead className="text-right p-4 w-40 font-semibold text-gray-700">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inv?.items?.length ? (
-                inv.items.map((it:any, idx:number)=> (
-                  <TableRow key={idx} className="border-b hover:bg-gray-50">
-                    <TableCell className="p-4">
-                      <div className="font-medium text-gray-900">{it.name || it.title || '-'}</div>
-                      {it.description && (
-                        <div className="text-sm text-gray-500 mt-1">{it.description}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="p-4 text-center">{(it.quantity ?? it.qty) ?? '-'}</TableCell>
-                    <TableCell className="p-4 text-right">Rs.{Number(it.rate ?? 0).toLocaleString()}</TableCell>
-                    <TableCell className="p-4 text-right font-medium">Rs.{(Number(it.quantity ?? it.qty ?? 0) * Number(it.rate ?? 0)).toLocaleString()}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} className="p-8 text-center text-gray-500">
-                    No items specified. Total amount: Rs.{subTotal.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Notes and Labels */}
-        {(inv?.note || inv?.labels) && (
-          <div className="px-8 pb-4">
-            {inv?.note && (
-              <div className="mb-4">
-                <div className="text-sm font-semibold text-gray-700 mb-1">Notes:</div>
-                <div className="bg-gray-50 p-3 rounded border text-sm text-gray-700">{inv.note}</div>
-              </div>
-            )}
-            {labelsList.length > 0 && (
-              <div className="mb-4">
-                <div className="text-sm font-semibold text-gray-700 mb-1">Labels:</div>
-                <div className="flex flex-wrap gap-2">
-                  {labelsList.map((label: string, idx: number) => (
-                    <span key={idx} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                      {label.trim()}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Totals & Payment Information Section */}
-        <div className="px-8 pb-8">
-          <div className="grid grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div>
-                <div className="text-sky-700 font-extrabold mb-2">PAYMENT INFORMATION:</div>
-                <div className="bg-gray-50 p-4 rounded border text-sm text-gray-800 space-y-3">
-                  <div className="whitespace-pre-wrap">{viewPaymentInfo}</div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-50 p-6 rounded-lg border">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between py-2 border-b">
-                  <span className="font-medium text-gray-700">Sub Total:</span>
-                  <span className="font-medium">Rs.{subTotal.toFixed(2)}</span>
-                </div>
-                {tax1 > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">TAX ({inv?.tax1}%):</span>
-                    <span className="text-gray-700">Rs.{tax1.toFixed(2)}</span>
-                  </div>
-                )}
-                {tax2 > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">Second TAX ({inv?.tax2}%):</span>
-                    <span className="text-gray-700">Rs.{tax2.toFixed(2)}</span>
-                  </div>
-                )}
-                {tds > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">TDS ({inv?.tds}%):</span>
-                    <span className="text-red-600">-Rs.{tds.toFixed(2)}</span>
-                  </div>
-                )}
-                {inv?.advanceAmount && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">Advance Amount:</span>
-                    <span className="text-red-600">-Rs.{Number(inv.advanceAmount).toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between py-3 border-t-2 border-gray-300">
-                  <span className="text-lg font-bold text-gray-900">Total:</span>
-                  <span className="text-lg font-bold text-gray-900">Rs.{total.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Paid:</span>
-                  <span className="text-green-600 font-medium">Rs.{paid.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between py-3 border-t">
-                  <span className="text-lg font-bold text-gray-900">Balance Due:</span>
-                  <span className="text-lg font-bold text-red-600">Rs.{balance.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="invoice-footer bg-gray-900 text-white p-6 text-center">
-          <div className="text-sm space-y-1">
-            <div>Thank you for your business!</div>
-            <div className="text-xs text-gray-400">
-              This is a computer-generated invoice. No signature is required.
-            </div>
-            <div className="text-xs text-gray-400 mt-2">
-              {viewBrand.name} | {viewBrand.email} | {viewBrand.phone} | {viewBrand.website}
-            </div>
-          </div>
-        </div>
-        </div>
-      </div>
+      <HealthspirePrintTemplate
+        ref={pdfTargetRef}
+        title="INVOICE"
+        brand={{
+          name: viewBrand.name,
+          email: viewBrand.email,
+          phone: viewBrand.phone,
+          website: viewBrand.website,
+          address: viewBrand.address,
+          logoSrc: viewBrand.logo,
+        }}
+        invoiceToLabel="INVOICE TO:"
+        invoiceToValue={formatClient(inv?.client)}
+        numberLabel="Number"
+        numberValue={String(inv?.number || id || "-")}
+        dateLabel="Date"
+        dateValue={inv?.issueDate ? new Date(inv.issueDate).toLocaleDateString() : "-"}
+        items={items}
+        paymentInformation={viewPaymentInfo}
+        totals={totalsRows}
+      />
     </div>
   );
 }

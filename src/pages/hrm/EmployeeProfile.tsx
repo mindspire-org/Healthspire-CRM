@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { API_BASE } from "@/lib/api/base";
 
 export default function EmployeeProfile() {
   const { id } = useParams();
@@ -37,7 +38,6 @@ export default function EmployeeProfile() {
     | undefined) || undefined
   );
 
-  const API_BASE = "http://localhost:5050";
   const isObjectId = (s?: string) => !!s && /^[a-fA-F0-9]{24}$/.test(s);
   const routeDbId = isObjectId(id) ? id : undefined;
   const stateDbId = isObjectId(location.state?.dbId) ? (location.state?.dbId as string) : undefined;

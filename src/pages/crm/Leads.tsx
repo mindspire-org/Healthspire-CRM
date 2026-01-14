@@ -52,8 +52,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5050";
 
 const getStoredAuthUser = () => {
   const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
@@ -1123,16 +1123,20 @@ export default function Leads() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label>Expected Price / Lead Value</Label>
+                    <Label className="text-sm font-medium text-primary">Expected Lead Price *</Label>
                     <Input 
                       type="number" 
-                      placeholder="Enter expected price" 
+                      placeholder="Enter expected lead value in PKR" 
                       value={leadForm.expectedPrice} 
                       onChange={(e)=>setLeadForm((p)=>({ ...p, expectedPrice: e.target.value }))} 
+                      className="border-primary/20 focus:border-primary focus:ring-primary/20"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      This helps with lead prioritization and sales forecasting
+                    </p>
                   </div>
                   <div className="space-y-1">
-                    <Label>System Needed</Label>
+                    <Label className="text-sm font-medium">System Needed</Label>
                     <Select value={leadForm.systemNeeded} onValueChange={(v)=>setLeadForm((p)=>({ ...p, systemNeeded: v }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select system needed" />

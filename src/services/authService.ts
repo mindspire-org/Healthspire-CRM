@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/api/base";
+import { getAuthHeaders } from "@/lib/api/auth";
 
 export type AdminLoginResponse = { token: string; user: { id: string; email: string; role: string } };
 
@@ -66,6 +67,90 @@ export async function emailAvailable(email: string): Promise<boolean> {
   if (!res.ok) return false;
   const d = await res.json().catch(()=>({ available: false }));
   return !!d?.available;
+}
+
+// PIN Management Services
+export interface PinStatus {
+  hasPin: boolean;
+  hasPassword: boolean;
+  canSetPin: boolean;
+}
+
+export async function getPinStatus(): Promise<PinStatus> {
+  const res = await fetch(`${API_BASE}/api/auth/pin/status`, {
+    headers: getAuthHeaders()
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to get PIN status" }));
+    throw new Error(e?.error || "Failed to get PIN status");
+  }
+  return await res.json();
+}
+
+export async function setPin(currentPassword: string, newPin: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/pin/set`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentPassword, newPin })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to set PIN" }));
+    throw new Error(e?.error || "Failed to set PIN");
+  }
+  return await res.json();
+}
+
+export async function changePin(currentPin: string, newPin: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/pin/change`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentPin, newPin })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to change PIN" }));
+    throw new Error(e?.error || "Failed to change PIN");
+  }
+  return await res.json();
+}
+
+export async function removePin(currentPassword: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/pin/remove`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentPassword })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to remove PIN" }));
+    throw new Error(e?.error || "Failed to remove PIN");
+  }
+  return await res.json();
+}
+
+// Admin PIN Management Services
+export async function adminSetPin(userId: string, newPin: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/admin/pin/set`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ userId, newPin })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to set PIN for user" }));
+    throw new Error(e?.error || "Failed to set PIN for user");
+  }
+  return await res.json();
+}
+
+export async function adminRemovePin(userId: string): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${API_BASE}/api/auth/admin/pin/remove`, {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ userId })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({ error: "Failed to remove PIN for user" }));
+    throw new Error(e?.error || "Failed to remove PIN for user");
+  }
+  return await res.json();
 }
 
 export async function clientRegister(payload: {

@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE } from "@/lib/api/base";
 
 interface Contact {
   name: string;
@@ -87,7 +88,6 @@ const SAMPLE: Contact[] = [
   },
 ];
 
-const API_BASE = "http://localhost:5050";
 
 export default function Contacts() {
   const [query, setQuery] = useState("");

@@ -14,15 +14,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 import { useTheme } from "next-themes";
 
 interface TopNavProps {
   onMenuClick: () => void;
 }
-
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5050";
 
 const normalizeAvatarSrc = (input: string) => {
   const s = String(input || "").trim();

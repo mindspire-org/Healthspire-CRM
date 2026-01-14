@@ -6,6 +6,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { API_BASE } from "@/lib/api/base";
 
 export default function IncomeVsExpenses() {
   const [project, setProject] = useState("-");
@@ -15,8 +16,6 @@ export default function IncomeVsExpenses() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
-
-  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

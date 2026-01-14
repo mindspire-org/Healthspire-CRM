@@ -7,8 +7,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar, RefreshCw, Search, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 export default function Orders() {
   const [query, setQuery] = useState("");

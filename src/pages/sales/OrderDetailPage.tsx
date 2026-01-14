@@ -10,8 +10,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Download, FileText, Mail, Plus, Printer } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5050";
+const brand = {
+  name: "HealthSpire",
+  phone: "+92 312 7231875",
+  email: "info@healthspire.org",
+  website: "www.healthspire.org",
+  address: "761/D2 Shah Jelani Rd Township Lahore",
+  logo: "/HealthSpire%20logo.png",
+};
 
 export default function OrderDetailPage() {
   const { id } = useParams();

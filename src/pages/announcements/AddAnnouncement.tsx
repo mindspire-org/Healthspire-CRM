@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import ReactQuill, { Quill } from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
@@ -31,7 +31,7 @@ export default function AddAnnouncement() {
 
   const quill = useMemo(() => {
     try {
-      const Font = Quill.import("formats/font");
+      const Font = Quill.import("formats/font") as any;
       Font.whitelist = [
         "open-sans",
         "arial",
@@ -44,7 +44,7 @@ export default function AddAnnouncement() {
         "times-new-roman",
         "verdana",
       ];
-      Quill.register(Font, true);
+      (Quill as any).register(Font, true);
     } catch {
       // ignore
     }

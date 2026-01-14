@@ -12,8 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Tags, Plus, RefreshCw, MoreHorizontal, Clock, Trash2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type NoteDoc = {
   _id: string;

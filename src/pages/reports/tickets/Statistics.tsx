@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import ReportsNav from "../ReportsNav";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
 
 export default function TicketsStatistics() {
   const [type, setType] = useState("-");
@@ -14,8 +15,6 @@ export default function TicketsStatistics() {
   const [cursor, setCursor] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
-
-  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

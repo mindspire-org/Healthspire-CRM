@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "kill-port 5000 && nodemon --delay 1000 src/server.js",
+    "dev": "kill-port 5050 && nodemon --delay 1000 src/server.js",
     "start": "node src/server.js"
   },
   "dependencies": {

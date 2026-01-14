@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { API_BASE } from "@/lib/api/base";
 
 export type Settings = {
   general: {
@@ -263,8 +264,6 @@ export function useSettings() {
       return DEFAULTS;
     }
   });
-
-  const API_BASE = "http://localhost:5050";
 
   // Load from backend on first mount and merge with defaults
   useEffect(() => {

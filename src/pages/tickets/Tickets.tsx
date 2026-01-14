@@ -14,10 +14,7 @@ import { CheckCircle2, Edit, MoreHorizontal, Plus, RefreshCw, Search, Settings, 
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type ClientDoc = { _id: string; company?: string; person?: string };
 type EmployeeDoc = { _id: string; name?: string; email?: string };

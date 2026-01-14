@@ -7,8 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { toast } from "@/components/ui/sonner";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type Expense = { _id: string; category?: string; amount?: number; tax?: number; tax2?: number; date?: string };
 

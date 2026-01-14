@@ -15,7 +15,8 @@ import { Separator } from '@/components/ui/separator';
 import EmojiPicker from 'emoji-picker-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { API_BASE, uploadAttachment, editMessage as apiEditMessage, deleteMessage as apiDeleteMessage } from '@/lib/api/messaging';
+import { uploadAttachment, editMessage as apiEditMessage, deleteMessage as apiDeleteMessage } from '@/lib/api/messaging';
+import { API_BASE } from '@/lib/api/base';
 
 const getStoredAuthUser = (): { id?: string; _id?: string; email?: string; role?: string } | null => {
   const raw = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');

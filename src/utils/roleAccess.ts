@@ -1,13 +1,16 @@
-// Role-based access control utility for project dashboard
+// Enhanced Role-based access control utility for CRM
 export type UserRole =
   | 'admin'
+  | 'marketing_manager'
+  | 'marketer'
+  | 'sales'
   | 'finance'
   | 'finance manager'
   | 'finance_manager'
-  | 'marketer'
   | 'developer'
   | 'manager'
   | 'staff'
+  | 'client'
   | 'core'
   | 'main team member'
   | 'main_team_member';
@@ -17,6 +20,15 @@ export interface User {
   email: string;
   role: UserRole;
   name?: string;
+  permissions?: string[];
+  access?: {
+    dataScope?: 'assigned' | 'team' | 'all';
+    canView?: boolean;
+    canEdit?: boolean;
+    canDelete?: boolean;
+    canSeePrices?: boolean;
+    canSeeFinance?: boolean;
+  };
 }
 
 function normalizeRole(input: any): UserRole {
@@ -24,6 +36,7 @@ function normalizeRole(input: any): UserRole {
   if (!raw) return 'staff';
   if (raw === 'finance manager' || raw === 'finance_manager') return 'finance';
   if (raw === 'main team member' || raw === 'main_team_member') return 'core';
+  if (raw === 'marketing manager') return 'marketing_manager';
   return raw as UserRole;
 }
 
@@ -34,25 +47,105 @@ export enum PermissionLevel {
   NO_ACCESS = 'none'         // Cannot access
 }
 
-// Role permissions mapping
+// Enhanced Role permissions mapping for CRM
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionLevel> = {
   admin: PermissionLevel.FULL_ACCESS,
+  marketing_manager: PermissionLevel.FULL_ACCESS,
   finance: PermissionLevel.FULL_ACCESS,
   'finance manager': PermissionLevel.FULL_ACCESS,
   finance_manager: PermissionLevel.FULL_ACCESS,
   core: PermissionLevel.FULL_ACCESS,
   'main team member': PermissionLevel.FULL_ACCESS,
   main_team_member: PermissionLevel.FULL_ACCESS,
-  marketer: PermissionLevel.LIMITED_ACCESS, // Can see related projects only
+  marketer: PermissionLevel.LIMITED_ACCESS, // Can see assigned leads only
+  sales: PermissionLevel.LIMITED_ACCESS,
   manager: PermissionLevel.LIMITED_ACCESS,
   developer: PermissionLevel.LIMITED_ACCESS,
-  staff: PermissionLevel.LIMITED_ACCESS
+  staff: PermissionLevel.LIMITED_ACCESS,
+  client: PermissionLevel.NO_ACCESS
+};
+
+// Permission constants for CRM
+export const PERMISSIONS = {
+  // Lead management
+  LEADS_READ: 'leads.read',
+  LEADS_CREATE: 'leads.create',
+  LEADS_UPDATE: 'leads.update',
+  LEADS_DELETE: 'leads.delete',
+  LEADS_ASSIGN: 'leads.assign',
+  
+  // Pipeline management
+  PIPELINE_MANAGE: 'pipeline.manage',
+  PIPELINE_VIEW: 'pipeline.view',
+  
+  // Team management
+  TEAM_MANAGE: 'team.manage',
+  TEAM_VIEW: 'team.view',
+  
+  // Reports
+  REPORTS_VIEW: 'reports.view',
+  REPORTS_VIEW_LIMITED: 'reports.view_limited',
+  
+  // Finance
+  FINANCE_VIEW: 'finance.view',
+  FINANCE_MANAGE: 'finance.manage',
+  
+  // User management
+  USERS_MANAGE: 'users.manage',
+  ROLES_MANAGE: 'roles.manage',
+  
+  // System
+  SYSTEM_SETTINGS: 'system.settings'
+} as const;
+
+// Role-based permission mapping
+export const ROLE_PERMISSION_MAP: Record<UserRole, string[]> = {
+  admin: Object.values(PERMISSIONS),
+  marketing_manager: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_UPDATE, PERMISSIONS.LEADS_ASSIGN,
+    PERMISSIONS.PIPELINE_MANAGE, PERMISSIONS.TEAM_MANAGE, PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.FINANCE_VIEW, PERMISSIONS.USERS_MANAGE
+  ],
+  marketer: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_UPDATE, PERMISSIONS.LEADS_CREATE,
+    PERMISSIONS.PIPELINE_VIEW, PERMISSIONS.REPORTS_VIEW_LIMITED
+  ],
+  sales: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_UPDATE, PERMISSIONS.LEADS_CREATE,
+    PERMISSIONS.PIPELINE_MANAGE, PERMISSIONS.REPORTS_VIEW_LIMITED
+  ],
+  finance: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.PIPELINE_VIEW, PERMISSIONS.FINANCE_VIEW,
+    PERMISSIONS.FINANCE_MANAGE, PERMISSIONS.REPORTS_VIEW
+  ],
+  'finance manager': [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.PIPELINE_VIEW, PERMISSIONS.FINANCE_VIEW,
+    PERMISSIONS.FINANCE_MANAGE, PERMISSIONS.REPORTS_VIEW
+  ],
+  finance_manager: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.PIPELINE_VIEW, PERMISSIONS.FINANCE_VIEW,
+    PERMISSIONS.FINANCE_MANAGE, PERMISSIONS.REPORTS_VIEW
+  ],
+  core: Object.values(PERMISSIONS),
+  'main team member': Object.values(PERMISSIONS),
+  main_team_member: Object.values(PERMISSIONS),
+  manager: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_UPDATE, PERMISSIONS.LEADS_ASSIGN,
+    PERMISSIONS.PIPELINE_MANAGE, PERMISSIONS.TEAM_VIEW, PERMISSIONS.REPORTS_VIEW
+  ],
+  developer: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.PIPELINE_VIEW, PERMISSIONS.REPORTS_VIEW_LIMITED
+  ],
+  staff: [
+    PERMISSIONS.LEADS_READ, PERMISSIONS.PIPELINE_VIEW
+  ],
+  client: []
 };
 
 /**
- * Check if user has permission to view financial data
+ * Check if user has permission to view financial data (legacy compatibility)
  */
-export function canViewFinancialData(user: User): boolean {
+export function canViewFinancialDataLegacy(user: User): boolean {
   return ROLE_PERMISSIONS[user.role] === PermissionLevel.FULL_ACCESS;
 }
 
@@ -136,4 +229,90 @@ export function hasPermission(permission: PermissionLevel): boolean {
   const userPermission = ROLE_PERMISSIONS[user.role];
   return userPermission === permission || 
          (permission === PermissionLevel.LIMITED_ACCESS && userPermission === PermissionLevel.FULL_ACCESS);
+}
+
+/**
+ * Check if current user has specific CRM permission
+ */
+export function hasCrmPermission(permission: string): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  
+  // Admin has all permissions
+  if (user.role === 'admin') return true;
+  
+  // Check user permissions array
+  if (user.permissions && Array.isArray(user.permissions)) {
+    if (user.permissions.includes(permission) || user.permissions.includes('*')) {
+      return true;
+    }
+  }
+  
+  // Check role-based permissions
+  const rolePermissions = ROLE_PERMISSION_MAP[user.role] || [];
+  return rolePermissions.includes(permission);
+}
+
+/**
+ * Check if current user can access leads based on data scope
+ */
+export function canAccessLeads(): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  
+  return ['admin', 'marketing_manager', 'marketer', 'sales', 'finance', 'manager'].includes(user.role);
+}
+
+/**
+ * Check if current user can see financial data
+ */
+export function canViewFinancialData(user?: User): boolean {
+  const currentUser = user || getCurrentUser();
+  if (!currentUser) return false;
+  
+  return ['admin', 'marketing_manager', 'finance', 'finance_manager'].includes(currentUser.role);
+}
+
+/**
+ * Get user's data scope for filtering
+ */
+export function getUserDataScope(): 'assigned' | 'team' | 'all' {
+  const user = getCurrentUser();
+  if (!user) return 'assigned';
+  
+  if (user.role === 'admin') return 'all';
+  if (user.role === 'marketing_manager') return 'team';
+  return 'assigned';
+}
+
+/**
+ * Check if user can perform action on resource
+ */
+export function canPerformAction(action: string, resource: string): boolean {
+  const user = getCurrentUser();
+  if (!user) return false;
+  
+  // Admin can do everything
+  if (user.role === 'admin') return true;
+  
+  // Check specific permissions
+  const permission = `${resource}.${action}`;
+  return hasCrmPermission(permission);
+}
+
+/**
+ * Filter leads based on user permissions and data scope
+ */
+export function filterLeadsForUser<T extends { ownerId?: string; assignedTo?: string }>(leads: T[]): T[] {
+  const user = getCurrentUser();
+  if (!user) return [];
+  
+  const dataScope = getUserDataScope();
+  
+  if (dataScope === 'all') return leads;
+  if (dataScope === 'team') return leads; // Team leads - would filter by team in real implementation
+  
+  // Assigned leads only
+  // In real implementation, this would check against assigned leads
+  return leads;
 }

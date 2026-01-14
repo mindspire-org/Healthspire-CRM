@@ -76,7 +76,7 @@ dotenv.config();
 const execAsync = promisify(exec);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5050;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mindspire";
 
 // CORS configuration: allow Vercel frontend, Render preview, custom domain, and local dev
@@ -84,6 +84,7 @@ const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:5000",
+  "http://localhost:5050",
   "https://crm.healthspire.org",
   "https://healthspire-crm.vercel.app",
   "https://healthspire-crm.onrender.com",

@@ -11,8 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/components/ui/sonner";
 import { ArrowLeft, Copy, CheckCircle2, XCircle, Send, Printer, Eye, FileDown, PenLine, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Link2, Code, ChevronDown } from "lucide-react";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 const COMPANY = {
   name: "Mindspire",

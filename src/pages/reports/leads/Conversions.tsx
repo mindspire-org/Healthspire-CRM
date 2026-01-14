@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function LeadsConversions() {
   const [owner, setOwner] = useState("-");
@@ -16,8 +17,6 @@ export default function LeadsConversions() {
   const [loading, setLoading] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
   const [cursor, setCursor] = useState(new Date());
-
-  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

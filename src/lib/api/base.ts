@@ -10,7 +10,7 @@ function computeApiBase() {
         const envUrl = new URL(raw, window.location.origin);
         const appOrigin = window.location.origin;
         if (envUrl.origin === appOrigin) {
-          return `http://${window.location.hostname}:5000`;
+          return `http://${window.location.hostname}:5050`;
         }
       }
     } catch {
@@ -23,10 +23,10 @@ function computeApiBase() {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     // Try 5000 first (common Flask/Django port), then 3001, then 8000
-    return `http://${hostname}:5000`;
+    return `http://${hostname}:5050`;
   }
 
-  return "http://localhost:5000";
+  return "http://localhost:5050";
 }
 
 export const API_BASE = computeApiBase();

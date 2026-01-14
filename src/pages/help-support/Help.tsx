@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, HelpCircle } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
 
 type HelpArticle = { _id?: string; title: string; content?: string; updatedAt?: string };
 type HelpCategory = { _id?: string; name: string; description?: string };
@@ -15,18 +16,12 @@ export default function HelpSupportHelp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const API_BASE_ENV = (import.meta as any)?.env?.VITE_API_BASE as string | undefined;
-  const LOCAL_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:5000` : "http://localhost:5050";
-  const API_BASES = Array.from(new Set([API_BASE_ENV || "", LOCAL_BASE]));
-
   const getJson = async (path: string) => {
-    for (const base of API_BASES) {
-      try {
-        const res = await fetch(`${base}${path}`);
-        const ct = res.headers.get("content-type") || "";
-        if (res.ok && ct.includes("application/json")) return await res.json();
-      } catch {}
-    }
+    try {
+      const res = await fetch(`${API_BASE}${path}`);
+      const ct = res.headers.get("content-type") || "";
+      if (res.ok && ct.includes("application/json")) return await res.json();
+    } catch {}
     return [] as any[];
   };
 

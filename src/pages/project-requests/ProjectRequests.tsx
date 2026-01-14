@@ -10,8 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from "sonner";
 import { RefreshCw, Search, Eye, UserPlus } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type ProjectRequestStatus = "pending" | "approved" | "rejected" | "in_progress";
 

@@ -2,9 +2,13 @@ import { Router } from "express";
 import Lead from "../models/Lead.js";
 import Employee from "../models/Employee.js";
 import Client from "../models/Client.js";
-import { authenticate } from "../middleware/auth.js";
+import { authenticate, requirePermission, applyDataScope } from "../middleware/auth.js";
 
 const router = Router();
+
+// Apply authentication and data scope to all leads routes
+router.use(authenticate);
+router.use(applyDataScope);
 
 const getMyEmployeeId = async (req) => {
   const email = req.user?.email;
@@ -199,7 +203,7 @@ router.post("/bulk", authenticate, async (req, res) => {
   }
 });
 
-router.get("/:id", authenticate, async (req, res) => {
+router.get("/:id", requirePermission('leads.read'), async (req, res) => {
   try {
     const doc = await Lead.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ error: "Not found" });
@@ -210,7 +214,7 @@ router.get("/:id", authenticate, async (req, res) => {
   }
 });
 
-router.put("/:id", authenticate, async (req, res) => {
+router.put("/:id", requirePermission('leads.update'), async (req, res) => {
   try {
     const payload = cleanPayload(req.body);
     const existing = await Lead.findById(req.params.id).lean();
@@ -227,7 +231,7 @@ router.put("/:id", authenticate, async (req, res) => {
   }
 });
 
-router.delete("/:id", authenticate, async (req, res) => {
+router.delete("/:id", requirePermission('leads.delete'), async (req, res) => {
   try {
     const existing = await Lead.findById(req.params.id).lean();
     if (!existing) return res.status(404).json({ error: "Not found" });

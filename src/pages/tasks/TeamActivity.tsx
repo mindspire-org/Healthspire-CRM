@@ -4,8 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type TaskDoc = {
   _id: string;

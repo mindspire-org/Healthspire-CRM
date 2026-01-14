@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search } from "lucide-react";
 import ReportsNav from "../ReportsNav";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 export default function LeadsTeamMembers() {
   const [source, setSource] = useState("-");
@@ -15,8 +16,6 @@ export default function LeadsTeamMembers() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [leads, setLeads] = useState<any[]>([]);
-
-  const API_BASE = "http://localhost:5050";
 
   useEffect(() => {
     const load = async () => {

@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 type Employee = {
   id: number;
@@ -262,7 +263,6 @@ export default function Employees() {
   };
 
   // API base (local dev)
-  const API_BASE = "http://localhost:5050";
 
   const refreshDepartments = async () => {
     try {

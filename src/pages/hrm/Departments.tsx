@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { API_BASE } from "@/lib/api/base";
 
 export type Department = {
   _id?: string;
@@ -16,8 +17,6 @@ export type Department = {
   isActive?: boolean;
   createdAt?: string;
 };
-
-const API_BASE = "http://localhost:5050";
 
 export default function Departments() {
   const [items, setItems] = useState<Department[]>([]);

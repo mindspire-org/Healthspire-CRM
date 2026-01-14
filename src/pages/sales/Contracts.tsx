@@ -10,8 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
 import { RefreshCw, Search, Plus, Paperclip, Mic, Trash2, FileText, Edit3, MoreVertical } from "lucide-react";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 type ProjectDoc = { _id: string; title?: string };
 

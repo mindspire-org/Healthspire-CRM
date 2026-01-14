@@ -16,8 +16,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
-
-const API_BASE = "http://localhost:5050";
+import { API_BASE } from "@/lib/api/base";
 
 interface DashboardStats {
   totalLeads: number;

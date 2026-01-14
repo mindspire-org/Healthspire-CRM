@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
 interface Member {
   id: string; // employee ObjectId
@@ -40,9 +41,8 @@ export default function Attendance() {
   >("clock");
   const [loading, setLoading] = useState(false);
 
-  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "http://localhost:5050";
-
-  const toAbsoluteAvatar = (v?: string) => {    const base = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? "https://healthspire-crm.onrender.com" : API_BASE;
+  const toAbsoluteAvatar = (v?: string) => {
+    const base = API_BASE;
     if (!v) return "";
     const s = String(v);
     if (!s) return "";
@@ -264,7 +264,7 @@ export default function Attendance() {
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar className="w-8 h-8">
-                                  <AvatarImage src={m.avatarUrl || toAbsoluteAvatar(m.avatar)} alt={m.name} />
+                                  <AvatarImage src={toAbsoluteAvatar(m.avatar)} alt={m.name} />
                                   <AvatarFallback className="bg-muted text-foreground/70 text-xs font-semibold">{m.initials}</AvatarFallback>
                                 </Avatar>
                                 <button

@@ -11,8 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { Globe, Mail, Phone } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5050";
 
 type ContactDoc = {
   _id: string;

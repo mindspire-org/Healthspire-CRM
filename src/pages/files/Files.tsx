@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Home, Star, Search, FolderPlus, Upload, Info, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = "http://localhost:5050";
 
 type FileDoc = {
   _id: string;

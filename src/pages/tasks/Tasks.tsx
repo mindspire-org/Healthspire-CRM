@@ -27,10 +27,18 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { ExternalLink, Mic, Paperclip, Pencil, Plus, RefreshCw, Trash2, Tag, Clock, MessageSquare, Users, Calendar, Flag, Link2 } from "lucide-react";
 import { getAuthHeaders } from "@/lib/api/auth";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5050";
+const getCurrentUserRole = () => {
+  try {
+    const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
+    if (!raw) return "admin";
+    const u = JSON.parse(raw);
+    return u?.role || "admin";
+  } catch {
+    return "admin";
+  }
+};
 
 type Employee = { _id: string; name?: string; firstName?: string; lastName?: string; avatar?: string; image?: string };
 
@@ -57,6 +65,7 @@ type TaskDoc = {
   subTasks?: Array<{ _id?: string; title?: string; done?: boolean }>;
   reminders?: Array<{ _id?: string; title?: string; when?: string; repeat?: string; priority?: string }>;
   taskComments?: Array<{ _id?: string; authorName?: string; text?: string; attachmentCount?: number; createdAt?: string }>;
+  attachments?: Array<{ _id?: string; name?: string; url?: string; path?: string } | string>;
   dependencies?: { blockedBy?: string[]; blocking?: string[] };
   activity?: Array<{ _id?: string; type?: string; message?: string; authorName?: string; createdAt?: string }>;
 };
@@ -66,16 +75,6 @@ export default function Tasks() {
   const [items, setItems] = useState<TaskDoc[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
-  const getCurrentUserRole = () => {
-    try {
-      const raw = localStorage.getItem("auth_user") || sessionStorage.getItem("auth_user");
-      if (!raw) return "admin";
-      const u = JSON.parse(raw);
-      return u?.role || "admin";
-    } catch {
-      return "admin";
-    }
-  };
   const currentUserRole = getCurrentUserRole();
   const canManage = currentUserRole === "admin";
 
@@ -1500,10 +1499,13 @@ export default function Tasks() {
                           }
                         })();
                         const next = [{ authorName: author, text, attachmentCount }, ...(taskInfo.taskComments || [])];
+                        const prevAttachmentCount = Array.isArray((taskInfo as any).attachments)
+                          ? (taskInfo as any).attachments.length
+                          : Number((taskInfo as any).attachments || 0);
                         const r = await updateTask(taskInfo._id, {
                           taskComments: next,
                           comments: next.length,
-                          attachments: (taskInfo.attachments || 0) + attachmentCount,
+                          attachments: prevAttachmentCount + attachmentCount,
                         });
                         if (r.ok) {
                           setCommentDraft("");

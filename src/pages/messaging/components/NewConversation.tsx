@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMessaging } from '@/contexts/MessagingContext';
 import { useQuery } from '@tanstack/react-query';
 import { getAuthHeaders } from '@/lib/api/messaging';
+import { API_BASE } from '@/lib/api/base';
 
 interface User {
   _id: string;
@@ -29,7 +30,7 @@ export const NewConversation: React.FC<{
     queryKey: ['users', searchQuery],
     queryFn: async () => {
       const response = await fetch(
-        `http://localhost:5050/api/users?search=${encodeURIComponent(searchQuery)}&limit=50`,
+        `${API_BASE}/api/users?search=${encodeURIComponent(searchQuery)}&limit=50`,
         { headers: getAuthHeaders() }
       );
       if (!response.ok) throw new Error('Failed to fetch users');

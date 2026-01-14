@@ -13,9 +13,6 @@ import { Search, Plus, ChevronDown, RefreshCw, Settings, MoreHorizontal } from "
 import { API_BASE } from "@/lib/api/base";
 import { getAuthHeaders } from "@/lib/api/auth";
 
-import { API_BASE } from "@/lib/api/base";
-import { getAuthHeaders } from "@/lib/api/auth";
-
 type UserRow = {
   _id: string;
   name?: string;
@@ -74,12 +71,7 @@ export default function ManageUsers() {
   const load = async () => {
     try {
       setLoading(true);
-<<<<<<< HEAD
       const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers: getAuthHeaders() });
-=======
-      const headers = getAuthHeaders({ "Content-Type": "application/json" });
-      const res = await fetch(`${API_BASE}/api/users/admin/list`, { headers });
->>>>>>> origin/main
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error || "Failed to load users");
       setItems(Array.isArray(json) ? json : []);
@@ -124,10 +116,6 @@ export default function ManageUsers() {
 
   const saveEdit = async () => {
     if (!editing?._id) return;
-<<<<<<< HEAD
-=======
-    const headers = getAuthHeaders({ "Content-Type": "application/json" });
->>>>>>> origin/main
     const res = await fetch(`${API_BASE}/api/users/admin/${editing._id}`, {
       method: "PUT",
       headers: getAuthHeaders({ "Content-Type": "application/json" }),

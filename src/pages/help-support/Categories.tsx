@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Search, Plus, Edit2, Trash2 } from "lucide-react";
+import { API_BASE } from "@/lib/api/base";
 
 type HelpCategory = { _id?: string; name: string; description?: string; updatedAt?: string };
 
@@ -18,33 +19,25 @@ export default function HelpSupportCategories() {
   const [form, setForm] = useState<HelpCategory>({ name: "", description: "" });
   const [error, setError] = useState("");
 
-  const API_BASE_ENV = (import.meta as any)?.env?.VITE_API_BASE as string | undefined;
-  const LOCAL_BASE = typeof window !== "undefined" ? `http://${window.location.hostname}:5000` : "http://localhost:5050";
-  const API_BASES = Array.from(new Set([API_BASE_ENV || "", LOCAL_BASE]));
-
   const getJson = async (path: string) => {
-    for (const base of API_BASES) {
-      try {
-        const res = await fetch(`${base}${path}`);
-        const ct = res.headers.get("content-type") || "";
-        if (res.ok && ct.includes("application/json")) return await res.json();
-      } catch {}
-    }
+    try {
+      const res = await fetch(`${API_BASE}${path}`);
+      const ct = res.headers.get("content-type") || "";
+      if (res.ok && ct.includes("application/json")) return await res.json();
+    } catch {}
     return [] as any[];
   };
 
   const sendJson = async (path: string, method: string, body?: any) => {
-    for (const base of API_BASES) {
-      try {
-        const res = await fetch(`${base}${path}`, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-        const ct = res.headers.get("content-type") || "";
-        if (res.ok && (!ct || ct.includes("application/json"))) return res;
-      } catch {}
-    }
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const ct = res.headers.get("content-type") || "";
+      if (res.ok && (!ct || ct.includes("application/json"))) return res;
+    } catch {}
     return new Response(null, { status: 500 });
   };
 

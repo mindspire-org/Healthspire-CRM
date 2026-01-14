@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE } from "@/lib/api/base";
 
 interface Company {
   name: string;
@@ -80,7 +81,6 @@ const SAMPLE: Company[] = [
   },
 ];
 
-const API_BASE = "http://localhost:5050";
 
 export default function Companies() {
   const [query, setQuery] = useState("");

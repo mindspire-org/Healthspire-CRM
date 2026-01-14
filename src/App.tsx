@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { MainLayout } from "@/components/layout/MainLayout";
 import { MessagingProvider } from "@/contexts/MessagingContext";
 import Dashboard from "./pages/Dashboard";
+import UserSettings from "./pages/UserSettings";
 import ClientDashboard from "./pages/dashboard/ClientDashboard";
 import TeamMemberDashboard from "./pages/team-member/TeamMemberDashboard";
 import MarketerDashboard from "./pages/marketer/MarketerDashboard";
@@ -438,6 +439,7 @@ const App = () => (
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/:section" element={<SettingsPage />} />
             <Route path="/profile" element={<ProfileSettings />} />
+            <Route path="/user-settings" element={<UserSettings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
           </Routes>

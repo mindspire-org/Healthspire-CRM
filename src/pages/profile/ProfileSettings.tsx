@@ -7,12 +7,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { getAuthHeaders } from "@/lib/api/auth";
 import { ImageManager } from "@/components/ImageManager";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5050";
-const RENDER_BASE = "https://healthspire-crm.onrender.com";
-const ASSET_BASE = (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)) ? RENDER_BASE : API_BASE;
+const ASSET_BASE = API_BASE;
 
 const normalizeAvatarSrc = (input: string, ver?: number) => {
   const s = String(input || "").trim();

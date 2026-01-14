@@ -2,6 +2,8 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
   Clock,
   CheckCircle,
@@ -14,6 +16,10 @@ import {
   Settings,
   Eye,
   Plus,
+  TrendingUp,
+  DollarSign,
+  Edit,
+  Save,
 } from "lucide-react";
 
 import {
@@ -229,6 +235,9 @@ export default function Dashboard() {
   const [monthlyTarget, setMonthlyTarget] = useState(0);
   const [ordersThisMonth, setOrdersThisMonth] = useState(0);
   const [nearDeadlineOrders, setNearDeadlineOrders] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [targetDialogOpen, setTargetDialogOpen] = useState(false);
+  const [tempTarget, setTempTarget] = useState(0);
 
   const [clockMembers, setClockMembers] = useState<AttendanceMember[]>([]);
   const [expensesTotal, setExpensesTotal] = useState(0);
@@ -267,9 +276,11 @@ export default function Dashboard() {
         const parsed = raw ? JSON.parse(raw) : null;
         const v = Number(parsed?.sales?.monthlyTarget ?? parsed?.dashboard?.monthlyTarget ?? localStorage.getItem("dashboard_monthly_target") ?? 0);
         setMonthlyTarget(Number.isFinite(v) ? v : 0);
+        setTempTarget(Number.isFinite(v) ? v : 0);
       } catch {
         const v = Number(localStorage.getItem("dashboard_monthly_target") || 0);
         setMonthlyTarget(Number.isFinite(v) ? v : 0);
+        setTempTarget(Number.isFinite(v) ? v : 0);
       }
     };
     readTarget();
@@ -345,6 +356,7 @@ export default function Dashboard() {
           setMeName(String(u?.name || u?.email || "Admin"));
           setMeEmail(String(u?.email || ""));
           setMeAvatar(String(u?.avatar || ""));
+          setIsAdmin(u?.role === "admin");
         }
 
         // Projects
@@ -477,6 +489,26 @@ export default function Dashboard() {
     if (!(t > 0)) return 0;
     return Math.max(0, Math.min(100, Math.round((v / t) * 100)));
   }, [monthlyCollected, monthlyTarget]);
+
+  const handleSaveTarget = () => {
+    try {
+      const current = localStorage.getItem("app_settings_v1");
+      const parsed = current ? JSON.parse(current) : {};
+      const updated = {
+        ...parsed,
+        sales: { ...parsed.sales, monthlyTarget: tempTarget },
+        dashboard: { ...parsed.dashboard, monthlyTarget: tempTarget }
+      };
+      localStorage.setItem("app_settings_v1", JSON.stringify(updated));
+      localStorage.setItem("dashboard_monthly_target", String(tempTarget));
+      setMonthlyTarget(tempTarget);
+      setTargetDialogOpen(false);
+    } catch {
+      localStorage.setItem("dashboard_monthly_target", String(tempTarget));
+      setMonthlyTarget(tempTarget);
+      setTargetDialogOpen(false);
+    }
+  };
 
   const meInitials = String(meName || meEmail || "Admin")
     .split(" ")
@@ -671,20 +703,41 @@ export default function Dashboard() {
           <div className="lg:col-span-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-xs text-white/70">Total Sales</div>
-                <div className="mt-1 text-2xl font-extrabold truncate">{displayMoney(salesTotal)}</div>
-                <div className="mt-1 text-xs text-white/60">All time</div>
+                <div className="text-xs text-white/70">
+                  {isAdmin ? "Admin Sales Overview" : "Total Sales"}
+                </div>
+                <div className="mt-1 text-2xl font-extrabold truncate">
+                  {isAdmin ? `${displayMoney(monthlyCollected)} this month` : displayMoney(salesTotal)}
+                </div>
+                <div className="mt-1 text-xs text-white/60">
+                  {isAdmin ? "Monthly collected" : "All time"}
+                </div>
+                {isAdmin && monthlyTarget > 0 && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="text-xs text-white/70">Target:</div>
+                    <div className="text-sm font-semibold">{displayMoney(monthlyTarget)}</div>
+                    <div className="text-xs text-white/60">({targetProgress}% achieved)</div>
+                  </div>
+                )}
               </div>
-              <Avatar className="h-14 w-14 border-2 border-white/40 bg-white/10 shadow-lg">
-                <AvatarImage
-                  src={adminAvatarSrc}
-                  alt="Admin"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = "/placeholder.svg";
-                  }}
-                />
-                <AvatarFallback className="bg-white text-indigo-600 text-lg font-bold">{meInitials}</AvatarFallback>
-              </Avatar>
+              <div className="flex items-center gap-3">
+                {isAdmin && (
+                  <div className="text-right">
+                    <div className="text-xs text-white/70">Orders this month</div>
+                    <div className="text-lg font-bold">{ordersThisMonth}</div>
+                  </div>
+                )}
+                <Avatar className="h-14 w-14 border-2 border-white/40 bg-white/10 shadow-lg">
+                  <AvatarImage
+                    src={adminAvatarSrc}
+                    alt="Admin"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = "/placeholder.svg";
+                    }}
+                  />
+                  <AvatarFallback className="bg-white text-indigo-600 text-lg font-bold">{meInitials}</AvatarFallback>
+                </Avatar>
+              </div>
             </div>
           </div>
         </div>
@@ -710,31 +763,72 @@ export default function Dashboard() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-emerald-700 dark:text-emerald-200 font-medium">Collected (this month)</p>
+                <p className="text-sm text-emerald-700 dark:text-emerald-200 font-medium">
+                  {isAdmin ? "Admin Monthly Sales" : "Collected (this month)"}
+                </p>
                 <p className="text-2xl font-bold text-emerald-900 dark:text-white mt-1">{displayMoney(monthlyCollected)}</p>
-                <p className="text-xs text-emerald-700 mt-1">Payments</p>
+                <p className="text-xs text-emerald-700 mt-1">
+                  {isAdmin ? "Total collected" : "Payments"}
+                </p>
+                {isAdmin && (
+                  <div className="mt-1 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-emerald-600" />
+                    <span className="text-xs text-emerald-600">{ordersThisMonth} orders</span>
+                  </div>
+                )}
               </div>
               <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <CheckCircle className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
+                <DollarSign className="w-6 h-6 text-emerald-700 dark:text-emerald-300" />
               </div>
             </div>
           </CardContent>
         </GlassCard>
 
-        <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/settings")}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+        <Dialog open={targetDialogOpen} onOpenChange={setTargetDialogOpen}>
+          <DialogTrigger asChild>
+            <GlassCard className="bg-gradient-to-br from-slate-50/90 to-slate-100/70 dark:from-slate-950/40 dark:to-slate-900/20 cursor-pointer hover:shadow-md transition-shadow">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">Target (month)</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{displayMoney(monthlyTarget)}</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      {monthlyTarget > 0 ? `${targetProgress}% achieved` : "Click to set target"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10 flex items-center gap-2">
+                    <Target className="w-6 h-6 text-slate-700 dark:text-slate-200" />
+                    {isAdmin && <Edit className="w-3 h-3 text-slate-500" />}
+                  </div>
+                </div>
+              </CardContent>
+            </GlassCard>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Set Monthly Target</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <p className="text-sm text-slate-700 dark:text-slate-200 font-medium">Target (month)</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{displayMoney(monthlyTarget)}</p>
-                <p className="text-xs text-slate-600 mt-1">{monthlyTarget > 0 ? `${targetProgress}% achieved` : "Set dashboard_monthly_target"}</p>
+                <label className="text-sm font-medium">Target Amount ({currencyCode})</label>
+                <Input
+                  type="number"
+                  value={tempTarget}
+                  onChange={(e) => setTempTarget(Number(e.target.value) || 0)}
+                  placeholder="Enter monthly target"
+                  className="mt-1"
+                />
               </div>
-              <div className="rounded-2xl bg-white/60 p-3 shadow-sm dark:bg-white/10">
-                <Target className="w-6 h-6 text-slate-700 dark:text-slate-200" />
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setTargetDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSaveTarget}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Target
+                </Button>
               </div>
             </div>
-          </CardContent>
-        </GlassCard>
+          </DialogContent>
+        </Dialog>
 
         <GlassCard className="bg-gradient-to-br from-sky-50/90 to-sky-100/70 dark:from-sky-950/40 dark:to-sky-900/20 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/sales/recurring")}>
           <CardContent className="p-5">

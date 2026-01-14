@@ -42,10 +42,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { API_BASE } from "@/lib/api/base";
 
-const API_BASE = (typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname))
-  ? "https://healthspire-crm.onrender.com"
-  : "http://localhost:5050";
 
 const weeklyHoursData = [
   { day: "Mon", hours: 8.5, tasks: 5 },
